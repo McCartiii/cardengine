@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Maps to Supabase auth.users via trigger.
+/// On signup, a row is auto-created here via handle_new_user().
+model User {
+  id          String   @id // matches auth.users.id (UUID)
+  createdAt   DateTime @default(now())
+  minorSafe   Boolean  @default(true)
+  dateOfBirth DateTime? @map("date_of_birth")
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+
+  collectionEvents CollectionEvent[]
+  watchlist        WatchlistEntry[]
+  checkins         Checkin[]
+  blocksGiven      UserBlock[]       @relation("blocks_given")
+  blocksReceived   UserBlock[]       @relation("blocks_received")
+  reports          Report[]
+  notifications    Notification[]
+}
+
+model CardVariant {
+  /// Stable engine variant id (UUID/opaque string)
+  variantId       String  @id
+  game            String
+  cardId          String
+  printingId      String
+  name            String
+  setId           String?
+  collectorNumber String?
+
+  // Extended fields (Phase 2)
+  oracleText      String?  @map("oracle_text")
+  typeLine        String?  @map("type_line")
+  colors          Json?    // JSON array e.g. ["W","U"]
+  colorIdentity   Json?    @map("color_identity") // JSON array
+  cmc             Float?
+  manaCost        String?  @map("mana_cost")
+  rarity          String?
+  imageUri        String?  @map("image_uri")
+
+  updatedAt DateTime @updatedAt
+
+  prices           PricePoint[]
+  collectionEvents CollectionEvent[]
+
+  @@index([game, name])
+  @@index([game, setId, collectorNumber])
+}
+
+model CollectionEvent {
+  id        String   @id
+  userId    String
+  at        DateTime
+  type      String
+  variantId String
+  payload   Json
+
+  user    User        @relation(fields: [userId], references: [id])
+  variant CardVariant @relation(fields: [variantId], references: [variantId])
+
+  @@index([userId, at])
+  @@index([variantId, at])
+}
+
+model PricePoint {
+  id        String   @id @default(cuid())
+  at        DateTime
+  market    String
+  kind      String
+  currency  String
+  amount    Float
+  variantId String
+
+  variant CardVariant @relation(fields: [variantId], references: [variantId])
+
+  @@index([market, variantId, at])
+}
+
+model PriceCache {
+  id        String   @id @default(cuid())
+  market    String
+  kind      String
+  currency  String
+  amount    Float
+  variantId String
+  updatedAt DateTime @updatedAt
+
+  @@unique([market, variantId, kind, currency])
+  @@index([variantId])
+}
+
+model WatchlistEntry {
+  id              String   @id @default(cuid())
+  userId          String
+  variantId       String
+  market          String
+  kind            String
+  currency        String
+  thresholdAmount Float
+  direction       String // "above" | "below"
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, enabled])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "price_alert" | "lfg_nearby" | etc.
+  title     String
+  body      String
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, read, createdAt])
+}
+
+// ── Local Scene ──
+
+model Shop {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String   @default("US")
+  lat       Float?
+  lng       Float?
+  phone     String?
+  website   String?
+  hours     String?
+  category  String   @default("card_shop") // card_shop, hobby_shop, game_store, community_center
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checkins     Checkin[]
+
+  @@index([city, state])
+  @@index([lat, lng])
+}
+
+model Checkin {
+  id     String   @id @default(cuid())
+  userId String
+  shopId String
+  at     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@index([shopId, at])
+  @@index([userId, at])
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  userId    String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  user    User @relation("blocks_given", fields: [userId], references: [id])
+  blocked User @relation("blocks_received", fields: [blockedId], references: [id])
+
+  @@unique([userId, blockedId])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String // "user" | "message" | "post"
+  targetId   String
+  reason     String
+  createdAt  DateTime @default(now())
+  resolved   Boolean  @default(false)
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  @@index([resolved, createdAt])
+}
+
+// ── EDHREC Cache ──
+
+model EdhrecCache {
+  id        String   @id @default(cuid())
+  key       String   @unique // sanitized commander name or theme key
+  data      Json              // full EDHREC JSON response
+  fetchedAt DateTime @default(now())
+
+  @@index([key])
+}
+
+// ── Telemetry ──
+
+model ScannerMismatch {
+  id               String   @id @default(cuid())
+  userId           String?
+  ocrNameRaw       String
+  ocrCnRaw         String?
+  ocrSetRaw        String?
+  ocrConfidence    Int
+  candidateId      String? // variantId of top candidate
+  confirmedId      String? // variantId user actually confirmed
+  wasAutoConfirmed Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([ocrConfidence])
+}
+
+model RulesDisagreement {
+  id            String   @id @default(cuid())
+  userId        String?
+  formatId      String
+  game          String   @default("mtg")
+  deckHash      String? // hash of card list for dedup
+  violationCode String
+  userDisputed  Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@index([formatId, createdAt])
+  @@index([violationCode])
+}

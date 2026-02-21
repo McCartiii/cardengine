@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+.expo/
+web-build/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Environment files with secrets
+.env
+.env.local
+.env*.local
+apps/api/.env
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+apps/api/src/generated/

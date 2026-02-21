@@ -1,0 +1,38 @@
+{
+  "name": "card-engine-platform",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:engine": "npm run build --workspace=packages/engine",
+    "build:mtg-adapter": "npm run build --workspace=packages/mtg-adapter",
+    "build:packages": "npm run build:engine && npm run build:mtg-adapter",
+    "db:generate": "npm run db:generate --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "supabase": "^2.76.9",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "private": "true",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
