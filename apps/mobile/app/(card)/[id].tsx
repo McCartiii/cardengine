@@ -11,12 +11,24 @@ import {
   Alert,
   Modal,
   Dimensions,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { COLORS } from "../../src/lib/constants";
-import { getCardDetail, addCollectionEvents, listDecks, updateDeckCards, getDeck, type CardDetail, type Deck } from "../../src/lib/api";
+import {
+  getCardDetail,
+  addCollectionEvents,
+  listDecks,
+  updateDeckCards,
+  getDeck,
+  addWatchlistEntry,
+  type CardDetail,
+  type Deck,
+} from "../../src/lib/api";
 
 const { width } = Dimensions.get("window");
 const IMAGE_HEIGHT = width * 0.72;
@@ -37,6 +49,13 @@ export default function CardDetailScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [decksLoading, setDecksLoading] = useState(false);
   const [addedToDeck, setAddedToDeck] = useState<string | null>(null);
+
+  // Set price alert
+  const [showAlertSheet, setShowAlertSheet] = useState(false);
+  const [alertMarket, setAlertMarket] = useState("TCGplayer");
+  const [alertDirection, setAlertDirection] = useState<"above" | "below">("below");
+  const [alertThreshold, setAlertThreshold] = useState("");
+  const [savingAlert, setSavingAlert] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -222,6 +241,22 @@ export default function CardDetailScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Set Price Alert button */}
+      <TouchableOpacity
+        style={styles.alertBtn}
+        onPress={() => {
+          // Pre-fill threshold with current best price
+          const best = card.storePricing
+            .flatMap((s) => s.prices.filter((p) => p.currency === "USD"))
+            .sort((a, b) => a.amount - b.amount)[0];
+          if (best) setAlertThreshold(best.amount.toFixed(2));
+          setShowAlertSheet(true);
+        }}
+      >
+        <Ionicons name="notifications-outline" size={18} color={COLORS.textMuted} />
+        <Text style={styles.alertBtnText}>Set Price Alert</Text>
+      </TouchableOpacity>
+
       {/* Deck picker modal */}
       <Modal visible={showDeckPicker} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -251,6 +286,94 @@ export default function CardDetailScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* Set Price Alert modal */}
+      <Modal visible={showAlertSheet} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modal}>
+              <Text style={styles.modalTitle}>Set Price Alert</Text>
+              <Text style={styles.modalSubtitle}>{card.name}</Text>
+
+              {/* Market */}
+              <Text style={styles.alertLabel}>Market</Text>
+              <View style={styles.segRow}>
+                {["TCGplayer", "Cardmarket"].map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.seg, alertMarket === m && styles.segActive]}
+                    onPress={() => setAlertMarket(m)}
+                  >
+                    <Text style={[styles.segText, alertMarket === m && styles.segTextActive]}>{m}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Direction */}
+              <Text style={styles.alertLabel}>Alert when price is</Text>
+              <View style={styles.segRow}>
+                {(["below", "above"] as const).map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.seg, alertDirection === d && styles.segActive]}
+                    onPress={() => setAlertDirection(d)}
+                  >
+                    <Text style={[styles.segText, alertDirection === d && styles.segTextActive]}>
+                      {d === "below" ? "⬇ Below" : "⬆ Above"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Threshold */}
+              <Text style={styles.alertLabel}>Target price (USD)</Text>
+              <TextInput
+                style={styles.alertInput}
+                value={alertThreshold}
+                onChangeText={(t) => setAlertThreshold(t.replace(/[^0-9.]/g, ""))}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={COLORS.textMuted}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAlertSheet(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.createBtn, (savingAlert || !alertThreshold) && { opacity: 0.5 }]}
+                  disabled={savingAlert || !alertThreshold}
+                  onPress={async () => {
+                    setSavingAlert(true);
+                    try {
+                      await addWatchlistEntry({
+                        variantId: card.variantId,
+                        market: alertMarket,
+                        kind: "market",
+                        currency: "USD",
+                        thresholdAmount: parseFloat(alertThreshold),
+                        direction: alertDirection,
+                      });
+                      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      setShowAlertSheet(false);
+                      Alert.alert("Alert set!", `You'll be notified when ${card.name} goes ${alertDirection} $${alertThreshold} on ${alertMarket}.`);
+                    } catch (e: unknown) {
+                      Alert.alert("Error", (e as Error).message);
+                    } finally {
+                      setSavingAlert(false);
+                    }
+                  }}
+                >
+                  {savingAlert
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.createText}>Save Alert</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );
@@ -315,6 +438,29 @@ const styles = StyleSheet.create({
   },
   deckOptionName: { color: COLORS.text, fontSize: 15, fontWeight: "600" },
   deckOptionCommander: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
-  cancelBtn: { padding: 14, borderRadius: 10, backgroundColor: COLORS.background, alignItems: "center", marginTop: 4 },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.background, alignItems: "center", marginTop: 4 },
   cancelText: { color: COLORS.textMuted, fontWeight: "700" },
+  // Set Alert button
+  alertBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, marginHorizontal: 16, marginBottom: 16, padding: 12,
+    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border ?? "#333",
+  },
+  alertBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: "600" },
+  // Alert modal
+  modalSubtitle: { color: COLORS.textMuted, fontSize: 14, marginBottom: 16 },
+  alertLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
+  segRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  seg: { flex: 1, padding: 10, borderRadius: 10, backgroundColor: COLORS.background, alignItems: "center", borderWidth: 1, borderColor: "transparent" },
+  segActive: { borderColor: COLORS.accent, backgroundColor: `${COLORS.accent}22` },
+  segText: { color: COLORS.textMuted, fontSize: 13, fontWeight: "600" },
+  segTextActive: { color: COLORS.accent },
+  alertInput: {
+    backgroundColor: COLORS.background, color: COLORS.text, borderRadius: 10,
+    padding: 14, fontSize: 18, fontWeight: "700", textAlign: "center",
+    borderWidth: 1, borderColor: COLORS.border ?? "#333", marginBottom: 14,
+  },
+  modalActions: { flexDirection: "row", gap: 10 },
+  createBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.accent, alignItems: "center" },
+  createText: { color: "#fff", fontWeight: "700" },
 });

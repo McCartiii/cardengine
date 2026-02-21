@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { api } from "@/lib/api";
 import Image from "next/image";
 import Link from "next/link";
+import { clsx } from "clsx";
 
 interface StorePricing {
   store: string;
@@ -35,6 +36,14 @@ export default function CardPage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [card, setCard] = useState<CardFull | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Price alert
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMarket, setAlertMarket] = useState("TCGplayer");
+  const [alertDir, setAlertDir] = useState<"above" | "below">("below");
+  const [alertThreshold, setAlertThreshold] = useState("");
+  const [savingAlert, setSavingAlert] = useState(false);
+  const [alertSaved, setAlertSaved] = useState(false);
 
   useEffect(() => {
     api.card(decodeURIComponent(id))
@@ -136,6 +145,103 @@ export default function CardPage({ params }: { params: Promise<{ id: string }> }
               ))}
             </div>
           </div>
+
+          {/* Set price alert */}
+          {!showAlert ? (
+            <button
+              onClick={() => {
+                const best = card.storePricing
+                  .flatMap((s) => s.prices.filter((p) => p.currency === "USD"))
+                  .sort((a, b) => a.amount - b.amount)[0];
+                if (best) setAlertThreshold(best.amount.toFixed(2));
+                setShowAlert(true);
+              }}
+              className="flex items-center gap-2 text-sm text-muted hover:text-white border border-border rounded-xl px-4 py-2.5 transition-colors"
+            >
+              🔔 Set Price Alert
+            </button>
+          ) : (
+            <div className="bg-surface border border-border rounded-2xl p-5 flex flex-col gap-4">
+              <h2 className="font-bold">Set Price Alert</h2>
+
+              {/* Market */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted uppercase tracking-wider font-bold">Market</label>
+                <div className="flex gap-2">
+                  {["TCGplayer", "Cardmarket"].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setAlertMarket(m)}
+                      className={clsx("px-4 py-2 rounded-lg text-sm font-semibold border transition-colors",
+                        alertMarket === m ? "bg-accent/20 border-accent text-accent-light" : "bg-bg border-border text-muted")}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Direction */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted uppercase tracking-wider font-bold">Alert when price is</label>
+                <div className="flex gap-2">
+                  {(["below", "above"] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setAlertDir(d)}
+                      className={clsx("px-4 py-2 rounded-lg text-sm font-semibold border transition-colors",
+                        alertDir === d ? "bg-accent/20 border-accent text-accent-light" : "bg-bg border-border text-muted")}
+                    >
+                      {d === "below" ? "⬇ Below" : "⬆ Above"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Threshold */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted uppercase tracking-wider font-bold">Target price (USD)</label>
+                <div className="flex gap-3">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={alertThreshold}
+                    onChange={(e) => setAlertThreshold(e.target.value)}
+                    placeholder="0.00"
+                    className="flex-1 bg-bg border border-border rounded-xl px-4 py-2.5 text-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60 text-sm"
+                  />
+                  <button
+                    disabled={!alertThreshold || savingAlert}
+                    onClick={async () => {
+                      setSavingAlert(true);
+                      try {
+                        await api.watchlist.add({
+                          variantId: card.variantId,
+                          market: alertMarket,
+                          thresholdAmount: parseFloat(alertThreshold),
+                          direction: alertDir,
+                        });
+                        setAlertSaved(true);
+                        setShowAlert(false);
+                      } finally {
+                        setSavingAlert(false);
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-accent text-white rounded-xl font-semibold text-sm disabled:opacity-50 hover:bg-accent/80 transition-colors"
+                  >
+                    {savingAlert ? "Saving…" : "Save"}
+                  </button>
+                  <button onClick={() => setShowAlert(false)} className="px-3 py-2.5 text-muted hover:text-white transition-colors text-sm">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {alertSaved && (
+            <p className="text-green-400 text-sm">✓ Price alert saved — you'll be notified when the condition is met.</p>
+          )}
         </div>
       </div>
     </div>

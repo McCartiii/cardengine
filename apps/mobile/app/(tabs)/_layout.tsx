@@ -1,8 +1,11 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/lib/constants";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function TabLayout() {
+  usePushNotifications();
+
   return (
     <Tabs
       screenOptions={{

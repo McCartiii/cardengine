@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { useAuth } from "@/components/AuthProvider";
 
 const NAV = [
   { href: "/",            label: "Browse",     icon: "⚡" },
@@ -15,6 +16,13 @@ const NAV = [
 
 export function Sidebar() {
   const path = usePathname();
+  const router = useRouter();
+  const { user, signOut, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
 
   return (
     <aside className="w-56 shrink-0 h-screen sticky top-0 flex flex-col bg-surface border-r border-border">
@@ -47,8 +55,29 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-6 py-4 border-t border-border text-xs text-muted">
-        CardEngine © 2025
+      {/* Auth footer */}
+      <div className="px-4 py-4 border-t border-border">
+        {!loading && (
+          user ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted truncate">{user.email}</p>
+              <button
+                onClick={handleSignOut}
+                className="text-xs text-muted hover:text-red-400 transition-colors text-left"
+              >
+                Sign out →
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs text-accent-light hover:underline"
+            >
+              Sign in →
+            </Link>
+          )
+        )}
+        <p className="text-xs text-muted/50 mt-3">CardEngine © 2025</p>
       </div>
     </aside>
   );

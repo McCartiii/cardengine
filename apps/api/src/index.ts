@@ -1449,6 +1449,42 @@ if (process.env.ENABLE_PRICE_REFRESH !== "false") {
   console.log("[price-refresh] Scheduled daily price refresh.");
 }
 
+// ── Expo push notification helper ──
+
+interface ExpoPushMessage {
+  to: string | string[];
+  title?: string;
+  body: string;
+  data?: Record<string, unknown>;
+  sound?: "default" | null;
+  badge?: number;
+}
+
+async function sendExpoPushNotifications(messages: ExpoPushMessage[]) {
+  if (messages.length === 0) return;
+  // Expo push API accepts batches of up to 100
+  const BATCH = 100;
+  for (let i = 0; i < messages.length; i += BATCH) {
+    const batch = messages.slice(i, i + BATCH);
+    try {
+      const res = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+        },
+        body: JSON.stringify(batch),
+      });
+      if (!res.ok) {
+        app.log.warn(`[expo-push] HTTP ${res.status}: ${await res.text()}`);
+      }
+    } catch (err) {
+      app.log.warn({ err }, "[expo-push] Failed to send batch");
+    }
+  }
+}
+
 // ── Watchlist check job (Phase 3) ──
 async function checkWatchlistAlerts() {
   try {
@@ -1456,7 +1492,6 @@ async function checkWatchlistAlerts() {
       where: { enabled: true },
     });
 
-    // Batch-fetch all prices needed for watchlist entries
     const uniqueVariantIds = [...new Set(entries.map((e) => e.variantId))];
     const allPrices = await prisma.priceCache.findMany({
       where: { variantId: { in: uniqueVariantIds } },
@@ -1466,9 +1501,19 @@ async function checkWatchlistAlerts() {
       priceIndex.set(`${p.variantId}:${p.market}:${p.kind}:${p.currency}`, p);
     }
 
+    // Collect card names for nicer notification copy
+    const variants = uniqueVariantIds.length > 0
+      ? await prisma.cardVariant.findMany({
+          where: { variantId: { in: uniqueVariantIds } },
+          select: { variantId: true, name: true },
+        })
+      : [];
+    const nameIndex = new Map(variants.map((v) => [v.variantId, v.name]));
+
+    const pushMessages: ExpoPushMessage[] = [];
+
     for (const entry of entries) {
       const cache = priceIndex.get(`${entry.variantId}:${entry.market}:${entry.kind}:${entry.currency}`);
-
       if (!cache) continue;
 
       const triggered =
@@ -1476,31 +1521,54 @@ async function checkWatchlistAlerts() {
           ? cache.amount >= entry.thresholdAmount
           : cache.amount <= entry.thresholdAmount;
 
-      if (triggered) {
-        await prisma.$transaction([
-          prisma.notification.create({
+      if (!triggered) continue;
+
+      const cardName = nameIndex.get(entry.variantId) ?? entry.variantId;
+      const dirLabel = entry.direction === "above" ? "⬆ Above" : "⬇ Below";
+      const notifTitle = `${dirLabel} $${entry.thresholdAmount} — ${cardName}`;
+      const notifBody = `Now $${cache.amount.toFixed(2)} on ${cache.market} (${cache.kind})`;
+
+      await prisma.$transaction([
+        prisma.notification.create({
+          data: {
+            userId: entry.userId,
+            type: "price_alert",
+            title: notifTitle,
+            body: notifBody,
             data: {
-              userId: entry.userId,
-              type: "price_alert",
-              title: `Price Alert: ${entry.direction === "above" ? "Above" : "Below"} ${entry.thresholdAmount} ${entry.currency}`,
-              body: `Card variant ${entry.variantId} is now ${cache.amount} ${cache.currency} on ${cache.market}.`,
-              data: {
-                variantId: entry.variantId,
-                market: entry.market,
-                currentPrice: cache.amount,
-                threshold: entry.thresholdAmount,
-                direction: entry.direction,
-              },
+              variantId: entry.variantId,
+              market: entry.market,
+              currentPrice: cache.amount,
+              threshold: entry.thresholdAmount,
+              direction: entry.direction,
             },
-          }),
-          // Disable after triggering to avoid spam; both ops are atomic
-          prisma.watchlistEntry.update({
-            where: { id: entry.id },
-            data: { enabled: false },
-          }),
-        ]);
+          },
+        }),
+        prisma.watchlistEntry.update({
+          where: { id: entry.id },
+          data: { enabled: false },
+        }),
+      ]);
+
+      // Collect Expo push tokens for this user
+      const tokens = await prisma.pushToken.findMany({
+        where: { userId: entry.userId },
+        select: { token: true },
+      });
+      for (const { token } of tokens) {
+        if (token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken[")) {
+          pushMessages.push({
+            to: token,
+            title: notifTitle,
+            body: notifBody,
+            sound: "default",
+            data: { variantId: entry.variantId, screen: "card" },
+          });
+        }
       }
     }
+
+    await sendExpoPushNotifications(pushMessages);
   } catch (err) {
     console.error("[watchlist-check] Error:", err);
   }
@@ -1510,6 +1578,52 @@ async function checkWatchlistAlerts() {
 if (process.env.ENABLE_WATCHLIST_CHECK !== "false") {
   setInterval(checkWatchlistAlerts, 60 * 60 * 1000);
 }
+
+// ── Push tokens ──
+
+app.post("/v1/push-token", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const { token, platform } = z
+    .object({
+      token: z.string().min(1),
+      platform: z.enum(["ios", "android", "web"]),
+    })
+    .parse(req.body);
+
+  await prisma.pushToken.upsert({
+    where: { token },
+    update: { userId: user.sub, updatedAt: new Date() },
+    create: { userId: user.sub, token, platform },
+  });
+  return { ok: true };
+});
+
+app.delete("/v1/push-token", { preHandler: [requireAuth] }, async (req) => {
+  const { token } = z.object({ token: z.string() }).parse(req.body);
+  await prisma.pushToken.deleteMany({ where: { token } });
+  return { ok: true };
+});
+
+// ── In-app notifications ──
+
+app.get("/v1/notifications", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const notes = await prisma.notification.findMany({
+    where: { userId: user.sub },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return { notifications: notes };
+});
+
+app.patch("/v1/notifications/read-all", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  await prisma.notification.updateMany({
+    where: { userId: user.sub, read: false },
+    data: { read: true },
+  });
+  return { ok: true };
+});
 
 // ── Profile (Phase 4) ──
 app.get("/v1/profile", { preHandler: [requireAuth] }, async (req, reply) => {

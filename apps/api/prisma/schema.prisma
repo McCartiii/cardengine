@@ -22,6 +22,7 @@ model User {
   watchlist        WatchlistEntry[]
   notifications    Notification[]
   decks            Deck[]
+  pushTokens       PushToken[]
 }
 
 model CardVariant {
@@ -231,4 +232,19 @@ model RulesDisagreement {
 
   @@index([formatId, createdAt])
   @@index([violationCode])
+}
+
+// ── Push notification tokens ──
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   // "ios" | "android" | "web"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
