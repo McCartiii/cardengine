@@ -114,6 +114,49 @@ export async function getCollection(userId: string): Promise<{
   return request("GET", `/v1/collection/${userId}`);
 }
 
+export interface OwnedCard {
+  variantId: string;
+  name: string;
+  imageUri: string | null;
+  setId: string | null;
+  collectorNumber: string | null;
+  rarity: string | null;
+  typeLine: string | null;
+  manaCost: string | null;
+  quantity: number;
+  priceUsd: number | null;
+  lineValue: number | null;
+  addedAt: string | null;
+}
+
+export async function getCollectionCards(params?: {
+  q?: string;
+  sort?: "name" | "value" | "qty" | "added";
+  page?: number;
+  limit?: number;
+}): Promise<{
+  cards: OwnedCard[];
+  totalCards: number;
+  totalValue: number;
+  page: number;
+  hasMore: boolean;
+}> {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return request("GET", `/v1/collection/cards${qs ? `?${qs}` : ""}`);
+}
+
+export async function getCollectionValue(): Promise<{
+  totalValue: number;
+  currency: string;
+  cardCount: number;
+}> {
+  return request("GET", "/v1/collection/value");
+}
+
 export async function getProfile(): Promise<{
   id: string;
   displayName: string | null;
@@ -198,6 +241,10 @@ export async function updateDeck(id: string, data: Partial<Deck>): Promise<{ ok:
 
 export async function deleteDeck(id: string): Promise<{ ok: boolean }> {
   return request("DELETE", `/v1/decks/${id}`);
+}
+
+export async function toggleDeckVisibility(id: string, isPublic: boolean): Promise<{ ok: boolean; isPublic: boolean }> {
+  return request("PATCH", `/v1/decks/${id}/visibility`, { isPublic });
 }
 
 export async function importDeckText(

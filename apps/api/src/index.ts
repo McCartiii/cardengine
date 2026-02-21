@@ -16,7 +16,28 @@ const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 
 // ── Health ──
-app.get("/health", async () => ({ ok: true }));
+app.get("/health", async () => {
+  let dbStatus = "ok";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    dbStatus = "error";
+  }
+  return { ok: dbStatus === "ok", db: dbStatus, version: process.env.npm_package_version ?? "1.0.0" };
+});
+
+// ── Admin: stats ──
+app.get("/admin/stats", { preHandler: [requireAdmin] }, async () => {
+  const [users, cards, decks, collections, watchlist, notifications] = await Promise.all([
+    prisma.user.count(),
+    prisma.cardVariant.count(),
+    prisma.deck.count(),
+    prisma.collectionEvent.count(),
+    prisma.watchlistEntry.count(),
+    prisma.notification.count(),
+  ]);
+  return { users, cards, decks, collections, watchlist, notifications };
+});
 
 // ── Collection sync ──
 app.post("/v1/collection/events", { preHandler: [requireAuth] }, async (req) => {
@@ -1051,6 +1072,104 @@ app.post("/v1/ai/deck-advice", { preHandler: [requireAuth] }, async (req, reply)
   const data = await res.json() as { content: Array<{ type: string; text: string }> };
   const text = data.content.find((b) => b.type === "text")?.text ?? "";
   return { advice: text };
+});
+
+// ── Collection cards (enriched) ──
+app.get("/v1/collection/cards", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const query = z
+    .object({
+      q: z.string().optional(),
+      market: z.string().default("tcgplayer"),
+      kind: z.string().default("normal"),
+      currency: z.string().default("USD"),
+      sort: z.enum(["name", "value", "qty", "added"]).default("value"),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(60),
+    })
+    .parse(req.query);
+
+  // Compute net quantities from events
+  const events = await prisma.collectionEvent.findMany({
+    where: { userId: user.sub },
+    select: { variantId: true, payload: true, type: true, at: true },
+    orderBy: { at: "asc" },
+  });
+
+  const qtys = new Map<string, number>();
+  const firstAdded = new Map<string, Date>();
+  for (const e of events) {
+    const payload = e.payload as { qty?: number; quantity?: number };
+    const delta = e.type === "add"
+      ? (payload.qty ?? payload.quantity ?? 1)
+      : -(payload.qty ?? payload.quantity ?? 1);
+    qtys.set(e.variantId, (qtys.get(e.variantId) ?? 0) + delta);
+    if (!firstAdded.has(e.variantId)) firstAdded.set(e.variantId, e.at);
+  }
+
+  const owned = [...qtys.entries()].filter(([, q]) => q > 0);
+  const variantIds = owned.map(([id]) => id);
+
+  if (variantIds.length === 0) {
+    return { cards: [], totalCards: 0, totalValue: 0, page: query.page, hasMore: false };
+  }
+
+  // Fetch card details
+  const variants = await prisma.cardVariant.findMany({
+    where: {
+      variantId: { in: variantIds },
+      ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
+    },
+  });
+
+  // Fetch prices
+  const prices = await prisma.priceCache.findMany({
+    where: { variantId: { in: variantIds }, market: query.market, kind: query.kind, currency: query.currency },
+  });
+  const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+
+  const cards = variants.map((v) => {
+    const qty = qtys.get(v.variantId) ?? 0;
+    const price = priceMap.get(v.variantId) ?? null;
+    return {
+      variantId: v.variantId,
+      name: v.name,
+      imageUri: v.imageUri,
+      setId: v.setId,
+      collectorNumber: v.collectorNumber,
+      rarity: v.rarity,
+      typeLine: v.typeLine,
+      manaCost: v.manaCost,
+      colors: v.colors,
+      quantity: qty,
+      priceUsd: price,
+      lineValue: price != null ? price * qty : null,
+      addedAt: firstAdded.get(v.variantId)?.toISOString() ?? null,
+    };
+  });
+
+  // Sort
+  cards.sort((a, b) => {
+    switch (query.sort) {
+      case "name": return a.name.localeCompare(b.name);
+      case "qty": return b.quantity - a.quantity;
+      case "added": return (b.addedAt ?? "").localeCompare(a.addedAt ?? "");
+      case "value":
+      default: return (b.lineValue ?? 0) - (a.lineValue ?? 0);
+    }
+  });
+
+  const totalValue = cards.reduce((s, c) => s + (c.lineValue ?? 0), 0);
+  const start = (query.page - 1) * query.limit;
+  const page = cards.slice(start, start + query.limit);
+
+  return {
+    cards: page,
+    totalCards: cards.length,
+    totalValue: Math.round(totalValue * 100) / 100,
+    page: query.page,
+    hasMore: start + query.limit < cards.length,
+  };
 });
 
 // ── Collection portfolio value ──

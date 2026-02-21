@@ -3,6 +3,8 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuthStore } from "../src/store/authStore";
+import { initOfflineDB, startSyncLoop } from "../src/lib/offlineQueue";
+import { addCollectionEvents } from "../src/lib/api";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -27,7 +29,27 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  const { initialize } = useAuthStore();
+  const { initialize, session } = useAuthStore();
+
+  // Init SQLite once
+  useEffect(() => { initOfflineDB(); }, []);
+
+  // Start sync loop when authenticated
+  useEffect(() => {
+    if (!session) return;
+    const stop = startSyncLoop((events) =>
+      addCollectionEvents(
+        events.map((e) => ({
+          id: e.id,
+          at: e.at,
+          type: "add" as const,
+          variantId: e.variantId,
+          payload: { quantity: (e.payload as { quantity: number }).quantity },
+        }))
+      )
+    );
+    return stop;
+  }, [!!session]);
 
   useEffect(() => {
     const unsub = initialize();

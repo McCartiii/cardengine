@@ -12,6 +12,7 @@ interface DeckDetailData {
     name: string;
     format: string;
     commander: string | null;
+    isPublic: boolean;
     cards: DeckCard[];
   };
   totalValue: number;
@@ -47,6 +48,28 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
       api.decks.edhrec(id).then(setEdhrecData).catch(() => null).finally(() => setEdhrecLoading(false));
     }
   }, [tab, id, edhrecData, edhrecLoading]);
+
+  const handleTogglePublic = async () => {
+    if (!data) return;
+    const next = !data.deck.isPublic;
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+      const res = await fetch(`${API_BASE}/v1/decks/${id}/visibility`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await import("@/lib/api")).getToken() ?? ""}` },
+        body: JSON.stringify({ isPublic: next }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setData((d) => d ? { ...d, deck: { ...d.deck, isPublic: next } } : d);
+      if (next) {
+        const shareUrl = `${window.location.origin}/decks/${id}/share`;
+        await navigator.clipboard.writeText(shareUrl);
+        window.alert(`Deck is now public!\nShare link copied to clipboard:\n${shareUrl}`);
+      }
+    } catch {
+      window.alert("Failed to update visibility.");
+    }
+  };
 
   const handleAiAdvice = async () => {
     setAiLoading(true);
@@ -104,6 +127,18 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
             <span className={clsx("px-3 py-1 rounded-lg text-sm font-bold border", legality.valid ? "bg-green-900/40 text-green-300 border-green-700" : "bg-red-900/40 text-red-300 border-red-700")}>
               {legality.valid ? "Legal" : `${legality.issues.length} issue${legality.issues.length > 1 ? "s" : ""}`}
             </span>
+            <button
+              onClick={handleTogglePublic}
+              title={deck.isPublic ? "Deck is public — click to make private" : "Make deck public & copy share link"}
+              className={clsx(
+                "p-2 rounded-lg border transition-colors",
+                deck.isPublic
+                  ? "bg-accent/20 border-accent text-accent-light"
+                  : "bg-surface border-border text-muted hover:border-accent/60 hover:text-white"
+              )}
+            >
+              {deck.isPublic ? "🔗 Public" : "🔒 Private"}
+            </button>
           </div>
         </div>
         {!legality.valid && (

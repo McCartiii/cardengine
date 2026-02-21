@@ -14,6 +14,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Share,
 } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +26,7 @@ import {
   importDeckText,
   deleteDeck,
   updateDeckCards,
+  toggleDeckVisibility,
   type DeckCard,
 } from "../../src/lib/api";
 
@@ -176,6 +178,26 @@ export default function DeckDetailScreen() {
           headerTintColor: COLORS.text,
           headerRight: () => (
             <View style={{ flexDirection: "row", gap: 16, marginRight: 4 }}>
+              <TouchableOpacity
+                onPress={async () => {
+                  const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? "https://cardengine.app";
+                  try {
+                    if (!d.isPublic) {
+                      await toggleDeckVisibility(id, true);
+                      loadDeck();
+                    }
+                    await Share.share({
+                      title: d.name,
+                      message: `Check out my ${d.format} deck "${d.name}" on CardEngine!\n${WEB_BASE}/decks/${id}/share`,
+                      url: `${WEB_BASE}/decks/${id}/share`,
+                    });
+                  } catch {
+                    // dismissed
+                  }
+                }}
+              >
+                <Ionicons name="share-outline" size={22} color={COLORS.accent} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowImport(true)}>
                 <Ionicons name="download-outline" size={22} color={COLORS.accent} />
               </TouchableOpacity>

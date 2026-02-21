@@ -339,6 +339,80 @@ export function registerDeckRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // ── Public deck view (no auth required) ──
+  app.get("/v1/decks/:id/public", async (req, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const deck = await prisma.deck.findUnique({
+      where: { id },
+      include: {
+        cards: { orderBy: [{ section: "asc" }, { cardName: "asc" }] },
+        user: { select: { displayName: true } },
+      },
+    });
+    if (!deck) return reply.code(404).send({ error: "Not found" });
+    if (!deck.isPublic) return reply.code(403).send({ error: "This deck is private" });
+
+    const variantIds = deck.cards.map((c) => c.variantId).filter(Boolean) as string[];
+    const prices = variantIds.length > 0
+      ? await prisma.priceCache.findMany({
+          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "normal", currency: "USD" },
+        })
+      : [];
+    const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+
+    const variants = variantIds.length > 0
+      ? await prisma.cardVariant.findMany({
+          where: { variantId: { in: variantIds } },
+          select: { variantId: true, imageUri: true, typeLine: true },
+        })
+      : [];
+    const variantMap = new Map(variants.map((v) => [v.variantId, v]));
+
+    const cardCount = deck.cards.reduce((s, c) => s + c.quantity, 0);
+    const totalValue = deck.cards.reduce((s, c) => {
+      const p = c.variantId ? (priceMap.get(c.variantId) ?? 0) : 0;
+      return s + p * c.quantity;
+    }, 0);
+
+    return {
+      deck: {
+        id: deck.id,
+        name: deck.name,
+        format: deck.format,
+        game: deck.game,
+        commander: deck.commander,
+        description: deck.description,
+        authorName: deck.user?.displayName ?? "Anonymous",
+        createdAt: deck.createdAt.toISOString(),
+        updatedAt: deck.updatedAt.toISOString(),
+        cards: deck.cards.map((c) => ({
+          id: c.id,
+          cardName: c.cardName,
+          variantId: c.variantId,
+          quantity: c.quantity,
+          section: c.section,
+          imageUri: c.variantId ? (variantMap.get(c.variantId)?.imageUri ?? null) : null,
+          typeLine: c.variantId ? (variantMap.get(c.variantId)?.typeLine ?? null) : null,
+          price: c.variantId ? (priceMap.get(c.variantId) ?? null) : null,
+        })),
+      },
+      cardCount,
+      totalValue: Math.round(totalValue * 100) / 100,
+    };
+  });
+
+  // ── Toggle deck public/private ──
+  app.patch("/v1/decks/:id/visibility", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = getUser(req);
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { isPublic } = z.object({ isPublic: z.boolean() }).parse(req.body);
+    const deck = await prisma.deck.findUnique({ where: { id } });
+    if (!deck) return reply.code(404).send({ error: "Not found" });
+    if (deck.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+    await prisma.deck.update({ where: { id }, data: { isPublic } });
+    return { ok: true, isPublic };
+  });
+
   // EDHRec recommendations for a deck's commander
   app.get("/v1/decks/:id/edhrec", { preHandler: [requireAuth] }, async (req, reply) => {
     const user = getUser(req);
