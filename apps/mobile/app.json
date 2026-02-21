@@ -20,6 +20,12 @@
           "enableCodeScanner": false,
           "enableLocation": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "CardEngine uses your location to find nearby game stores."
+        }
       ]
     ],
     "experiments": {
@@ -29,7 +35,8 @@
       "bundleIdentifier": "com.cardengine.app",
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "CardEngine uses the camera to scan MTG cards into your collection."
+        "NSCameraUsageDescription": "CardEngine uses the camera to scan MTG cards into your collection.",
+        "NSLocationWhenInUseUsageDescription": "CardEngine uses your location to find nearby game stores."
       }
     },
     "android": {
@@ -38,7 +45,9 @@
         "backgroundColor": "#0a0a0a"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     }
   }

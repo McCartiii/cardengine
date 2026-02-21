@@ -42,6 +42,33 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="decks"
+        options={{
+          title: "Decks",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="layers" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="browse"
+        options={{
+          title: "Browse",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="shops"
+        options={{
+          title: "Shops",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="storefront" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",

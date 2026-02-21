@@ -21,6 +21,7 @@ model User {
   collectionEvents CollectionEvent[]
   watchlist        WatchlistEntry[]
   notifications    Notification[]
+  decks            Deck[]
 }
 
 model CardVariant {
@@ -47,6 +48,7 @@ model CardVariant {
 
   prices           PricePoint[]
   collectionEvents CollectionEvent[]
+  deckCards        DeckCard[]
 
   @@index([game, name])
   @@index([game, setId, collectorNumber])
@@ -124,6 +126,43 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read, createdAt])
+}
+
+// ── Decks ──
+
+model Deck {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  format      String   @default("commander") // commander, standard, modern, pioneer, legacy, vintage, pauper, oathbreaker
+  game        String   @default("mtg")
+  commander   String?  // primary commander name (EDH/Oathbreaker)
+  partner     String?  // partner commander name if applicable
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards DeckCard[]
+
+  @@index([userId, format])
+  @@index([game, isPublic])
+}
+
+model DeckCard {
+  id        String  @id @default(cuid())
+  deckId    String
+  variantId String? // null if card not yet in our DB
+  cardName  String
+  quantity  Int     @default(1)
+  section   String  @default("mainboard") // mainboard | sideboard | commander | companion
+
+  deck    Deck         @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  variant CardVariant? @relation(fields: [variantId], references: [variantId])
+
+  @@index([deckId])
+  @@index([variantId])
 }
 
 // ── Shop Directory ──
