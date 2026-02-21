@@ -1,0 +1,178 @@
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  Animated,
+} from "react-native";
+import { COLORS } from "../lib/constants";
+
+const { width: W, height: H } = Dimensions.get("window");
+
+// Card dimensions: standard MTG card is 2.5" × 3.5" (portrait 1:1.4)
+const CARD_W = W * 0.78;
+const CARD_H = CARD_W * 1.4;
+const CARD_RADIUS = 12;
+
+interface Props {
+  detectedName: string | null;
+  isIdentifying?: boolean;
+}
+
+export function ScanOverlay({ detectedName, isIdentifying }: Props) {
+  // Corner highlight animation — pulses when a card name is detected
+  const glow = useRef(new Animated.Value(0)).current;
+  const nameOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (detectedName) {
+      Animated.parallel([
+        Animated.spring(glow, { toValue: 1, useNativeDriver: true, speed: 20 }),
+        Animated.timing(nameOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.spring(glow, { toValue: 0, useNativeDriver: true, speed: 12 }),
+        Animated.timing(nameOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [detectedName, glow, nameOpacity]);
+
+  const borderColor = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(168,85,247,0.4)", "rgba(34,197,94,0.95)"],
+  });
+
+  const cardTop = (H - CARD_H) / 2 - 40; // slightly above center
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Dark vignette around the card cutout */}
+      <View style={[styles.vignette, { top: 0, height: cardTop }]} />
+      <View style={[styles.vignette, { top: cardTop + CARD_H, bottom: 0 }]} />
+      <View
+        style={[
+          styles.vignette,
+          { top: cardTop, height: CARD_H, left: 0, width: (W - CARD_W) / 2 },
+        ]}
+      />
+      <View
+        style={[
+          styles.vignette,
+          {
+            top: cardTop,
+            height: CARD_H,
+            right: 0,
+            width: (W - CARD_W) / 2,
+          },
+        ]}
+      />
+
+      {/* Animated border around the card target area */}
+      <Animated.View
+        style={[
+          styles.cardFrame,
+          {
+            top: cardTop,
+            left: (W - CARD_W) / 2,
+            width: CARD_W,
+            height: CARD_H,
+            borderColor,
+            shadowColor: detectedName ? COLORS.success : COLORS.accent,
+            shadowOpacity: glow,
+          },
+        ]}
+      />
+
+      {/* Corner ticks */}
+      {[
+        { top: cardTop - 1, left: (W - CARD_W) / 2 - 1 },
+        { top: cardTop - 1, right: (W - CARD_W) / 2 - 1 },
+        { bottom: H - cardTop - CARD_H - 1, left: (W - CARD_W) / 2 - 1 },
+        { bottom: H - cardTop - CARD_H - 1, right: (W - CARD_W) / 2 - 1 },
+      ].map((pos, i) => (
+        <Animated.View
+          key={i}
+          style={[styles.cornerTick, pos, { borderColor }]}
+        />
+      ))}
+
+      {/* Detected card name label */}
+      <Animated.View
+        style={[styles.nameBadge, { top: cardTop - 48, opacity: nameOpacity }]}
+      >
+        <Text style={styles.nameText} numberOfLines={1}>
+          {detectedName ?? ""}
+        </Text>
+        {isIdentifying && <Text style={styles.identifyingDots}>...</Text>}
+      </Animated.View>
+
+      {/* Hint text at the very top */}
+      <View style={styles.hint}>
+        <Text style={styles.hintText}>Slide cards in front of the camera</Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  vignette: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  cardFrame: {
+    position: "absolute",
+    borderRadius: CARD_RADIUS,
+    borderWidth: 2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  cornerTick: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderWidth: 3,
+    borderRadius: 3,
+    backgroundColor: "transparent",
+  },
+  nameBadge: {
+    position: "absolute",
+    left: (W - CARD_W) / 2,
+    right: (W - CARD_W) / 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.72)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginHorizontal: 0,
+  },
+  nameText: {
+    color: COLORS.success,
+    fontSize: 15,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    flexShrink: 1,
+  },
+  identifyingDots: {
+    color: COLORS.textMuted,
+    fontSize: 15,
+    marginLeft: 4,
+  },
+  hint: {
+    position: "absolute",
+    top: 60,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  hintText: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+});
