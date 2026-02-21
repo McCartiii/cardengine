@@ -59,6 +59,33 @@ export interface CollectionEntry {
 
 // ── Endpoints ────────────────────────────────────────────────────────────────
 
+// ── Card detail ──────────────────────────────────────────────────────────────
+
+export interface CardDetail {
+  variantId: string;
+  name: string;
+  game: string;
+  setId: string | null;
+  collectorNumber: string | null;
+  imageUri: string | null;
+  manaCost: string | null;
+  typeLine: string | null;
+  oracleText: string | null;
+  colors: string[] | null;
+  colorIdentity: string[] | null;
+  cmc: number | null;
+  rarity: string | null;
+  storePricing: Array<{
+    store: string;
+    prices: Array<{ label: string; amount: number; currency: string }>;
+    buyUrl: string | null;
+  }>;
+}
+
+export async function getCardDetail(variantId: string): Promise<{ card: CardDetail }> {
+  return request("GET", `/v1/cards/${encodeURIComponent(variantId)}`);
+}
+
 export async function scanIdentify(params: {
   name: string;
   setCode?: string;
@@ -254,4 +281,44 @@ export async function getNearbyShops(params: {
     Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
   ).toString();
   return request("GET", `/v1/shops?${qs}`);
+}
+
+// ── Watchlist ─────────────────────────────────────────────────────────────────
+
+export interface WatchlistEntry {
+  id: string;
+  variantId: string;
+  cardName: string;
+  imageUri: string | null;
+  market: string;
+  kind: string;
+  currency: string;
+  thresholdAmount: number;
+  direction: "above" | "below";
+  enabled: boolean;
+  currentPrice: number | null;
+  createdAt: string;
+}
+
+export async function getWatchlist(): Promise<{ entries: WatchlistEntry[] }> {
+  return request("GET", "/v1/watchlist");
+}
+
+export async function addWatchlistEntry(data: {
+  variantId: string;
+  market: string;
+  kind?: string;
+  currency?: string;
+  thresholdAmount: number;
+  direction: "above" | "below";
+}): Promise<{ ok: boolean }> {
+  return request("POST", "/v1/watchlist", data);
+}
+
+export async function deleteWatchlistEntry(id: string): Promise<{ ok: boolean }> {
+  return request("DELETE", `/v1/watchlist/${id}`);
+}
+
+export async function toggleWatchlistEntry(id: string, enabled: boolean): Promise<{ ok: boolean }> {
+  return request("PATCH", `/v1/watchlist/${id}`, { enabled });
 }

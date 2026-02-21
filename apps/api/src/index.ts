@@ -1285,10 +1285,57 @@ app.post("/v1/watchlist", { preHandler: [requireAuth] }, async (req) => {
 app.get("/v1/watchlist", { preHandler: [requireAuth] }, async (req) => {
   const user = (req as FastifyRequest & { user: AuthUser }).user;
   const entries = await prisma.watchlistEntry.findMany({
-    where: { userId: user.sub, enabled: true },
+    where: { userId: user.sub },
     orderBy: { createdAt: "desc" },
   });
-  return { entries };
+
+  // Attach current cached price to each entry
+  const variantIds = [...new Set(entries.map((e) => e.variantId))];
+  const prices = variantIds.length > 0
+    ? await prisma.priceCache.findMany({
+        where: { variantId: { in: variantIds } },
+      })
+    : [];
+  const priceIndex = new Map(prices.map((p) => [`${p.variantId}:${p.market}:${p.kind}:${p.currency}`, p.amount]));
+
+  // Attach card names
+  const variants = variantIds.length > 0
+    ? await prisma.cardVariant.findMany({
+        where: { variantId: { in: variantIds } },
+        select: { variantId: true, name: true, imageUri: true },
+      })
+    : [];
+  const variantMap = new Map(variants.map((v) => [v.variantId, v]));
+
+  return {
+    entries: entries.map((e) => ({
+      ...e,
+      currentPrice: priceIndex.get(`${e.variantId}:${e.market}:${e.kind}:${e.currency}`) ?? null,
+      cardName: variantMap.get(e.variantId)?.name ?? e.variantId,
+      imageUri: variantMap.get(e.variantId)?.imageUri ?? null,
+    })),
+  };
+});
+
+app.delete("/v1/watchlist/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const { id } = z.object({ id: z.string() }).parse(req.params);
+  const entry = await prisma.watchlistEntry.findUnique({ where: { id } });
+  if (!entry) return reply.code(404).send({ error: "Not found" });
+  if (entry.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+  await prisma.watchlistEntry.delete({ where: { id } });
+  return { ok: true };
+});
+
+app.patch("/v1/watchlist/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const { id } = z.object({ id: z.string() }).parse(req.params);
+  const body = z.object({ enabled: z.boolean() }).parse(req.body);
+  const entry = await prisma.watchlistEntry.findUnique({ where: { id } });
+  if (!entry) return reply.code(404).send({ error: "Not found" });
+  if (entry.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+  await prisma.watchlistEntry.update({ where: { id }, data: body });
+  return { ok: true };
 });
 
 // ── Dev seed ──
