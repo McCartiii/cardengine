@@ -162,7 +162,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+  root: { flex: 1, backgroundColor: COLORS.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, paddingBottom: 48, gap: 12 },
   header: { marginBottom: 4 },

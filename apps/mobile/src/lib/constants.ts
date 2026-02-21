@@ -18,6 +18,7 @@ export const SCANNER = {
 
 export const COLORS = {
   bg: "#0a0a0a",
+  background: "#0a0a0a",   // alias for bg — used across all screens
   surface: "#161616",
   surfaceHighlight: "#222222",
   accent: "#a855f7",       // purple — primary brand

@@ -190,7 +190,7 @@ export default function CollectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+  root: { flex: 1, backgroundColor: COLORS.bg },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, gap: 10 },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   title: { color: COLORS.text, fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     overflow: "hidden", borderWidth: 1, borderColor: COLORS.border ?? "#222",
   },
   cardImage: { width: "100%", aspectRatio: 0.72 },
-  cardImagePlaceholder: { backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
+  cardImagePlaceholder: { backgroundColor: COLORS.bg, alignItems: "center", justifyContent: "center" },
   cardInitials: { color: COLORS.textMuted, fontSize: 18, fontWeight: "700" },
   qtyBadge: {
     position: "absolute", top: 4, right: 4,
