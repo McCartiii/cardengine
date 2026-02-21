@@ -223,25 +223,20 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
         ...pValues
       );
 
-      // Also write PricePoint snapshots for historical charts
-      const hValues: unknown[] = [];
-      const hPlaceholders: string[] = [];
-      let hIdx = 1;
-      for (const row of priceRows) {
-        hPlaceholders.push(`(gen_random_uuid(), NOW(), $${hIdx++}, $${hIdx++}, $${hIdx++}, $${hIdx++})`);
-        hValues.push(row.market, row.kind, row.currency, row.amount);
-      }
-      // Batch insert — we use variantId from pValues interleaved
+      // Also write PricePoint snapshots for historical charts (one per variant/market/kind/day)
+      const dateUTC = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
       const hValues2: unknown[] = [];
       const hPlaceholders2: string[] = [];
       let hIdx2 = 1;
       for (const row of priceRows) {
-        hPlaceholders2.push(`(gen_random_uuid(), NOW(), $${hIdx2++}, $${hIdx2++}, $${hIdx2++}, $${hIdx2++}, $${hIdx2++})`);
-        hValues2.push(row.market, row.kind, row.currency, row.amount, row.variantId);
+        const deterministicId = `pp-${row.variantId}-${row.market}-${row.kind}-${dateUTC}`;
+        hPlaceholders2.push(`($${hIdx2++}, NOW(), $${hIdx2++}, $${hIdx2++}, $${hIdx2++}, $${hIdx2++}, $${hIdx2++})`);
+        hValues2.push(deterministicId, row.market, row.kind, row.currency, row.amount, row.variantId);
       }
       await prisma.$executeRawUnsafe(
         `INSERT INTO "PricePoint" ("id", "at", "market", "kind", "currency", "amount", "variantId")
-         VALUES ${hPlaceholders2.join(", ")}`,
+         VALUES ${hPlaceholders2.join(", ")}
+         ON CONFLICT ("id") DO NOTHING`,
         ...hValues2
       );
 

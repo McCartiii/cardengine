@@ -43,7 +43,7 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
   });
 
   // Create shop
-  app.post("/v1/shops", async (req) => {
+  app.post("/v1/shops", { preHandler: [requireAuth] }, async (req) => {
     const body = z
       .object({
         name: z.string().min(1),
@@ -65,10 +65,13 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
   });
 
   // Get shop by id
-  app.get("/v1/shops/:id", async (req) => {
+  app.get("/v1/shops/:id", async (req, reply) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
     const shop = await prisma.shop.findUnique({ where: { id } });
-    if (!shop) return { error: "Not found" };
+    if (!shop) {
+      reply.code(404).send({ error: "Not found" });
+      return;
+    }
     return { shop };
   });
 

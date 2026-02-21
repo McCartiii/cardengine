@@ -16,6 +16,7 @@ model User {
   dateOfBirth DateTime? @map("date_of_birth")
   displayName String?  @map("display_name")
   avatarUrl   String?  @map("avatar_url")
+  banned      Boolean  @default(false)
 
   collectionEvents CollectionEvent[]
   watchlist        WatchlistEntry[]
@@ -63,7 +64,7 @@ model CollectionEvent {
   variantId String
   payload   Json
 
-  user    User        @relation(fields: [userId], references: [id])
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   variant CardVariant @relation(fields: [variantId], references: [variantId])
 
   @@index([userId, at])
@@ -109,7 +110,7 @@ model WatchlistEntry {
   enabled         Boolean  @default(true)
   createdAt       DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, enabled])
 }
@@ -124,7 +125,7 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read, createdAt])
 }
@@ -161,7 +162,7 @@ model Checkin {
   shopId String
   at     DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   shop Shop @relation(fields: [shopId], references: [id])
 
   @@index([shopId, at])
@@ -174,8 +175,8 @@ model UserBlock {
   blockedId String
   createdAt DateTime @default(now())
 
-  user    User @relation("blocks_given", fields: [userId], references: [id])
-  blocked User @relation("blocks_received", fields: [blockedId], references: [id])
+  user    User @relation("blocks_given", fields: [userId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocks_received", fields: [blockedId], references: [id], onDelete: Cascade)
 
   @@unique([userId, blockedId])
 }
@@ -189,8 +190,9 @@ model Report {
   createdAt  DateTime @default(now())
   resolved   Boolean  @default(false)
 
-  reporter User @relation(fields: [reporterId], references: [id])
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
+  @@unique([reporterId, targetType, targetId])
   @@index([resolved, createdAt])
 }
 
