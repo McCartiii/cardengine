@@ -20,10 +20,6 @@ model User {
 
   collectionEvents CollectionEvent[]
   watchlist        WatchlistEntry[]
-  checkins         Checkin[]
-  blocksGiven      UserBlock[]       @relation("blocks_given")
-  blocksReceived   UserBlock[]       @relation("blocks_received")
-  reports          Report[]
   notifications    Notification[]
 }
 
@@ -130,7 +126,7 @@ model Notification {
   @@index([userId, read, createdAt])
 }
 
-// ── Local Scene ──
+// ── Shop Directory ──
 
 model Shop {
   id        String   @id @default(cuid())
@@ -150,50 +146,8 @@ model Shop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  checkins     Checkin[]
-
   @@index([city, state])
   @@index([lat, lng])
-}
-
-model Checkin {
-  id     String   @id @default(cuid())
-  userId String
-  shopId String
-  at     DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shop Shop @relation(fields: [shopId], references: [id])
-
-  @@index([shopId, at])
-  @@index([userId, at])
-}
-
-model UserBlock {
-  id        String   @id @default(cuid())
-  userId    String
-  blockedId String
-  createdAt DateTime @default(now())
-
-  user    User @relation("blocks_given", fields: [userId], references: [id], onDelete: Cascade)
-  blocked User @relation("blocks_received", fields: [blockedId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, blockedId])
-}
-
-model Report {
-  id         String   @id @default(cuid())
-  reporterId String
-  targetType String // "user" | "message" | "post"
-  targetId   String
-  reason     String
-  createdAt  DateTime @default(now())
-  resolved   Boolean  @default(false)
-
-  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-
-  @@unique([reporterId, targetType, targetId])
-  @@index([resolved, createdAt])
 }
 
 // ── EDHREC Cache ──

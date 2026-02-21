@@ -1223,35 +1223,7 @@ app.post("/admin/ingest/scryfall", { preHandler: [requireAdmin] }, async (req) =
   return { ok: true, ...result };
 });
 
-// ── Admin: moderation endpoints (Phase 4) ──
-app.get("/admin/reports", { preHandler: [requireAdmin] }, async (req) => {
-  const query = z
-    .object({
-      resolved: z.coerce.boolean().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(50),
-    })
-    .parse(req.query);
-
-  const where: Record<string, unknown> = {};
-  if (query.resolved !== undefined) where.resolved = query.resolved;
-
-  const reports = await prisma.report.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: query.limit,
-  });
-  return { reports };
-});
-
-app.post("/admin/reports/:id/resolve", { preHandler: [requireAdmin] }, async (req) => {
-  const { id } = z.object({ id: z.string() }).parse(req.params);
-  const report = await prisma.report.update({
-    where: { id },
-    data: { resolved: true },
-  });
-  return { ok: true, report };
-});
-
+// ── Admin ──
 app.post("/admin/users/:id/ban", { preHandler: [requireAdmin] }, async (req) => {
   const { id } = z.object({ id: z.string() }).parse(req.params);
   await prisma.user.update({ where: { id }, data: { banned: true } });
