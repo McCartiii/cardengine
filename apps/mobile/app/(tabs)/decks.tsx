@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: COLORS.border ?? "#333",
+    borderColor: COLORS.border,
   },
   formatChipText: { color: COLORS.textMuted, fontSize: 13 },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },

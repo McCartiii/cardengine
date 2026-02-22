@@ -117,7 +117,7 @@ export default function WatchlistScreen() {
           <Switch
             value={item.enabled}
             onValueChange={(v) => handleToggle(item, v)}
-            trackColor={{ false: COLORS.border ?? "#333", true: COLORS.accent }}
+            trackColor={{ false: COLORS.border, true: COLORS.accent }}
             thumbColor="#fff"
           />
           <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>

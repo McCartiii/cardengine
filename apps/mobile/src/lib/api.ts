@@ -149,14 +149,6 @@ export async function getCollectionCards(params?: {
   return request("GET", `/v1/collection/cards${qs ? `?${qs}` : ""}`);
 }
 
-export async function getCollectionValue(): Promise<{
-  totalValue: number;
-  currency: string;
-  cardCount: number;
-}> {
-  return request("GET", "/v1/collection/value");
-}
-
 export async function getProfile(): Promise<{
   id: string;
   displayName: string | null;

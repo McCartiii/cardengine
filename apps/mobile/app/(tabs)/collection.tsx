@@ -197,19 +197,19 @@ const styles = StyleSheet.create({
   valuePill: {
     backgroundColor: COLORS.surface, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 5,
-    borderWidth: 1, borderColor: COLORS.border ?? "#222",
+    borderWidth: 1, borderColor: COLORS.border,
   },
   valuePillText: { color: COLORS.accent, fontSize: 13, fontWeight: "700" },
   searchRow: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: COLORS.surface, borderRadius: 12,
-    paddingHorizontal: 12, borderWidth: 1, borderColor: COLORS.border ?? "#222",
+    paddingHorizontal: 12, borderWidth: 1, borderColor: COLORS.border,
   },
   searchInput: { flex: 1, paddingVertical: 10, color: COLORS.text, fontSize: 15 },
   sortRow: { flexDirection: "row", gap: 6 },
   sortChip: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
-    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border ?? "#222",
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
   },
   sortChipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
   sortChipText: { color: COLORS.textMuted, fontSize: 12, fontWeight: "700" },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   row: { gap: 8, marginBottom: 8 },
   card: {
     flex: 1, backgroundColor: COLORS.surface, borderRadius: 10,
-    overflow: "hidden", borderWidth: 1, borderColor: COLORS.border ?? "#222",
+    overflow: "hidden", borderWidth: 1, borderColor: COLORS.border,
   },
   cardImage: { width: "100%", aspectRatio: 0.72 },
   cardImagePlaceholder: { backgroundColor: COLORS.bg, alignItems: "center", justifyContent: "center" },

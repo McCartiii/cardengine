@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   avatarCard: {
     backgroundColor: COLORS.surface, borderRadius: 16, padding: 16,
     flexDirection: "row", alignItems: "center", gap: 14,
-    borderWidth: 1, borderColor: COLORS.border ?? "#222",
+    borderWidth: 1, borderColor: COLORS.border,
   },
   avatar: { width: 64, height: 64, borderRadius: 32 },
   avatarPlaceholder: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: "row", gap: 10 },
   statCard: {
     flex: 1, backgroundColor: COLORS.surface, borderRadius: 14, padding: 16,
-    alignItems: "center", gap: 4, borderWidth: 1, borderColor: COLORS.border ?? "#222",
+    alignItems: "center", gap: 4, borderWidth: 1, borderColor: COLORS.border,
   },
   statValue: { color: COLORS.text, fontSize: 22, fontWeight: "900" },
   statLabel: { color: COLORS.textMuted, fontSize: 12 },
@@ -195,10 +195,10 @@ const styles = StyleSheet.create({
   },
   linksContainer: {
     backgroundColor: COLORS.surface, borderRadius: 14,
-    borderWidth: 1, borderColor: COLORS.border ?? "#222", overflow: "hidden",
+    borderWidth: 1, borderColor: COLORS.border, overflow: "hidden",
   },
   linkRow: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
-  linkRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border ?? "#222" },
+  linkRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
   linkIconWrap: {
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: `${COLORS.accent}22`, alignItems: "center", justifyContent: "center",
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   linkLabel: { color: COLORS.text, fontSize: 15, fontWeight: "600" },
   linkSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 1 },
   accountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14 },
-  accountRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.border ?? "#222" },
+  accountRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
   accountLabel: { color: COLORS.textMuted, fontSize: 14 },
   accountValue: { color: COLORS.text, fontSize: 12, fontFamily: "monospace", flex: 1, textAlign: "right", marginLeft: 8 },
   safeBadge: {
