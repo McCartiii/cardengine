@@ -15,6 +15,7 @@ interface ScanState {
   pending: PendingScan[];
   isScanning: boolean;
   detectedName: string | null;
+  detectedPrice: string | null;
 
   addPending: (candidate: ScanCandidate) => void;
   incrementQty: (key: string) => void;
@@ -22,6 +23,7 @@ interface ScanState {
   markAdded: (key: string) => void;
   clearAdded: () => void;
   setDetectedName: (name: string | null) => void;
+  setDetectedPrice: (price: string | null) => void;
   setScanning: (v: boolean) => void;
   reset: () => void;
 }
@@ -30,6 +32,7 @@ export const useScanStore = create<ScanState>((set, get) => ({
   pending: [],
   isScanning: true,
   detectedName: null,
+  detectedPrice: null,
 
   addPending(candidate) {
     const existing = get().pending.find(
@@ -82,11 +85,15 @@ export const useScanStore = create<ScanState>((set, get) => ({
     set({ detectedName: name });
   },
 
+  setDetectedPrice(price) {
+    set({ detectedPrice: price });
+  },
+
   setScanning(v) {
     set({ isScanning: v });
   },
 
   reset() {
-    set({ pending: [], detectedName: null, isScanning: true });
+    set({ pending: [], detectedName: null, detectedPrice: null, isScanning: true });
   },
 }));

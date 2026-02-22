@@ -6,9 +6,8 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  ActivityIndicator,
-  Animated,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { addCollectionEvents } from "../lib/api";
 import { useScanStore, type PendingScan } from "../store/scanStore";
@@ -18,7 +17,11 @@ function generateEventId(): string {
   return `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function ScannedCardTray() {
+interface TrayProps {
+  onClose?: () => void;
+}
+
+export function ScannedCardTray({ onClose }: TrayProps) {
   const { pending, incrementQty, decrementQty, markAdded, clearAdded } =
     useScanStore();
   const adding = useRef(false);
@@ -51,7 +54,10 @@ export function ScannedCardTray() {
       await addCollectionEvents(events);
       unadded.forEach((p) => markAdded(p.key));
       // Clear added entries after a brief delay so the user sees the ✓
-      setTimeout(() => clearAdded(), 1200);
+      setTimeout(() => {
+        clearAdded();
+        onClose?.();
+      }, 1200);
     } catch (err) {
       console.warn("[tray] Failed to add cards:", err);
     } finally {
@@ -61,6 +67,14 @@ export function ScannedCardTray() {
 
   return (
     <View style={styles.container}>
+      {/* Header row */}
+      <View style={styles.trayHeader}>
+        <Text style={styles.trayTitle}>Scanned cards</Text>
+        <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="close" size={20} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      </View>
+
       {/* Scroll horizontally through pending cards */}
       <ScrollView
         horizontal
@@ -153,6 +167,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingBottom: 34, // safe area
+  },
+  trayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 2,
+  },
+  trayTitle: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   scroll: {
     paddingHorizontal: 12,

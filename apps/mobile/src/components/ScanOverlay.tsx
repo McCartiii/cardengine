@@ -17,13 +17,15 @@ const CARD_RADIUS = 12;
 
 interface Props {
   detectedName: string | null;
+  detectedPrice?: string | null;
   isIdentifying?: boolean;
 }
 
-export function ScanOverlay({ detectedName, isIdentifying }: Props) {
-  // Corner highlight animation — pulses when a card name is detected
+export function ScanOverlay({ detectedName, detectedPrice, isIdentifying }: Props) {
   const glow = useRef(new Animated.Value(0)).current;
   const nameOpacity = useRef(new Animated.Value(0)).current;
+  const priceOpacity = useRef(new Animated.Value(0)).current;
+  const priceScale = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
     if (detectedName) {
@@ -38,6 +40,20 @@ export function ScanOverlay({ detectedName, isIdentifying }: Props) {
       ]).start();
     }
   }, [detectedName, glow, nameOpacity]);
+
+  useEffect(() => {
+    if (detectedPrice) {
+      Animated.parallel([
+        Animated.timing(priceOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.spring(priceScale, { toValue: 1, useNativeDriver: true, speed: 22, bounciness: 6 }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(priceOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(priceScale, { toValue: 0.85, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [detectedPrice, priceOpacity, priceScale]);
 
   const borderColor = glow.interpolate({
     inputRange: [0, 1],
@@ -98,7 +114,7 @@ export function ScanOverlay({ detectedName, isIdentifying }: Props) {
         />
       ))}
 
-      {/* Detected card name label */}
+      {/* Detected card name label — sits above the frame */}
       <Animated.View
         style={[styles.nameBadge, { top: cardTop - 48, opacity: nameOpacity }]}
       >
@@ -108,10 +124,21 @@ export function ScanOverlay({ detectedName, isIdentifying }: Props) {
         {isIdentifying && <Text style={styles.identifyingDots}>...</Text>}
       </Animated.View>
 
-      {/* Hint text at the very top */}
-      <View style={styles.hint}>
-        <Text style={styles.hintText}>Slide cards in front of the camera</Text>
-      </View>
+      {/* Price overlay — centered in the card frame, pops in on match */}
+      <Animated.View
+        style={[
+          styles.priceOverlay,
+          {
+            top: cardTop + CARD_H * 0.28,
+            left: (W - CARD_W) / 2,
+            width: CARD_W,
+            opacity: priceOpacity,
+            transform: [{ scale: priceScale }],
+          },
+        ]}
+      >
+        <Text style={styles.priceText}>{detectedPrice ?? ""}</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -149,7 +176,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    marginHorizontal: 0,
   },
   nameText: {
     color: COLORS.success,
@@ -163,16 +189,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginLeft: 4,
   },
-  hint: {
+  priceOverlay: {
     position: "absolute",
-    top: 60,
-    left: 0,
-    right: 0,
     alignItems: "center",
   },
-  hintText: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 13,
-    letterSpacing: 0.2,
+  priceText: {
+    color: "#ffffff",
+    fontSize: 40,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0,0,0,0.85)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
   },
 });

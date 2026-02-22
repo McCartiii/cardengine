@@ -43,7 +43,7 @@ function extractCardName(rawText: string): string | null {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useCardScanner() {
-  const { addPending, setDetectedName } = useScanStore();
+  const { addPending, setDetectedName, setDetectedPrice } = useScanStore();
 
   // Refs live on the JS thread and survive renders without causing them
   const frameCount = useRef(0);
@@ -58,6 +58,7 @@ export function useCardScanner() {
 
       if (!cardName) {
         setDetectedName(null);
+        setDetectedPrice(null);
         lastSeenText.current = null;
         return;
       }
@@ -99,6 +100,10 @@ export function useCardScanner() {
         if (best && best.score >= SCANNER.MIN_CONFIDENCE_SCORE) {
           addPending(best);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          const usdPrice = best.prices.find(
+            (p) => p.currency === "USD" && p.kind === "market"
+          );
+          setDetectedPrice(usdPrice ? `$${usdPrice.amount.toFixed(2)}` : null);
         } else {
           // Low confidence — clear dedup so it can try again sooner
           recentlyScanned.current.delete(nameLower);
@@ -110,7 +115,7 @@ export function useCardScanner() {
         identifying.current = false;
       }
     },
-    [addPending, setDetectedName]
+    [addPending, setDetectedName, setDetectedPrice]
   );
 
   // Frame processor — runs as a worklet on the camera thread (no JS bridge)
