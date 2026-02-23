@@ -4,6 +4,8 @@ WORKDIR /repo
 # Copy workspace manifests for install
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
+COPY packages/engine/package.json ./packages/engine/
+COPY packages/mtg-adapter/package.json ./packages/mtg-adapter/
 
 # Install all deps (workspace-aware)
 RUN npm ci
