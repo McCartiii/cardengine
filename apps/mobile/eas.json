@@ -13,11 +13,30 @@
     "preview": {
       "distribution": "internal"
     },
+    "testflight": {
+      "distribution": "store",
+      "channel": "testflight",
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://YOUR-API.up.railway.app"
+      }
+    },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://YOUR-API.up.railway.app"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "testflight": {
+      "ios": {}
+    },
+    "production": {
+      "ios": {}
+    }
   }
 }
