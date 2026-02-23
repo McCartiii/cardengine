@@ -1847,3 +1847,16 @@ const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? "0.0.0.0";
 await dbReady;
 await app.listen({ port, host });
+
+// ── Auto-ingest on first boot if DB is empty ──
+if (process.env.AUTO_INGEST_ON_EMPTY !== "false") {
+  const cardCount = await prisma.cardVariant.count();
+  if (cardCount === 0) {
+    console.log("[startup] No cards found — running initial Scryfall ingest...");
+    ingestScryfallBulk().then((r) => {
+      console.log(`[startup] Initial ingest complete: ${r.cardsProcessed} cards, ${r.pricesUpdated} prices`);
+    }).catch((err) => {
+      console.error("[startup] Initial ingest failed:", err);
+    });
+  }
+}
