@@ -15,3 +15,5 @@ apps/api/.env
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 apps/api/src/generated/
+apps/api/pglite-data/
+
