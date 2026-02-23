@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import React, { useState, useRef, useCallback } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useLifeStore } from "@/store/lifeStore";
@@ -7,10 +7,39 @@ import { FormatPicker } from "@/components/life/FormatPicker";
 import { PlayerPanel } from "@/components/life/PlayerPanel";
 import { CommanderDamageSheet } from "@/components/life/CommanderDamageSheet";
 
+type CoinResult = "HEADS" | "TAILS" | null;
+
 export default function LifeScreen() {
-  const { gameStarted, format, players, resetGame, backToSetup } =
-    useLifeStore();
+  const { gameStarted, format, players, resetGame, backToSetup } = useLifeStore();
   const [cmdTargetId, setCmdTargetId] = useState<string | null>(null);
+
+  // Coin flip state
+  const [coinResult, setCoinResult] = useState<CoinResult>(null);
+  const coinScale = useRef(new Animated.Value(1)).current;
+  const coinOpacity = useRef(new Animated.Value(0)).current;
+  const coinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flipCoin = useCallback(() => {
+    const result: CoinResult = Math.random() < 0.5 ? "HEADS" : "TAILS";
+    setCoinResult(result);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Pop in animation
+    coinScale.setValue(0.5);
+    coinOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(coinScale, { toValue: 1, useNativeDriver: true, speed: 28, bounciness: 8 }),
+      Animated.timing(coinOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+    ]).start();
+
+    // Auto-dismiss after 2.5s
+    if (coinTimer.current) clearTimeout(coinTimer.current);
+    coinTimer.current = setTimeout(() => {
+      Animated.timing(coinOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() =>
+        setCoinResult(null)
+      );
+    }, 2500);
+  }, [coinScale, coinOpacity]);
 
   if (!gameStarted) return <FormatPicker />;
 
@@ -21,21 +50,17 @@ export default function LifeScreen() {
 
   const handleReset = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert(
-      "Reset Game?",
-      "All life totals return to their starting values.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: () => {
-            resetGame();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          },
+    Alert.alert("Reset Game?", "All life totals return to their starting values.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Reset",
+        style: "destructive",
+        onPress: () => {
+          resetGame();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleSetup = () => {
@@ -45,21 +70,40 @@ export default function LifeScreen() {
     ]);
   };
 
-  // ── Centre divider ─────────────────────────────────────────────────────
+  // ── Centre divider with controls ────────────────────────────────────────
   const Divider = () => (
     <View style={styles.divider}>
-      <TouchableOpacity style={styles.divBtn} onPress={handleReset}>
-        <Ionicons name="refresh" size={15} color="rgba(255,255,255,0.35)" />
-      </TouchableOpacity>
+      {/* Settings — far left */}
       <TouchableOpacity style={[styles.divBtn, styles.divBtnSm]} onPress={handleSetup}>
         <Ionicons name="settings-outline" size={13} color="rgba(255,255,255,0.3)" />
+      </TouchableOpacity>
+
+      {/* Coin flip — centre, most prominent */}
+      <TouchableOpacity style={[styles.divBtn, styles.coinBtn]} onPress={flipCoin} activeOpacity={0.7}>
+        {coinResult ? (
+          <Animated.Text
+            style={[
+              styles.coinResultText,
+              { transform: [{ scale: coinScale }], opacity: coinOpacity },
+            ]}
+          >
+            {coinResult}
+          </Animated.Text>
+        ) : (
+          <Text style={styles.coinIcon}>🪙</Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Reset — far right */}
+      <TouchableOpacity style={styles.divBtn} onPress={handleReset}>
+        <Ionicons name="refresh" size={15} color="rgba(255,255,255,0.35)" />
       </TouchableOpacity>
     </View>
   );
 
   const VertDivider = () => <View style={styles.vertDivider} />;
 
-  // ── Layouts ────────────────────────────────────────────────────────────
+  // ── Layouts ─────────────────────────────────────────────────────────────
 
   const renderLayout = () => {
     const count = players.length;
@@ -67,7 +111,7 @@ export default function LifeScreen() {
     if (count === 2) {
       return (
         <>
-          {/* Top player — rotated so they can read from across the table */}
+          {/* Top player — rotated 180° to read from across the table */}
           <View style={[styles.half, styles.rotated]}>
             <PlayerPanel
               player={players[0]}
@@ -96,7 +140,6 @@ export default function LifeScreen() {
     if (count === 3) {
       return (
         <>
-          {/* Top — full-width, rotated */}
           <View style={[styles.third, styles.rotated]}>
             <PlayerPanel
               player={players[0]}
@@ -109,7 +152,6 @@ export default function LifeScreen() {
 
           <Divider />
 
-          {/* Bottom two side-by-side */}
           <View style={[styles.third, styles.row]}>
             <PlayerPanel
               player={players[1]}
@@ -189,7 +231,6 @@ export default function LifeScreen() {
     <View style={styles.root}>
       {renderLayout()}
 
-      {/* Commander damage sheet */}
       {cmdTarget && (
         <CommanderDamageSheet
           targetPlayer={cmdTarget}
@@ -206,23 +247,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
-  half: {
-    flex: 1,
-  },
-  third: {
-    flex: 1,
-  },
-  fill: {
-    flex: 1,
-  },
-  row: {
-    flexDirection: "row",
-  },
-  rotated: {
-    transform: [{ rotate: "180deg" }],
-  },
+  half: { flex: 1 },
+  third: { flex: 1 },
+  fill: { flex: 1 },
+  row: { flexDirection: "row" },
+  rotated: { transform: [{ rotate: "180deg" }] },
   divider: {
-    height: 38,
+    height: 44,
     backgroundColor: "#080808",
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -230,7 +261,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 12,
     zIndex: 20,
   },
   divBtn: {
@@ -247,6 +278,23 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
+  },
+  coinBtn: {
+    width: 80,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    overflow: "hidden",
+  },
+  coinIcon: {
+    fontSize: 18,
+    textAlign: "center",
+  },
+  coinResultText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textAlign: "center",
   },
   vertDivider: {
     width: 1,
