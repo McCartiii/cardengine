@@ -17,3 +17,4 @@ apps/api/prisma/dev.db-journal
 apps/api/src/generated/
 apps/api/pglite-data/
 
+apps/api/pglite-test/
