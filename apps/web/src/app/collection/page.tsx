@@ -25,7 +25,7 @@ export default function CollectionPage() {
 
   useEffect(() => {
     api.collection.value()
-      .then(setData)
+      .then((d) => setData(d as CollectionValue))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
