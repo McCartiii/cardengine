@@ -60,12 +60,12 @@ const prismaPromise = createPrismaClient();
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
     if (prop === "then") return undefined; // Prevent treating proxy as thenable
-    if (prismaInstance) return (prismaInstance as Record<string | symbol, unknown>)[prop];
+    if (prismaInstance) return (prismaInstance as unknown as Record<string | symbol, unknown>)[prop];
     // Return an async function that awaits init then forwards the call
     return (...args: unknown[]) =>
       prismaPromise.then((client) => {
         prismaInstance = client;
-        const val = (client as Record<string | symbol, unknown>)[prop];
+        const val = (client as unknown as Record<string | symbol, unknown>)[prop];
         return typeof val === "function" ? (val as Function).apply(client, args) : val;
       });
   },
