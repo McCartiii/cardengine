@@ -10,13 +10,12 @@ COPY packages/mtg-adapter/package.json ./packages/mtg-adapter/
 # Install all deps (workspace-aware)
 RUN npm ci
 
-# Copy prisma schema and generate client
+# Copy prisma schema and source
 COPY apps/api/prisma ./apps/api/prisma
-RUN cd apps/api && npx prisma generate
-
-# Copy source and build
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/
+
+# Generate Prisma client then build
 RUN npm run build:api
 
 WORKDIR /repo/apps/api
