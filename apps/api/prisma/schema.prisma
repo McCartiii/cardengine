@@ -16,14 +16,13 @@ model User {
   dateOfBirth DateTime? @map("date_of_birth")
   displayName String?  @map("display_name")
   avatarUrl   String?  @map("avatar_url")
+  banned      Boolean  @default(false)
 
   collectionEvents CollectionEvent[]
   watchlist        WatchlistEntry[]
-  checkins         Checkin[]
-  blocksGiven      UserBlock[]       @relation("blocks_given")
-  blocksReceived   UserBlock[]       @relation("blocks_received")
-  reports          Report[]
   notifications    Notification[]
+  decks            Deck[]
+  pushTokens       PushToken[]
 }
 
 model CardVariant {
@@ -50,6 +49,7 @@ model CardVariant {
 
   prices           PricePoint[]
   collectionEvents CollectionEvent[]
+  deckCards        DeckCard[]
 
   @@index([game, name])
   @@index([game, setId, collectorNumber])
@@ -63,7 +63,7 @@ model CollectionEvent {
   variantId String
   payload   Json
 
-  user    User        @relation(fields: [userId], references: [id])
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   variant CardVariant @relation(fields: [variantId], references: [variantId])
 
   @@index([userId, at])
@@ -109,7 +109,7 @@ model WatchlistEntry {
   enabled         Boolean  @default(true)
   createdAt       DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, enabled])
 }
@@ -124,12 +124,49 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read, createdAt])
 }
 
-// ── Local Scene ──
+// ── Decks ──
+
+model Deck {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  format      String   @default("commander") // commander, standard, modern, pioneer, legacy, vintage, pauper, oathbreaker
+  game        String   @default("mtg")
+  commander   String?  // primary commander name (EDH/Oathbreaker)
+  partner     String?  // partner commander name if applicable
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards DeckCard[]
+
+  @@index([userId, format])
+  @@index([game, isPublic])
+}
+
+model DeckCard {
+  id        String  @id @default(cuid())
+  deckId    String
+  variantId String? // null if card not yet in our DB
+  cardName  String
+  quantity  Int     @default(1)
+  section   String  @default("mainboard") // mainboard | sideboard | commander | companion
+
+  deck    Deck         @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  variant CardVariant? @relation(fields: [variantId], references: [variantId])
+
+  @@index([deckId])
+  @@index([variantId])
+}
+
+// ── Shop Directory ──
 
 model Shop {
   id        String   @id @default(cuid())
@@ -149,49 +186,8 @@ model Shop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  checkins     Checkin[]
-
   @@index([city, state])
   @@index([lat, lng])
-}
-
-model Checkin {
-  id     String   @id @default(cuid())
-  userId String
-  shopId String
-  at     DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-  shop Shop @relation(fields: [shopId], references: [id])
-
-  @@index([shopId, at])
-  @@index([userId, at])
-}
-
-model UserBlock {
-  id        String   @id @default(cuid())
-  userId    String
-  blockedId String
-  createdAt DateTime @default(now())
-
-  user    User @relation("blocks_given", fields: [userId], references: [id])
-  blocked User @relation("blocks_received", fields: [blockedId], references: [id])
-
-  @@unique([userId, blockedId])
-}
-
-model Report {
-  id         String   @id @default(cuid())
-  reporterId String
-  targetType String // "user" | "message" | "post"
-  targetId   String
-  reason     String
-  createdAt  DateTime @default(now())
-  resolved   Boolean  @default(false)
-
-  reporter User @relation(fields: [reporterId], references: [id])
-
-  @@index([resolved, createdAt])
 }
 
 // ── EDHREC Cache ──
@@ -236,4 +232,19 @@ model RulesDisagreement {
 
   @@index([formatId, createdAt])
   @@index([violationCode])
+}
+
+// ── Push notification tokens ──
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   // "ios" | "android" | "web"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

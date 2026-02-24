@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "CardEngine",
+    "slug": "cardengine",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "cardengine",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#0a0a0a"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "CardEngine needs camera access to scan your cards.",
+          "enableCodeScanner": false,
+          "enableLocation": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "CardEngine uses your location to find nearby game stores."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.cardengine.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "CardEngine uses the camera to scan MTG cards into your collection.",
+        "NSLocationWhenInUseUsageDescription": "CardEngine uses your location to find nearby game stores."
+      }
+    },
+    "android": {
+      "package": "com.cardengine.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0a"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    }
+  }
+}

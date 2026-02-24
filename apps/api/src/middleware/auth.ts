@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { supabaseAdmin } from "../supabase.js";
+import { prisma } from "../db.js";
 
 export interface AuthUser {
   sub: string; // user ID (UUID)
@@ -32,11 +33,20 @@ export async function extractUser(req: FastifyRequest): Promise<AuthUser | null>
 /**
  * Fastify preHandler hook that requires authentication.
  * Sets request.user with the verified user payload.
+ * Rejects with 403 if the user's account has been banned.
  */
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const user = await extractUser(req);
   if (!user) {
     reply.code(401).send({ error: "Unauthorized" });
+    return;
+  }
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.sub },
+    select: { banned: true },
+  });
+  if (dbUser?.banned) {
+    reply.code(403).send({ error: "Account suspended" });
     return;
   }
   (req as FastifyRequest & { user: AuthUser }).user = user;

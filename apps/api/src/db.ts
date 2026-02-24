@@ -25,6 +25,28 @@ async function createPrismaClient(): Promise<PrismaClient> {
   console.log("[db] Starting PGlite (embedded Postgres)...");
   const pglite = new PGlite("./pglite-data");
   await pglite.ready;
+
+  // Apply schema migrations if tables don't exist yet
+  const tableCheck = await pglite.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'User' LIMIT 1`
+  );
+  if ((tableCheck.rows as unknown[]).length === 0) {
+    const { readFileSync, readdirSync } = await import("fs");
+    const { fileURLToPath } = await import("url");
+    const { dirname, join } = await import("path");
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const migrationsDir = join(__dirname, "../prisma/migrations");
+    const migrationFolders = readdirSync(migrationsDir)
+      .filter((f) => !f.startsWith("."))
+      .sort();
+    for (const folder of migrationFolders) {
+      const sqlPath = join(migrationsDir, folder, "migration.sql");
+      const sql = readFileSync(sqlPath, "utf-8");
+      await pglite.exec(sql);
+      console.log(`[db] Applied migration: ${folder}`);
+    }
+  }
+
   const adapter = new PrismaPGlite(pglite);
   const client = new PrismaClient({ adapter });
   console.log("[db] PGlite ready");

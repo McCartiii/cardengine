@@ -1,10 +1,10 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { requireAuth, type AuthUser } from "../middleware/auth.js";
+import { requireAuth } from "../middleware/auth.js";
 
 export function registerLocalSceneRoutes(app: FastifyInstance) {
-  // List shops
+  // List shops — optionally filter by city or proximity (lat/lng/radius)
   app.get("/v1/shops", async (req) => {
     const query = z
       .object({
@@ -42,8 +42,19 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
     return { shops: results };
   });
 
-  // Create shop
-  app.post("/v1/shops", async (req) => {
+  // Get single shop
+  app.get("/v1/shops/:id", async (req, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const shop = await prisma.shop.findUnique({ where: { id } });
+    if (!shop) {
+      reply.code(404).send({ error: "Not found" });
+      return;
+    }
+    return { shop };
+  });
+
+  // Submit a shop (admin-verified later)
+  app.post("/v1/shops", { preHandler: [requireAuth] }, async (req) => {
     const body = z
       .object({
         name: z.string().min(1),
@@ -55,78 +66,13 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
         lat: z.number().optional(),
         lng: z.number().optional(),
         phone: z.string().optional(),
-        website: z.string().optional(),
+        website: z.string().url().optional(),
         hours: z.string().optional(),
         category: z.string().default("card_shop"),
       })
       .parse(req.body);
     const shop = await prisma.shop.create({ data: body });
     return { ok: true, shop };
-  });
-
-  // Get shop by id
-  app.get("/v1/shops/:id", async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params);
-    const shop = await prisma.shop.findUnique({ where: { id } });
-    if (!shop) return { error: "Not found" };
-    return { shop };
-  });
-
-  // Check in
-  app.post("/v1/checkins", { preHandler: [requireAuth] }, async (req) => {
-    const user = (req as FastifyRequest & { user: AuthUser }).user;
-    const body = z.object({ shopId: z.string() }).parse(req.body);
-    const checkin = await prisma.checkin.create({
-      data: { userId: user.sub, shopId: body.shopId },
-    });
-    return { ok: true, checkin };
-  });
-
-  // List checkins
-  app.get("/v1/shops/:shopId/checkins", async (req) => {
-    const { shopId } = z.object({ shopId: z.string() }).parse(req.params);
-    const checkins = await prisma.checkin.findMany({
-      where: { shopId },
-      orderBy: { at: "desc" },
-      take: 50,
-    });
-    return { checkins };
-  });
-
-  // Report
-  app.post("/v1/report", { preHandler: [requireAuth] }, async (req) => {
-    const user = (req as FastifyRequest & { user: AuthUser }).user;
-    const body = z
-      .object({
-        targetType: z.enum(["user", "message", "post"]),
-        targetId: z.string(),
-        reason: z.string().min(1).max(500),
-      })
-      .parse(req.body);
-    const report = await prisma.report.create({
-      data: { reporterId: user.sub, ...body },
-    });
-    return { ok: true, report };
-  });
-
-  // Block user
-  app.post("/v1/block", { preHandler: [requireAuth] }, async (req) => {
-    const user = (req as FastifyRequest & { user: AuthUser }).user;
-    const body = z.object({ blockedId: z.string() }).parse(req.body);
-    const block = await prisma.userBlock.create({
-      data: { userId: user.sub, blockedId: body.blockedId },
-    });
-    return { ok: true, block };
-  });
-
-  // Unblock
-  app.delete("/v1/block", { preHandler: [requireAuth] }, async (req) => {
-    const user = (req as FastifyRequest & { user: AuthUser }).user;
-    const body = z.object({ blockedId: z.string() }).parse(req.body);
-    await prisma.userBlock.deleteMany({
-      where: { userId: user.sub, blockedId: body.blockedId },
-    });
-    return { ok: true };
   });
 }
 

@@ -6,6 +6,8 @@ import { prisma, dbReady } from "./db.js";
 import { ingestScryfallBulk } from "./jobs/scryfallIngest.js";
 import { registerLocalSceneRoutes } from "./routes/localScene.js";
 import { registerTelemetryRoutes } from "./routes/telemetry.js";
+import { registerDeckRoutes } from "./routes/decks.js";
+import { fetchEdhrecCommander, sanitizeCommanderName } from "./services/edhrec.js";
 import { requireAuth, extractUser, optionalAuth, type AuthUser } from "./middleware/auth.js";
 import { suggestDecks, getRecommendations, getSwapSuggestions } from "./services/deckAdvisor.js";
 import type { FastifyRequest, FastifyReply } from "fastify";
@@ -14,7 +16,28 @@ const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 
 // ── Health ──
-app.get("/health", async () => ({ ok: true }));
+app.get("/health", async () => {
+  let dbStatus = "ok";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    dbStatus = "error";
+  }
+  return { ok: dbStatus === "ok", db: dbStatus, version: process.env.npm_package_version ?? "1.0.0" };
+});
+
+// ── Admin: stats ──
+app.get("/admin/stats", { preHandler: [requireAdmin] }, async () => {
+  const [users, cards, decks, collections, watchlist, notifications] = await Promise.all([
+    prisma.user.count(),
+    prisma.cardVariant.count(),
+    prisma.deck.count(),
+    prisma.collectionEvent.count(),
+    prisma.watchlistEntry.count(),
+    prisma.notification.count(),
+  ]);
+  return { users, cards, decks, collections, watchlist, notifications };
+});
 
 // ── Collection sync ──
 app.post("/v1/collection/events", { preHandler: [requireAuth] }, async (req) => {
@@ -48,8 +71,15 @@ app.post("/v1/collection/events", { preHandler: [requireAuth] }, async (req) => 
   return { ok: true, inserted: created.count };
 });
 
-app.get("/v1/collection/:userId", async (req) => {
+app.get("/v1/collection/:userId", { preHandler: [requireAuth] }, async (req, reply) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
   const params = z.object({ userId: z.string() }).parse(req.params);
+
+  if (params.userId !== user.sub) {
+    reply.code(403).send({ error: "Forbidden" });
+    return;
+  }
+
   const query = z.object({ since: z.string().optional() }).parse(req.query);
 
   const where: Record<string, unknown> = { userId: params.userId };
@@ -75,7 +105,7 @@ app.get("/v1/collection/:userId", async (req) => {
 });
 
 // ── Card detail ──
-app.get("/v1/cards/:variantId", async (req) => {
+app.get("/v1/cards/:variantId", async (req, reply) => {
   const params = z.object({ variantId: z.string() }).parse(req.params);
   const query = z
     .object({
@@ -88,7 +118,8 @@ app.get("/v1/cards/:variantId", async (req) => {
   });
 
   if (!card) {
-    return { error: "Card not found" };
+    reply.code(404).send({ error: "Card not found" });
+    return;
   }
 
   // Scryfall ID extracted from variantId (format: "scryfall:<uuid>" or "scryfall:<uuid>-foil")
@@ -120,8 +151,8 @@ app.get("/v1/cards/:variantId", async (req) => {
     if (scRes.ok) {
       scryfallLive = await scRes.json();
     }
-  } catch {
-    // Non-critical: fall back to cached prices
+  } catch (err) {
+    app.log.warn({ err }, "[card-detail] Failed to fetch live Scryfall prices; using cached");
   }
 
   // Build comprehensive store pricing with live data
@@ -228,41 +259,34 @@ app.get("/v1/cards/:variantId", async (req) => {
       }
     }
 
-    // Persist today's prices as PricePoints (one per market/kind/day)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // Persist today's prices as PricePoints (one per market/kind/day, idempotent)
+    const nowDate = new Date();
+    const dateUTC = nowDate.toISOString().slice(0, 10); // YYYY-MM-DD in UTC
+    const todayStartUTC = new Date(`${dateUTC}T00:00:00.000Z`);
     for (const lp of livePriceEntries) {
       try {
-        const existing = await prisma.pricePoint.findFirst({
-          where: {
+        await prisma.pricePoint.upsert({
+          where: { id: `pp-${params.variantId}-${lp.market}-${lp.kind}-${dateUTC}` },
+          update: { amount: lp.amount },
+          create: {
+            id: `pp-${params.variantId}-${lp.market}-${lp.kind}-${dateUTC}`,
             variantId: params.variantId,
             market: lp.market,
             kind: lp.kind,
-            at: { gte: todayStart },
+            currency: lp.currency,
+            amount: lp.amount,
+            at: nowDate,
           },
         });
-        if (!existing) {
-          await prisma.pricePoint.create({
-            data: {
-              id: `pp-${params.variantId}-${lp.market}-${lp.kind}-${Date.now()}`,
-              variantId: params.variantId,
-              market: lp.market,
-              kind: lp.kind,
-              currency: lp.currency,
-              amount: lp.amount,
-              at: new Date(),
-            },
-          });
-        }
-      } catch {
-        // Non-critical: skip if insert fails
+      } catch (err) {
+        app.log.warn({ err }, "[card-detail] Failed to persist price point");
       }
     }
 
     // ── Backfill synthetic history if this card has no historical data ──
     // Uses the current price as baseline and generates realistic daily variance
     const existingHistory = await prisma.pricePoint.count({
-      where: { variantId: params.variantId, at: { lt: todayStart } },
+      where: { variantId: params.variantId, at: { lt: todayStartUTC } },
     });
     if (existingHistory === 0 && livePriceEntries.length > 0) {
       const backfillDays = Math.min(query.historyDays, 90);
@@ -304,8 +328,8 @@ app.get("/v1/cards/:variantId", async (req) => {
                 at,
               },
             });
-          } catch {
-            // Skip duplicates
+          } catch (err) {
+            app.log.debug({ err }, "[card-detail] Backfill insert skipped (likely duplicate)");
           }
         }
       }
@@ -877,10 +901,8 @@ app.post("/v1/deck/import", async (req) => {
         break;
       }
     }
-    // If no exact match, prefer cards with prices, non-foil variants
-    if (!best.variantId.includes("-foil")) {
-      // good
-    } else {
+    // If no exact match, prefer non-foil variants with prices
+    if (best.variantId.endsWith("-foil")) {
       const nonFoil = cands.find((c) => !c.variantId.endsWith("-foil") && priceMap.has(c.variantId));
       if (nonFoil) best = nonFoil;
     }
@@ -953,6 +975,253 @@ app.post("/v1/deck/swaps", { preHandler: [optionalAuth] }, async (req) => {
   });
 
   return { swaps };
+});
+
+// ── EDHRec: standalone commander lookup ──
+app.get("/v1/edhrec/commander/:name", async (req, reply) => {
+  const { name } = z.object({ name: z.string().min(1) }).parse(req.params);
+  const data = await fetchEdhrecCommander(name);
+  if (!data) return reply.code(404).send({ error: "Commander not found on EDHREC" });
+  return {
+    commander: name,
+    sanitized: sanitizeCommanderName(name),
+    num_decks: data.num_decks_avg,
+    avg_price: data.avg_price,
+    themes: data.themes,
+    similar: data.similar,
+    recommendations: data.cardlists.map((c) => ({
+      name: c.name,
+      synergy: c.synergy,
+      inclusion: Math.round(c.inclusion * 100),
+      primary_type: c.primary_type,
+      cmc: c.cmc,
+      color_identity: c.color_identity,
+      image: c.image_uris?.[0]?.normal ?? null,
+      price_usd: c.prices?.usd?.price ?? null,
+    })),
+  };
+});
+
+// ── AI deck advice (Claude) ──
+app.post("/v1/ai/deck-advice", { preHandler: [requireAuth] }, async (req, reply) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return reply.code(503).send({ error: "AI advice not configured" });
+
+  const body = z
+    .object({
+      deckId: z.string().optional(),
+      commander: z.string().optional(),
+      cards: z.array(z.object({ name: z.string(), quantity: z.number().default(1), section: z.string().default("mainboard") })).optional(),
+      question: z.string().max(500).default("What are the main weaknesses and top 5 improvements for this deck?"),
+    })
+    .parse(req.body);
+
+  if (!body.deckId && (!body.cards || body.cards.length === 0)) {
+    return reply.code(400).send({ error: "Provide deckId or cards[]" });
+  }
+
+  let cards = body.cards ?? [];
+  let commander = body.commander ?? null;
+  let deckName = "Unnamed deck";
+
+  if (body.deckId) {
+    const user = (req as FastifyRequest & { user: AuthUser }).user;
+    const deck = await prisma.deck.findUnique({
+      where: { id: body.deckId },
+      include: { cards: true },
+    });
+    if (!deck) return reply.code(404).send({ error: "Deck not found" });
+    if (deck.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+    cards = deck.cards.map((c) => ({ name: c.cardName, quantity: c.quantity, section: c.section }));
+    commander = deck.commander ?? deck.cards.find((c) => c.section === "commander")?.cardName ?? null;
+    deckName = deck.name;
+  }
+
+  const deckList = cards
+    .map((c) => `${c.quantity}x ${c.name}${c.section !== "mainboard" ? ` [${c.section}]` : ""}`)
+    .join("\n");
+
+  const prompt = [
+    `You are an expert Magic: The Gathering deck advisor.`,
+    commander ? `Commander: ${commander}` : "",
+    `Deck: ${deckName}`,
+    `\nDecklist:\n${deckList}`,
+    `\nUser question: ${body.question}`,
+    `\nProvide concise, actionable advice. Focus on synergies, weaknesses, budget-friendly improvements, and specific card recommendations. Format with clear sections.`,
+  ].filter(Boolean).join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-opus-4-6",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    app.log.error({ status: res.status }, "[ai/deck-advice] Anthropic API error");
+    return reply.code(502).send({ error: "AI service error" });
+  }
+
+  const data = await res.json() as { content: Array<{ type: string; text: string }> };
+  const text = data.content.find((b) => b.type === "text")?.text ?? "";
+  return { advice: text };
+});
+
+// ── Collection cards (enriched) ──
+app.get("/v1/collection/cards", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const query = z
+    .object({
+      q: z.string().optional(),
+      market: z.string().default("tcgplayer"),
+      kind: z.string().default("normal"),
+      currency: z.string().default("USD"),
+      sort: z.enum(["name", "value", "qty", "added"]).default("value"),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(60),
+    })
+    .parse(req.query);
+
+  // Compute net quantities from events
+  const events = await prisma.collectionEvent.findMany({
+    where: { userId: user.sub },
+    select: { variantId: true, payload: true, type: true, at: true },
+    orderBy: { at: "asc" },
+  });
+
+  const qtys = new Map<string, number>();
+  const firstAdded = new Map<string, Date>();
+  for (const e of events) {
+    const payload = e.payload as { qty?: number; quantity?: number };
+    const delta = e.type === "add"
+      ? (payload.qty ?? payload.quantity ?? 1)
+      : -(payload.qty ?? payload.quantity ?? 1);
+    qtys.set(e.variantId, (qtys.get(e.variantId) ?? 0) + delta);
+    if (!firstAdded.has(e.variantId)) firstAdded.set(e.variantId, e.at);
+  }
+
+  const owned = [...qtys.entries()].filter(([, q]) => q > 0);
+  const variantIds = owned.map(([id]) => id);
+
+  if (variantIds.length === 0) {
+    return { cards: [], totalCards: 0, totalValue: 0, page: query.page, hasMore: false };
+  }
+
+  // Fetch card details
+  const variants = await prisma.cardVariant.findMany({
+    where: {
+      variantId: { in: variantIds },
+      ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
+    },
+  });
+
+  // Fetch prices
+  const prices = await prisma.priceCache.findMany({
+    where: { variantId: { in: variantIds }, market: query.market, kind: query.kind, currency: query.currency },
+  });
+  const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+
+  const cards = variants.map((v) => {
+    const qty = qtys.get(v.variantId) ?? 0;
+    const price = priceMap.get(v.variantId) ?? null;
+    return {
+      variantId: v.variantId,
+      name: v.name,
+      imageUri: v.imageUri,
+      setId: v.setId,
+      collectorNumber: v.collectorNumber,
+      rarity: v.rarity,
+      typeLine: v.typeLine,
+      manaCost: v.manaCost,
+      colors: v.colors,
+      quantity: qty,
+      priceUsd: price,
+      lineValue: price != null ? price * qty : null,
+      addedAt: firstAdded.get(v.variantId)?.toISOString() ?? null,
+    };
+  });
+
+  // Sort
+  cards.sort((a, b) => {
+    switch (query.sort) {
+      case "name": return a.name.localeCompare(b.name);
+      case "qty": return b.quantity - a.quantity;
+      case "added": return (b.addedAt ?? "").localeCompare(a.addedAt ?? "");
+      case "value":
+      default: return (b.lineValue ?? 0) - (a.lineValue ?? 0);
+    }
+  });
+
+  const totalValue = cards.reduce((s, c) => s + (c.lineValue ?? 0), 0);
+  const start = (query.page - 1) * query.limit;
+  const page = cards.slice(start, start + query.limit);
+
+  return {
+    cards: page,
+    totalCards: cards.length,
+    totalValue: Math.round(totalValue * 100) / 100,
+    page: query.page,
+    hasMore: start + query.limit < cards.length,
+  };
+});
+
+// ── Collection portfolio value ──
+app.get("/v1/collection/value", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const query = z
+    .object({
+      market: z.string().default("tcgplayer"),
+      kind: z.string().default("normal"),
+      currency: z.string().default("USD"),
+    })
+    .parse(req.query);
+
+  // Get all unique variantIds the user owns (net qty > 0)
+  const events = await prisma.collectionEvent.findMany({
+    where: { userId: user.sub },
+    select: { variantId: true, payload: true, type: true },
+  });
+
+  const qtys = new Map<string, number>();
+  for (const e of events) {
+    const payload = e.payload as { qty?: number };
+    const delta = e.type === "add" ? (payload.qty ?? 1) : -(payload.qty ?? 1);
+    qtys.set(e.variantId, (qtys.get(e.variantId) ?? 0) + delta);
+  }
+
+  const owned = [...qtys.entries()].filter(([, q]) => q > 0);
+  const variantIds = owned.map(([id]) => id);
+
+  const prices = variantIds.length > 0
+    ? await prisma.priceCache.findMany({
+        where: { variantId: { in: variantIds }, market: query.market, kind: query.kind, currency: query.currency },
+      })
+    : [];
+  const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+
+  let totalValue = 0;
+  const breakdown = owned.map(([variantId, qty]) => {
+    const price = priceMap.get(variantId) ?? 0;
+    totalValue += price * qty;
+    return { variantId, qty, price, lineValue: price * qty };
+  });
+
+  // Sort by value descending
+  breakdown.sort((a, b) => b.lineValue - a.lineValue);
+
+  return {
+    totalValue: Math.round(totalValue * 100) / 100,
+    currency: query.currency,
+    cardCount: owned.length,
+    breakdown: breakdown.slice(0, 100), // top 100 by value
+  };
 });
 
 // ── Bundles (Phase 2) — cursor-paginated with delta sync ──
@@ -1047,7 +1316,7 @@ app.get("/v1/bundles/:game/count", async (req) => {
 });
 
 // ── Prices ──
-app.get("/v1/prices/:market", async (req) => {
+app.get("/v1/prices/:market", async (req, reply) => {
   const params = z.object({ market: z.string() }).parse(req.params);
   const query = z
     .object({
@@ -1058,9 +1327,14 @@ app.get("/v1/prices/:market", async (req) => {
     })
     .parse(req.query);
 
+  if (query.variantIds.length === 0) {
+    reply.code(400).send({ error: "variantIds query param is required" });
+    return;
+  }
+
   const where: Record<string, unknown> = {
     market: params.market,
-    ...(query.variantIds.length ? { variantId: { in: query.variantIds } } : {}),
+    variantId: { in: query.variantIds },
   };
 
   const cached = await prisma.priceCache.findMany({ where });
@@ -1130,14 +1404,65 @@ app.post("/v1/watchlist", { preHandler: [requireAuth] }, async (req) => {
 app.get("/v1/watchlist", { preHandler: [requireAuth] }, async (req) => {
   const user = (req as FastifyRequest & { user: AuthUser }).user;
   const entries = await prisma.watchlistEntry.findMany({
-    where: { userId: user.sub, enabled: true },
+    where: { userId: user.sub },
     orderBy: { createdAt: "desc" },
   });
-  return { entries };
+
+  // Attach current cached price to each entry
+  const variantIds = [...new Set(entries.map((e) => e.variantId))];
+  const prices = variantIds.length > 0
+    ? await prisma.priceCache.findMany({
+        where: { variantId: { in: variantIds } },
+      })
+    : [];
+  const priceIndex = new Map(prices.map((p) => [`${p.variantId}:${p.market}:${p.kind}:${p.currency}`, p.amount]));
+
+  // Attach card names
+  const variants = variantIds.length > 0
+    ? await prisma.cardVariant.findMany({
+        where: { variantId: { in: variantIds } },
+        select: { variantId: true, name: true, imageUri: true },
+      })
+    : [];
+  const variantMap = new Map(variants.map((v) => [v.variantId, v]));
+
+  return {
+    entries: entries.map((e) => ({
+      ...e,
+      currentPrice: priceIndex.get(`${e.variantId}:${e.market}:${e.kind}:${e.currency}`) ?? null,
+      cardName: variantMap.get(e.variantId)?.name ?? e.variantId,
+      imageUri: variantMap.get(e.variantId)?.imageUri ?? null,
+    })),
+  };
+});
+
+app.delete("/v1/watchlist/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const { id } = z.object({ id: z.string() }).parse(req.params);
+  const entry = await prisma.watchlistEntry.findUnique({ where: { id } });
+  if (!entry) return reply.code(404).send({ error: "Not found" });
+  if (entry.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+  await prisma.watchlistEntry.delete({ where: { id } });
+  return { ok: true };
+});
+
+app.patch("/v1/watchlist/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const { id } = z.object({ id: z.string() }).parse(req.params);
+  const body = z.object({ enabled: z.boolean() }).parse(req.body);
+  const entry = await prisma.watchlistEntry.findUnique({ where: { id } });
+  if (!entry) return reply.code(404).send({ error: "Not found" });
+  if (entry.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+  await prisma.watchlistEntry.update({ where: { id }, data: body });
+  return { ok: true };
 });
 
 // ── Dev seed ──
-app.post("/dev/seed", async () => {
+app.post("/dev/seed", async (req, reply) => {
+  if (process.env.NODE_ENV === "production") {
+    reply.code(404).send({ error: "Not Found" });
+    return;
+  }
   const user = await prisma.user.upsert({
     where: { id: "dev-user" },
     update: {},
@@ -1188,6 +1513,7 @@ app.post("/dev/seed", async () => {
 // ── Register route modules ──
 registerLocalSceneRoutes(app);
 registerTelemetryRoutes(app);
+registerDeckRoutes(app);
 
 // ── Admin guard ──
 const ADMIN_IDS = (process.env.ADMIN_USER_IDS ?? "").split(",").filter(Boolean);
@@ -1215,37 +1541,10 @@ app.post("/admin/ingest/scryfall", { preHandler: [requireAdmin] }, async (req) =
   return { ok: true, ...result };
 });
 
-// ── Admin: moderation endpoints (Phase 4) ──
-app.get("/admin/reports", { preHandler: [requireAdmin] }, async (req) => {
-  const query = z
-    .object({
-      resolved: z.coerce.boolean().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(50),
-    })
-    .parse(req.query);
-
-  const where: Record<string, unknown> = {};
-  if (query.resolved !== undefined) where.resolved = query.resolved;
-
-  const reports = await prisma.report.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: query.limit,
-  });
-  return { reports };
-});
-
-app.post("/admin/reports/:id/resolve", { preHandler: [requireAdmin] }, async (req) => {
-  const { id } = z.object({ id: z.string() }).parse(req.params);
-  const report = await prisma.report.update({
-    where: { id },
-    data: { resolved: true },
-  });
-  return { ok: true, report };
-});
-
+// ── Admin ──
 app.post("/admin/users/:id/ban", { preHandler: [requireAdmin] }, async (req) => {
   const { id } = z.object({ id: z.string() }).parse(req.params);
+  await prisma.user.update({ where: { id }, data: { banned: true } });
   return { ok: true, userId: id };
 });
 
@@ -1269,6 +1568,42 @@ if (process.env.ENABLE_PRICE_REFRESH !== "false") {
   console.log("[price-refresh] Scheduled daily price refresh.");
 }
 
+// ── Expo push notification helper ──
+
+interface ExpoPushMessage {
+  to: string | string[];
+  title?: string;
+  body: string;
+  data?: Record<string, unknown>;
+  sound?: "default" | null;
+  badge?: number;
+}
+
+async function sendExpoPushNotifications(messages: ExpoPushMessage[]) {
+  if (messages.length === 0) return;
+  // Expo push API accepts batches of up to 100
+  const BATCH = 100;
+  for (let i = 0; i < messages.length; i += BATCH) {
+    const batch = messages.slice(i, i + BATCH);
+    try {
+      const res = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+        },
+        body: JSON.stringify(batch),
+      });
+      if (!res.ok) {
+        app.log.warn(`[expo-push] HTTP ${res.status}: ${await res.text()}`);
+      }
+    } catch (err) {
+      app.log.warn({ err }, "[expo-push] Failed to send batch");
+    }
+  }
+}
+
 // ── Watchlist check job (Phase 3) ──
 async function checkWatchlistAlerts() {
   try {
@@ -1276,16 +1611,28 @@ async function checkWatchlistAlerts() {
       where: { enabled: true },
     });
 
-    for (const entry of entries) {
-      const cache = await prisma.priceCache.findFirst({
-        where: {
-          variantId: entry.variantId,
-          market: entry.market,
-          kind: entry.kind,
-          currency: entry.currency,
-        },
-      });
+    const uniqueVariantIds = [...new Set(entries.map((e) => e.variantId))];
+    const allPrices = await prisma.priceCache.findMany({
+      where: { variantId: { in: uniqueVariantIds } },
+    });
+    const priceIndex = new Map<string, typeof allPrices[0]>();
+    for (const p of allPrices) {
+      priceIndex.set(`${p.variantId}:${p.market}:${p.kind}:${p.currency}`, p);
+    }
 
+    // Collect card names for nicer notification copy
+    const variants = uniqueVariantIds.length > 0
+      ? await prisma.cardVariant.findMany({
+          where: { variantId: { in: uniqueVariantIds } },
+          select: { variantId: true, name: true },
+        })
+      : [];
+    const nameIndex = new Map(variants.map((v) => [v.variantId, v.name]));
+
+    const pushMessages: ExpoPushMessage[] = [];
+
+    for (const entry of entries) {
+      const cache = priceIndex.get(`${entry.variantId}:${entry.market}:${entry.kind}:${entry.currency}`);
       if (!cache) continue;
 
       const triggered =
@@ -1293,13 +1640,20 @@ async function checkWatchlistAlerts() {
           ? cache.amount >= entry.thresholdAmount
           : cache.amount <= entry.thresholdAmount;
 
-      if (triggered) {
-        await prisma.notification.create({
+      if (!triggered) continue;
+
+      const cardName = nameIndex.get(entry.variantId) ?? entry.variantId;
+      const dirLabel = entry.direction === "above" ? "⬆ Above" : "⬇ Below";
+      const notifTitle = `${dirLabel} $${entry.thresholdAmount} — ${cardName}`;
+      const notifBody = `Now $${cache.amount.toFixed(2)} on ${cache.market} (${cache.kind})`;
+
+      await prisma.$transaction([
+        prisma.notification.create({
           data: {
             userId: entry.userId,
             type: "price_alert",
-            title: `Price Alert: ${entry.direction === "above" ? "Above" : "Below"} ${entry.thresholdAmount} ${entry.currency}`,
-            body: `Card variant ${entry.variantId} is now ${cache.amount} ${cache.currency} on ${cache.market}.`,
+            title: notifTitle,
+            body: notifBody,
             data: {
               variantId: entry.variantId,
               market: entry.market,
@@ -1308,15 +1662,32 @@ async function checkWatchlistAlerts() {
               direction: entry.direction,
             },
           },
-        });
-
-        // Disable after triggering to avoid spam
-        await prisma.watchlistEntry.update({
+        }),
+        prisma.watchlistEntry.update({
           where: { id: entry.id },
           data: { enabled: false },
-        });
+        }),
+      ]);
+
+      // Collect Expo push tokens for this user
+      const tokens = await prisma.pushToken.findMany({
+        where: { userId: entry.userId },
+        select: { token: true },
+      });
+      for (const { token } of tokens) {
+        if (token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken[")) {
+          pushMessages.push({
+            to: token,
+            title: notifTitle,
+            body: notifBody,
+            sound: "default",
+            data: { variantId: entry.variantId, screen: "card" },
+          });
+        }
       }
     }
+
+    await sendExpoPushNotifications(pushMessages);
   } catch (err) {
     console.error("[watchlist-check] Error:", err);
   }
@@ -1327,11 +1698,60 @@ if (process.env.ENABLE_WATCHLIST_CHECK !== "false") {
   setInterval(checkWatchlistAlerts, 60 * 60 * 1000);
 }
 
+// ── Push tokens ──
+
+app.post("/v1/push-token", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const { token, platform } = z
+    .object({
+      token: z.string().min(1),
+      platform: z.enum(["ios", "android", "web"]),
+    })
+    .parse(req.body);
+
+  await prisma.pushToken.upsert({
+    where: { token },
+    update: { userId: user.sub, updatedAt: new Date() },
+    create: { userId: user.sub, token, platform },
+  });
+  return { ok: true };
+});
+
+app.delete("/v1/push-token", { preHandler: [requireAuth] }, async (req) => {
+  const { token } = z.object({ token: z.string() }).parse(req.body);
+  await prisma.pushToken.deleteMany({ where: { token } });
+  return { ok: true };
+});
+
+// ── In-app notifications ──
+
+app.get("/v1/notifications", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  const notes = await prisma.notification.findMany({
+    where: { userId: user.sub },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return { notifications: notes };
+});
+
+app.patch("/v1/notifications/read-all", { preHandler: [requireAuth] }, async (req) => {
+  const user = (req as FastifyRequest & { user: AuthUser }).user;
+  await prisma.notification.updateMany({
+    where: { userId: user.sub, read: false },
+    data: { read: true },
+  });
+  return { ok: true };
+});
+
 // ── Profile (Phase 4) ──
-app.get("/v1/profile", { preHandler: [requireAuth] }, async (req) => {
+app.get("/v1/profile", { preHandler: [requireAuth] }, async (req, reply) => {
   const user = (req as FastifyRequest & { user: AuthUser }).user;
   const profile = await prisma.user.findUnique({ where: { id: user.sub } });
-  if (!profile) return { error: "Not found" };
+  if (!profile) {
+    reply.code(404).send({ error: "Not found" });
+    return;
+  }
   return {
     id: profile.id,
     displayName: profile.displayName,
@@ -1427,3 +1847,16 @@ const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? "0.0.0.0";
 await dbReady;
 await app.listen({ port, host });
+
+// ── Auto-ingest on first boot if DB is empty ──
+if (process.env.AUTO_INGEST_ON_EMPTY !== "false") {
+  const cardCount = await prisma.cardVariant.count();
+  if (cardCount === 0) {
+    console.log("[startup] No cards found — running initial Scryfall ingest...");
+    ingestScryfallBulk().then((r) => {
+      console.log(`[startup] Initial ingest complete: ${r.cardsProcessed} cards, ${r.pricesUpdated} prices`);
+    }).catch((err) => {
+      console.error("[startup] Initial ingest failed:", err);
+    });
+  }
+}
