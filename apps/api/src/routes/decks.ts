@@ -340,7 +340,7 @@ export function registerDeckRoutes(app: FastifyInstance) {
   });
 
   // ── Public deck view (no auth required) ──
-  app.get("/v1/decks/:id/public", async (req, reply) => {
+  app.get("/v1/decks/:id/public", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
     const deck = await prisma.deck.findUnique({
       where: { id },

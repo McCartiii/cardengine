@@ -1,9 +1,11 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { prisma, dbReady } from "./db.js";
 import { ingestScryfallBulk } from "./jobs/scryfallIngest.js";
+import { withAdvisoryLock } from "./jobs/leaderLock.js";
 import { registerLocalSceneRoutes } from "./routes/localScene.js";
 import { registerTelemetryRoutes } from "./routes/telemetry.js";
 import { registerDeckRoutes } from "./routes/decks.js";
@@ -11,12 +13,49 @@ import { fetchEdhrecCommander, sanitizeCommanderName } from "./services/edhrec.j
 import { requireAuth, extractUser, optionalAuth, type AuthUser } from "./middleware/auth.js";
 import { suggestDecks, getRecommendations, getSwapSuggestions } from "./services/deckAdvisor.js";
 import type { FastifyRequest, FastifyReply } from "fastify";
+import { TtlCache } from "./lib/ttlCache.js";
+
+interface ScryfallLivePrices {
+  usd: string | null;
+  usd_foil: string | null;
+  usd_etched: string | null;
+  eur: string | null;
+  eur_foil: string | null;
+  eur_etched: string | null;
+  tix: string | null;
+}
+
+interface ScryfallLiveData {
+  prices: ScryfallLivePrices;
+  purchase_uris?: Record<string, string>;
+  related_uris?: Record<string, string>;
+}
+
+// Cache Scryfall card API responses for 4 hours.
+// Scryfall prices update ~once daily from TCGplayer, so 4h is fresh enough.
+// 5000 entries * ~4KB each = ~20MB memory.
+const scryfallCache = new TtlCache<ScryfallLiveData>({
+  ttlMs: 4 * 60 * 60 * 1000,  // 4 hours
+  maxSize: 5_000,
+});
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
+await app.register(rateLimit, {
+  global: true,
+  max: 100,
+  timeWindow: "1 minute",
+  keyGenerator: (req) => {
+    // Railway proxy sets X-Forwarded-For with the real client IP
+    const forwarded = req.headers["x-forwarded-for"];
+    if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+    if (Array.isArray(forwarded)) return forwarded[0];
+    return req.ip;
+  },
+});
 
 // ── Health ──
-app.get("/health", async () => {
+app.get("/health", { config: { rateLimit: { max: 300, timeWindow: "1 minute" } } }, async () => {
   let dbStatus = "ok";
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -105,7 +144,7 @@ app.get("/v1/collection/:userId", { preHandler: [requireAuth] }, async (req, rep
 });
 
 // ── Card detail ──
-app.get("/v1/cards/:variantId", async (req, reply) => {
+app.get("/v1/cards/:variantId", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
   const params = z.object({ variantId: z.string() }).parse(req.params);
   const query = z
     .object({
@@ -128,31 +167,20 @@ app.get("/v1/cards/:variantId", async (req, reply) => {
   const collNum = card.collectorNumber ?? "";
   const encodedName = encodeURIComponent(card.name);
 
-  // ── Fetch LIVE prices from Scryfall API for this exact card ──
-  interface ScryfallLivePrices {
-    usd: string | null;
-    usd_foil: string | null;
-    usd_etched: string | null;
-    eur: string | null;
-    eur_foil: string | null;
-    eur_etched: string | null;
-    tix: string | null;
-  }
-  interface ScryfallLiveData {
-    prices: ScryfallLivePrices;
-    purchase_uris?: Record<string, string>;
-    related_uris?: Record<string, string>;
-  }
-  let scryfallLive: ScryfallLiveData | null = null;
-  try {
-    const scRes = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
-      headers: { "User-Agent": "CardEngine/1.0" },
-    });
-    if (scRes.ok) {
-      scryfallLive = await scRes.json();
+  // ── Fetch LIVE prices from Scryfall API for this exact card (cached 4h) ──
+  let scryfallLive: ScryfallLiveData | null = scryfallCache.get(scryfallId) ?? null;
+  if (!scryfallLive) {
+    try {
+      const scRes = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
+        headers: { "User-Agent": "CardEngine/1.0" },
+      });
+      if (scRes.ok) {
+        scryfallLive = (await scRes.json()) as ScryfallLiveData;
+        scryfallCache.set(scryfallId, scryfallLive);
+      }
+    } catch (err) {
+      app.log.warn({ err }, "[card-detail] Scryfall fetch failed; no cached data available");
     }
-  } catch (err) {
-    app.log.warn({ err }, "[card-detail] Failed to fetch live Scryfall prices; using cached");
   }
 
   // Build comprehensive store pricing with live data
@@ -258,82 +286,6 @@ app.get("/v1/cards/:variantId", async (req, reply) => {
         }
       }
     }
-
-    // Persist today's prices as PricePoints (one per market/kind/day, idempotent)
-    const nowDate = new Date();
-    const dateUTC = nowDate.toISOString().slice(0, 10); // YYYY-MM-DD in UTC
-    const todayStartUTC = new Date(`${dateUTC}T00:00:00.000Z`);
-    for (const lp of livePriceEntries) {
-      try {
-        await prisma.pricePoint.upsert({
-          where: { id: `pp-${params.variantId}-${lp.market}-${lp.kind}-${dateUTC}` },
-          update: { amount: lp.amount },
-          create: {
-            id: `pp-${params.variantId}-${lp.market}-${lp.kind}-${dateUTC}`,
-            variantId: params.variantId,
-            market: lp.market,
-            kind: lp.kind,
-            currency: lp.currency,
-            amount: lp.amount,
-            at: nowDate,
-          },
-        });
-      } catch (err) {
-        app.log.warn({ err }, "[card-detail] Failed to persist price point");
-      }
-    }
-
-    // ── Backfill synthetic history if this card has no historical data ──
-    // Uses the current price as baseline and generates realistic daily variance
-    const existingHistory = await prisma.pricePoint.count({
-      where: { variantId: params.variantId, at: { lt: todayStartUTC } },
-    });
-    if (existingHistory === 0 && livePriceEntries.length > 0) {
-      const backfillDays = Math.min(query.historyDays, 90);
-      const now = Date.now();
-      for (const lp of livePriceEntries) {
-        // Seed a deterministic random from card+market so it's stable across refreshes
-        let seed = 0;
-        const seedStr = `${params.variantId}:${lp.market}:${lp.kind}`;
-        for (let i = 0; i < seedStr.length; i++) seed = ((seed << 5) - seed + seedStr.charCodeAt(i)) | 0;
-        const seededRandom = (day: number) => {
-          const x = Math.sin(seed + day * 127.1) * 43758.5453;
-          return x - Math.floor(x);
-        };
-
-        // Walk backwards from current price with small daily changes (±3%)
-        let price = lp.amount;
-        const points: Array<{ day: number; amount: number }> = [];
-        for (let d = 0; d < backfillDays; d++) {
-          const drift = (seededRandom(d) - 0.48) * 0.06; // slight upward bias
-          price = price / (1 + drift);
-          price = Math.max(price * 0.5, Math.min(price, lp.amount * 2)); // clamp
-          points.push({ day: d + 1, amount: Math.round(price * 100) / 100 });
-        }
-        points.reverse(); // oldest first
-
-        // Insert every ~3 days to look realistic (not every single day)
-        for (let i = 0; i < points.length; i += 3) {
-          const p = points[i];
-          const at = new Date(now - p.day * 86_400_000);
-          try {
-            await prisma.pricePoint.create({
-              data: {
-                id: `pp-bf-${params.variantId}-${lp.market}-${lp.kind}-${p.day}`,
-                variantId: params.variantId,
-                market: lp.market,
-                kind: lp.kind,
-                currency: lp.currency,
-                amount: p.amount,
-                at,
-              },
-            });
-          } catch (err) {
-            app.log.debug({ err }, "[card-detail] Backfill insert skipped (likely duplicate)");
-          }
-        }
-      }
-    }
   }
 
   // ── Fetch price history — query ALL markets ──
@@ -419,7 +371,7 @@ app.get("/v1/cards/:variantId", async (req, reply) => {
 });
 
 // ── Search ──
-app.get("/v1/search", async (req) => {
+app.get("/v1/search", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req) => {
   const query = z
     .object({
       q: z.string().min(1),
@@ -1003,7 +955,7 @@ app.get("/v1/edhrec/commander/:name", async (req, reply) => {
 });
 
 // ── AI deck advice (Claude) ──
-app.post("/v1/ai/deck-advice", { preHandler: [requireAuth] }, async (req, reply) => {
+app.post("/v1/ai/deck-advice", { preHandler: [requireAuth], config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req, reply) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return reply.code(503).send({ error: "AI advice not configured" });
 
@@ -1532,7 +1484,7 @@ async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
 }
 
 // ── Admin: Scryfall ingest ──
-app.post("/admin/ingest/scryfall", { preHandler: [requireAdmin] }, async (req) => {
+app.post("/admin/ingest/scryfall", { preHandler: [requireAdmin], config: { rateLimit: { max: 2, timeWindow: "1 minute" } } }, async (req) => {
   const body = z
     .object({ maxCards: z.number().optional() })
     .default({})
@@ -1553,19 +1505,23 @@ const DAILY_MS = 24 * 60 * 60 * 1000;
 let priceRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 async function runDailyPriceRefresh() {
-  try {
+  const ran = await withAdvisoryLock("priceRefresh", async () => {
     console.log("[price-refresh] Starting daily price refresh...");
     await ingestScryfallBulk();
     console.log("[price-refresh] Daily price refresh complete.");
-  } catch (err) {
+  }).catch((err) => {
     console.error("[price-refresh] Error:", err);
+    return false;
+  });
+  if (!ran) {
+    console.log("[price-refresh] Another instance is handling this cycle.");
   }
 }
 
 // Start daily refresh timer
 if (process.env.ENABLE_PRICE_REFRESH !== "false") {
   priceRefreshTimer = setInterval(runDailyPriceRefresh, DAILY_MS);
-  console.log("[price-refresh] Scheduled daily price refresh.");
+  console.log("[price-refresh] Scheduled daily price refresh (with leader lock).");
 }
 
 // ── Expo push notification helper ──
@@ -1695,7 +1651,17 @@ async function checkWatchlistAlerts() {
 
 // Check watchlist every hour
 if (process.env.ENABLE_WATCHLIST_CHECK !== "false") {
-  setInterval(checkWatchlistAlerts, 60 * 60 * 1000);
+  setInterval(async () => {
+    const ran = await withAdvisoryLock("watchlistCheck", async () => {
+      await checkWatchlistAlerts();
+    }).catch((err) => {
+      console.error("[watchlist-check] Lock/job error:", err);
+      return false;
+    });
+    if (!ran) {
+      console.log("[watchlist-check] Another instance is handling this cycle.");
+    }
+  }, 60 * 60 * 1000);
 }
 
 // ── Push tokens ──
@@ -1804,7 +1770,7 @@ app.put("/v1/profile", { preHandler: [requireAuth] }, async (req) => {
 });
 
 // ── Geocoding (Phase 4) — free via Nominatim ──
-app.get("/v1/geocode", async (req) => {
+app.get("/v1/geocode", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
   const query = z
     .object({
       q: z.string().min(1),
@@ -1852,8 +1818,9 @@ await app.listen({ port, host });
 if (process.env.AUTO_INGEST_ON_EMPTY !== "false") {
   const cardCount = await prisma.cardVariant.count();
   if (cardCount === 0) {
-    console.log("[startup] No cards found — running initial Scryfall ingest...");
-    ingestScryfallBulk().then((r) => {
+    console.log("[startup] No cards found -- attempting initial Scryfall ingest...");
+    withAdvisoryLock("priceRefresh", async () => {
+      const r = await ingestScryfallBulk();
       console.log(`[startup] Initial ingest complete: ${r.cardsProcessed} cards, ${r.pricesUpdated} prices`);
     }).catch((err) => {
       console.error("[startup] Initial ingest failed:", err);
