@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
+/* ─── Color scheme ─────────────────────────────────── */
 :root {
   color-scheme: dark;
 }
@@ -12,15 +13,79 @@
   box-sizing: border-box;
 }
 
+/* ─── Base body ────────────────────────────────────── */
 body {
-  background-color: #0a0a0a;
-  color: #f0f0f0;
+  background-color: #0a0614;
+  color: #ede9fe;
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  position: relative;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+/* ─── Animated gradient mesh background ────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 55% at 8% -5%,  rgba(139, 92,246,0.20) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 45% at 92% 105%, rgba(  6,182,212,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 35% at 50%  50%, rgba(99, 102,241,0.06) 0%, transparent 70%);
+  animation: mesh-shift 10s ease-in-out infinite alternate;
+}
+
+@keyframes mesh-shift {
+  0%   { opacity: 0.75; transform: scale(1); }
+  100% { opacity: 1;    transform: scale(1.05); }
+}
+
+/* ─── Page entrance ─────────────────────────────────── */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-enter {
+  animation: enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Shimmer skeleton ──────────────────────────────── */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #110d1f 25%, #1e1640 50%, #110d1f 75%);
+  background-size: 200%;
+  animation: shimmer 1.8s linear infinite;
+  border-radius: 8px;
+}
+
+/* ─── Gradient text utility ─────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #c4b5fd 0%, #818cf8 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-violet {
+  background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Glow utilities ────────────────────────────────── */
+.glow-border {
+  box-shadow: 0 0 0 1px rgba(139,92,246,0.4), 0 0 20px rgba(139,92,246,0.15);
+}
+
+/* ─── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar          { width: 5px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: #2a1f4a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3d2d6e; }

@@ -5,30 +5,58 @@ import { api, type Deck } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
 
-const FORMAT_COLOR: Record<string, string> = {
-  commander: "bg-purple-900/50 text-purple-300 border-purple-700",
-  standard: "bg-green-900/50 text-green-300 border-green-700",
-  modern: "bg-blue-900/50 text-blue-300 border-blue-700",
-  pioneer: "bg-orange-900/50 text-orange-300 border-orange-700",
-  legacy: "bg-red-900/50 text-red-300 border-red-700",
-  vintage: "bg-yellow-900/50 text-yellow-300 border-yellow-700",
-  pauper: "bg-gray-800/50 text-gray-400 border-gray-600",
+const FORMAT_COLOR: Record<string, { bg: string; text: string; border: string }> = {
+  commander: { bg: "rgba(139,92,246,0.12)", text: "#c4b5fd", border: "rgba(139,92,246,0.3)" },
+  standard:  { bg: "rgba(16,185,129,0.12)", text: "#6ee7b7", border: "rgba(16,185,129,0.3)" },
+  modern:    { bg: "rgba(59,130,246,0.12)", text: "#93c5fd", border: "rgba(59,130,246,0.3)" },
+  pioneer:   { bg: "rgba(249,115,22,0.12)", text: "#fdba74", border: "rgba(249,115,22,0.3)" },
+  legacy:    { bg: "rgba(239,68,68,0.12)",  text: "#fca5a5", border: "rgba(239,68,68,0.3)" },
+  vintage:   { bg: "rgba(234,179,8,0.12)",  text: "#fde047", border: "rgba(234,179,8,0.3)" },
+  pauper:    { bg: "rgba(107,114,128,0.12)", text: "#9ca3af", border: "rgba(107,114,128,0.3)" },
 };
 
+function NetworkError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-5 text-center animate-enter">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+        style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>
+        ⚠
+      </div>
+      <div>
+        <p className="text-white font-bold text-lg mb-1">Can&apos;t reach the server</p>
+        <p className="text-sm max-w-sm" style={{ color: "#7c6f9a" }}>
+          Ensure the API is running and <code className="text-accent-light font-mono text-xs">NEXT_PUBLIC_API_URL</code> is set.
+        </p>
+      </div>
+      <button onClick={onRetry} className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-200"
+        style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", boxShadow: "0 0 20px rgba(124,58,237,0.3)" }}>
+        Try again
+      </button>
+    </div>
+  );
+}
+
+const FORMATS = ["commander","standard","modern","pioneer","legacy","vintage","pauper"];
+
 export default function DecksPage() {
-  const [decks, setDecks] = useState<Deck[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [decks, setDecks]         = useState<Deck[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName]     = useState("");
   const [newFormat, setNewFormat] = useState("commander");
   const [newCommander, setNewCommander] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating]   = useState(false);
 
   const load = () => {
+    setLoading(true);
+    setError(null);
     api.decks.list()
       .then(({ decks: d }) => setDecks(d))
-      .catch((e) => setError(e.message))
+      .catch((e: Error) => {
+        const isNet = e.message === "Load failed" || e.message === "Failed to fetch" || e.name === "TypeError";
+        setError(isNet ? "network" : e.message);
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
@@ -47,112 +75,170 @@ export default function DecksPage() {
     }
   };
 
+  const inputStyle = {
+    background: "#0a0614",
+    border: "1px solid #2a1f4a",
+    borderRadius: "12px",
+    padding: "10px 16px",
+    color: "#ede9fe",
+    fontSize: "14px",
+    outline: "none",
+    width: "100%",
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-3xl font-black mb-1">Decks</h1>
-          <p className="text-muted">Build and manage your decklists</p>
+          <h1 className="text-4xl font-black mb-2"><span className="gradient-text">Decks</span></h1>
+          <p className="text-sm" style={{ color: "#7c6f9a" }}>Build and manage your decklists</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-accent text-white rounded-xl font-semibold text-sm hover:bg-accent/80 transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200"
+          style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", boxShadow: "0 0 20px rgba(124,58,237,0.25)" }}
         >
-          + New Deck
+          <span className="text-lg leading-none">+</span> New Deck
         </button>
       </div>
 
-      {error && <p className="text-red-400 mb-4 text-sm">{error}</p>}
-      {loading && <p className="text-muted animate-pulse">Loading…</p>}
+      {/* Error */}
+      {!loading && error === "network" && <NetworkError onRetry={load} />}
+      {!loading && error && error !== "network" && (
+        <p className="text-sm animate-enter" style={{ color: "#fca5a5" }}>{error}</p>
+      )}
 
-      <div className="grid gap-3">
-        {decks.map((deck) => (
-          <Link
-            key={deck.id}
-            href={`/decks/${deck.id}`}
-            className="group flex items-center gap-4 bg-surface border border-border hover:border-accent/40 rounded-2xl p-4 transition-all"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={clsx("text-xs px-2 py-0.5 rounded-md border font-semibold", FORMAT_COLOR[deck.format] ?? "bg-surface-2 text-muted border-border")}>
-                  {deck.format}
-                </span>
-                <h3 className="font-bold truncate">{deck.name}</h3>
+      {/* Skeleton */}
+      {loading && (
+        <div className="space-y-3">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="rounded-2xl p-4 flex items-center gap-4" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
+              <div className="skeleton h-5 w-24 rounded-lg shrink-0" />
+              <div className="skeleton h-5 flex-1 rounded" />
+              <div className="skeleton h-4 w-16 rounded" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Deck list */}
+      {!loading && !error && (
+        <div className="space-y-3">
+          {decks.map((deck, i) => {
+            const fc = FORMAT_COLOR[deck.format] ?? { bg: "rgba(107,114,128,0.12)", text: "#9ca3af", border: "rgba(107,114,128,0.3)" };
+            return (
+              <Link
+                key={deck.id}
+                href={`/decks/${deck.id}`}
+                className="group flex items-center gap-4 rounded-2xl p-4 transition-all duration-200 animate-enter"
+                style={{
+                  background: "#110d1f",
+                  border: "1px solid #2a1f4a",
+                  animationDelay: `${i * 50}ms`,
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = "#1a1430";
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(139,92,246,0.35)";
+                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 0 20px rgba(139,92,246,0.12)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = "#110d1f";
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "#2a1f4a";
+                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "none";
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <span className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                      style={{ background: fc.bg, color: fc.text, border: `1px solid ${fc.border}` }}>
+                      {deck.format}
+                    </span>
+                    <h3 className="font-bold text-white truncate">{deck.name}</h3>
+                  </div>
+                  {deck.commander && <p className="text-sm truncate" style={{ color: "#7c6f9a" }}>{deck.commander}</p>}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-medium text-white">{deck._count?.cards ?? 0} cards</p>
+                  <p className="text-xs mt-0.5" style={{ color: "#7c6f9a" }}>{new Date(deck.updatedAt).toLocaleDateString()}</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c6f9a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  className="shrink-0 group-hover:stroke-white transition-colors duration-200">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </Link>
+            );
+          })}
+
+          {decks.length === 0 && (
+            <div className="py-28 text-center animate-enter">
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-5"
+                style={{ background: "linear-gradient(135deg, #2d1b69, #0e4f6e)", boxShadow: "0 0 40px rgba(139,92,246,0.25)" }}>
+                🗂
               </div>
-              {deck.commander && <p className="text-muted text-sm truncate">{deck.commander}</p>}
+              <p className="text-xl font-bold text-white mb-2">No decks yet</p>
+              <p className="text-sm" style={{ color: "#7c6f9a" }}>Click &ldquo;New Deck&rdquo; to create your first decklist</p>
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-sm text-muted">{deck._count?.cards ?? 0} cards</p>
-              <p className="text-xs text-muted/60">{new Date(deck.updatedAt).toLocaleDateString()}</p>
-            </div>
-            <span className="text-muted group-hover:text-white transition-colors">→</span>
-          </Link>
-        ))}
-
-        {!loading && decks.length === 0 && (
-          <div className="py-24 text-center">
-            <p className="text-5xl mb-4">🗂</p>
-            <p className="text-xl font-bold mb-2">No decks yet</p>
-            <p className="text-muted">Click "New Deck" to create your first decklist</p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowCreate(false); }}
+        >
           <form
             onSubmit={handleCreate}
-            className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md flex flex-col gap-4"
+            className="rounded-2xl p-6 w-full max-w-md flex flex-col gap-5 animate-enter"
+            style={{ background: "#0e0a1e", border: "1px solid #2a1f4a", boxShadow: "0 0 60px rgba(139,92,246,0.2)" }}
           >
-            <h2 className="text-xl font-bold">New Deck</h2>
+            <div>
+              <h2 className="text-xl font-bold text-white mb-0.5">New Deck</h2>
+              <p className="text-xs" style={{ color: "#7c6f9a" }}>Fill in the details for your new decklist</p>
+            </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted uppercase tracking-wider font-bold">Name</label>
-              <input
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="My Commander Deck"
-                className="bg-bg border border-border rounded-xl px-4 py-2.5 text-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60 text-sm"
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs uppercase tracking-widest font-semibold" style={{ color: "#7c6f9a" }}>Name</label>
+              <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder="My Commander Deck" style={inputStyle}
+                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.5)"; }}
+                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = "#2a1f4a"; }}
               />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted uppercase tracking-wider font-bold">Format</label>
-              <select
-                value={newFormat}
-                onChange={(e) => setNewFormat(e.target.value)}
-                className="bg-bg border border-border rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-accent/60 text-sm"
-              >
-                {["commander","standard","modern","pioneer","legacy","vintage","pauper"].map((f) => (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs uppercase tracking-widest font-semibold" style={{ color: "#7c6f9a" }}>Format</label>
+              <select value={newFormat} onChange={e => setNewFormat(e.target.value)} style={inputStyle}>
+                {FORMATS.map(f => (
                   <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
                 ))}
               </select>
             </div>
 
             {(newFormat === "commander" || newFormat === "oathbreaker") && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted uppercase tracking-wider font-bold">Commander (optional)</label>
-                <input
-                  value={newCommander}
-                  onChange={(e) => setNewCommander(e.target.value)}
-                  placeholder="Atraxa, Praetors' Voice"
-                  className="bg-bg border border-border rounded-xl px-4 py-2.5 text-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60 text-sm"
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs uppercase tracking-widest font-semibold" style={{ color: "#7c6f9a" }}>Commander (optional)</label>
+                <input value={newCommander} onChange={e => setNewCommander(e.target.value)}
+                  placeholder="Atraxa, Praetors' Voice" style={inputStyle}
+                  onFocus={e => { (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.5)"; }}
+                  onBlur={e => { (e.target as HTMLInputElement).style.borderColor = "#2a1f4a"; }}
                 />
               </div>
             )}
 
-            <div className="flex gap-3 mt-2">
-              <button type="button" onClick={() => setShowCreate(false)} className="flex-1 py-2.5 rounded-xl bg-bg border border-border text-muted font-semibold text-sm hover:text-white transition-colors">
+            <div className="flex gap-3 mt-1">
+              <button type="button" onClick={() => setShowCreate(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid #2a1f4a", color: "#7c6f9a" }}>
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={!newName.trim() || creating}
-                className="flex-1 py-2.5 rounded-xl bg-accent text-white font-semibold text-sm disabled:opacity-50 hover:bg-accent/80 transition-colors"
-              >
-                {creating ? "Creating…" : "Create"}
+              <button type="submit" disabled={!newName.trim() || creating}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                {creating ? "Creating…" : "Create Deck"}
               </button>
             </div>
           </form>
