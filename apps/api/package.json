@@ -17,7 +17,6 @@
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/adapter-pg-worker": "^6.9.0",
     "@prisma/client": "^7.3.0",
-    "@supabase/supabase-js": "^2.95.3",
     "dotenv": "^17.2.0",
     "fastify": "^5.2.0",
     "jose": "^6.0.0",
