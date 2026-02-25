@@ -31,6 +31,9 @@
     "vitest": "^4.0.18"
   },
   "private": "true",
+  "engines": {
+    "node": ">=20.19"
+  },
   "workspaces": [
     "apps/api",
     "apps/web",
