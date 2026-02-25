@@ -15,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <Sidebar />
           <main className="flex-1 min-h-screen overflow-y-auto">
-            {children}
+            <div className="animate-enter">
+              {children}
+            </div>
           </main>
         </AuthProvider>
       </body>

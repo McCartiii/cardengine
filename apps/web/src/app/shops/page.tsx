@@ -4,9 +4,9 @@ import { useState } from "react";
 import { api, type Shop } from "@/lib/api";
 
 export default function ShopsPage() {
-  const [city, setCity] = useState("");
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [city, setCity]         = useState("");
+  const [shops, setShops]       = useState<Shop[]>([]);
+  const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -25,66 +25,130 @@ export default function ShopsPage() {
   const nearMe = () => {
     if (!navigator.geolocation) return;
     setLoading(true);
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      try {
-        const { shops: results } = await api.shops.nearby({ lat: coords.latitude, lng: coords.longitude, radius: 50 });
-        setShops(results);
-        setSearched(true);
-      } finally {
-        setLoading(false);
-      }
-    }, () => setLoading(false));
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { shops: results } = await api.shops.nearby({ lat: coords.latitude, lng: coords.longitude, radius: 50 });
+          setShops(results);
+          setSearched(true);
+        } finally {
+          setLoading(false);
+        }
+      },
+      () => setLoading(false)
+    );
   };
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black mb-1">Game Stores</h1>
-        <p className="text-muted">Find local card shops near you</p>
+      <div className="mb-10">
+        <h1 className="text-4xl font-black mb-2"><span className="gradient-text">Game Stores</span></h1>
+        <p className="text-sm" style={{ color: "#7c6f9a" }}>Find local card shops near you</p>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-3 mb-4">
-        <input
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="City name…"
-          className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60 text-sm"
-        />
-        <button type="submit" disabled={loading || !city.trim()} className="px-4 py-2.5 bg-accent text-white rounded-xl font-semibold text-sm disabled:opacity-50 hover:bg-accent/80 transition-colors">
+      {/* Search */}
+      <form onSubmit={handleSearch} className="flex gap-3 mb-8">
+        <div
+          className="flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200"
+          style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c6f9a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <input
+            value={city}
+            onChange={e => setCity(e.target.value)}
+            placeholder="Enter a city name…"
+            className="flex-1 bg-transparent text-white placeholder:text-muted/60 focus:outline-none text-sm"
+          />
+        </div>
+        <button type="submit" disabled={loading || !city.trim()}
+          className="px-5 py-3 rounded-xl font-bold text-sm text-white disabled:opacity-40 transition-all duration-200"
+          style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
           Search
         </button>
-        <button type="button" onClick={nearMe} disabled={loading} className="px-4 py-2.5 bg-surface border border-border text-white rounded-xl font-semibold text-sm disabled:opacity-50 hover:border-accent/60 transition-colors">
+        <button type="button" onClick={nearMe} disabled={loading}
+          className="px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-200"
+          style={{ background: "#1a1430", border: "1px solid #2a1f4a", color: "#c4b5fd" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.4)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2a1f4a"; }}>
           📍 Near Me
         </button>
       </form>
 
-      {loading && <p className="text-muted animate-pulse">Finding shops…</p>}
+      {/* Skeleton */}
+      {loading && (
+        <div className="space-y-4">
+          {[0,1,2].map(i => (
+            <div key={i} className="rounded-2xl p-5" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
+              <div className="skeleton h-6 w-48 rounded mb-3" />
+              <div className="skeleton h-4 w-64 rounded mb-2" />
+              <div className="skeleton h-4 w-32 rounded" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {searched && shops.length === 0 && !loading && (
-        <p className="text-muted py-12 text-center">No shops found. Try a different city.</p>
+        <div className="py-20 text-center animate-enter">
+          <p className="text-5xl mb-4 opacity-30">🏪</p>
+          <p className="text-lg font-bold text-white mb-2">No shops found</p>
+          <p className="text-sm" style={{ color: "#7c6f9a" }}>Try a different city or use &ldquo;Near Me&rdquo;</p>
+        </div>
       )}
 
       <div className="space-y-4">
-        {shops.map((shop) => (
-          <div key={shop.id} className="bg-surface border border-border rounded-2xl p-5">
+        {shops.map((shop, i) => (
+          <div
+            key={shop.id}
+            className="rounded-2xl p-5 transition-all duration-200 animate-enter"
+            style={{ background: "#110d1f", border: "1px solid #2a1f4a", animationDelay: `${i * 60}ms` }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(139,92,246,0.3)";
+              (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 20px rgba(139,92,246,0.08)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = "#2a1f4a";
+              (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+            }}
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-lg">{shop.name}</h3>
-                  {shop.verified && <span className="text-xs bg-accent/20 text-accent-light border border-accent/40 px-2 py-0.5 rounded-md font-bold">Verified</span>}
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-bold text-white text-lg">{shop.name}</h3>
+                  {shop.verified && (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-lg"
+                      style={{ background: "rgba(139,92,246,0.15)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.3)" }}>
+                      Verified
+                    </span>
+                  )}
                 </div>
-                {shop.address && <p className="text-muted text-sm mt-1">{[shop.address, shop.city, shop.state].filter(Boolean).join(", ")}</p>}
-                {shop.distance != null && <p className="text-accent-light text-sm font-semibold">{shop.distance.toFixed(1)} mi away</p>}
-                {shop.hours && <p className="text-muted text-sm mt-2">🕒 {shop.hours}</p>}
+                {shop.address && (
+                  <p className="text-sm mb-1" style={{ color: "#7c6f9a" }}>
+                    {[shop.address, shop.city, shop.state].filter(Boolean).join(", ")}
+                  </p>
+                )}
+                {shop.distance != null && (
+                  <p className="text-sm font-semibold text-cyan">{shop.distance.toFixed(1)} mi away</p>
+                )}
+                {shop.hours && (
+                  <p className="text-sm mt-2" style={{ color: "#7c6f9a" }}>🕒 {shop.hours}</p>
+                )}
               </div>
-              <div className="flex flex-col gap-2 shrink-0">
+              <div className="flex flex-col gap-2 shrink-0 text-right">
                 {shop.website && (
-                  <a href={shop.website} target="_blank" rel="noopener noreferrer" className="text-sm text-accent-light hover:underline">
+                  <a href={shop.website} target="_blank" rel="noopener noreferrer"
+                    className="text-sm font-semibold transition-colors duration-200"
+                    style={{ color: "#c4b5fd" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#ede9fe"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#c4b5fd"; }}>
                     Website →
                   </a>
                 )}
                 {shop.phone && (
-                  <a href={`tel:${shop.phone}`} className="text-sm text-muted hover:text-white">
+                  <a href={`tel:${shop.phone}`} className="text-sm transition-colors duration-200" style={{ color: "#7c6f9a" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#ede9fe"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#7c6f9a"; }}>
                     {shop.phone}
                   </a>
                 )}
