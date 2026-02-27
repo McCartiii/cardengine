@@ -1,3 +1,5 @@
+import { createInterface } from "node:readline";
+import { Readable } from "node:stream";
 import { prisma } from "../db.js";
 
 const SCRYFALL_BULK_API = "https://api.scryfall.com/bulk-data";
@@ -49,6 +51,143 @@ function extractOracleText(card: ScryfallCard): string | null {
   return null;
 }
 
+const PRICE_FIELDS: Array<{
+  field: keyof NonNullable<ScryfallCard["prices"]>;
+  market: string;
+  kind: string;
+  currency: string;
+}> = [
+  { field: "usd",        market: "tcgplayer",  kind: "market", currency: "USD" },
+  { field: "usd_foil",   market: "tcgplayer",  kind: "foil",   currency: "USD" },
+  { field: "usd_etched", market: "tcgplayer",  kind: "etched", currency: "USD" },
+  { field: "eur",        market: "cardmarket", kind: "market", currency: "EUR" },
+  { field: "eur_foil",   market: "cardmarket", kind: "foil",   currency: "EUR" },
+  { field: "eur_etched", market: "cardmarket", kind: "etched", currency: "EUR" },
+  { field: "tix",        market: "mtgo",       kind: "market", currency: "TIX" },
+];
+
+async function processCardBatch(cards: ScryfallCard[]): Promise<{ cards: number; prices: number }> {
+  const cardRows = cards.map((card) => {
+    const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
+    const variantId = `scryfall:${card.id}${isFoil ? "-foil" : ""}`;
+    return {
+      variantId,
+      game: "mtg",
+      cardId: card.oracle_id ?? card.id,
+      printingId: `${card.set}:${card.collector_number}`,
+      name: card.name,
+      setId: card.set,
+      collectorNumber: card.collector_number,
+      oracleText: extractOracleText(card),
+      typeLine: card.type_line ?? null,
+      colors: card.colors ?? [],
+      colorIdentity: card.color_identity ?? [],
+      cmc: card.cmc ?? null,
+      manaCost: card.mana_cost ?? null,
+      rarity: card.rarity ?? null,
+      imageUri: extractImageUri(card),
+    };
+  });
+
+  const priceRows: { market: string; variantId: string; kind: string; currency: string; amount: number }[] = [];
+  for (const card of cards) {
+    const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
+    const variantId = `scryfall:${card.id}${isFoil ? "-foil" : ""}`;
+    for (const pf of PRICE_FIELDS) {
+      const raw = card.prices?.[pf.field];
+      if (raw) {
+        const amount = parseFloat(raw);
+        if (!isNaN(amount) && amount > 0) {
+          priceRows.push({ market: pf.market, variantId, kind: pf.kind, currency: pf.currency, amount });
+        }
+      }
+    }
+  }
+
+  await prisma.$transaction(
+    async (tx) => {
+      if (cardRows.length > 0) {
+        const values: unknown[] = [];
+        const placeholders: string[] = [];
+        let paramIdx = 1;
+
+        for (const row of cardRows) {
+          const colorsJson = row.colors.length > 0 ? JSON.stringify(row.colors) : null;
+          const ciJson = row.colorIdentity.length > 0 ? JSON.stringify(row.colorIdentity) : null;
+          placeholders.push(
+            `($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++})`
+          );
+          values.push(
+            row.variantId, row.game, row.cardId, row.printingId, row.name,
+            row.setId, row.collectorNumber, row.oracleText, row.typeLine,
+            colorsJson, ciJson, row.cmc, row.manaCost, row.rarity, row.imageUri
+          );
+        }
+
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "CardVariant" ("variantId", "game", "cardId", "printingId", "name", "setId", "collectorNumber", "oracle_text", "type_line", "colors", "color_identity", "cmc", "mana_cost", "rarity", "image_uri", "updatedAt")
+           VALUES ${placeholders.map((p) => p.replace(/\)$/, ", NOW())"))}
+           ON CONFLICT ("variantId") DO UPDATE SET
+             "name" = EXCLUDED."name",
+             "cardId" = EXCLUDED."cardId",
+             "printingId" = EXCLUDED."printingId",
+             "setId" = EXCLUDED."setId",
+             "collectorNumber" = EXCLUDED."collectorNumber",
+             "oracle_text" = EXCLUDED."oracle_text",
+             "type_line" = EXCLUDED."type_line",
+             "colors" = EXCLUDED."colors",
+             "color_identity" = EXCLUDED."color_identity",
+             "cmc" = EXCLUDED."cmc",
+             "mana_cost" = EXCLUDED."mana_cost",
+             "rarity" = EXCLUDED."rarity",
+             "image_uri" = EXCLUDED."image_uri",
+             "updatedAt" = NOW()`,
+          ...values
+        );
+      }
+
+      if (priceRows.length > 0) {
+        const pValues: unknown[] = [];
+        const pPlaceholders: string[] = [];
+        let pIdx = 1;
+
+        for (const row of priceRows) {
+          pPlaceholders.push(`($${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++})`);
+          pValues.push(row.market, row.variantId, row.kind, row.currency, row.amount);
+        }
+
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "PriceCache" ("id", "market", "variantId", "kind", "currency", "amount", "updatedAt")
+           VALUES ${pPlaceholders.map((p) => p.replace(/^\(/, "(gen_random_uuid(), ").replace(/\)$/, ", NOW())"))}
+           ON CONFLICT ("market", "variantId", "kind", "currency") DO UPDATE SET
+             "amount" = EXCLUDED."amount",
+             "updatedAt" = NOW()`,
+          ...pValues
+        );
+
+        const dateUTC = new Date().toISOString().slice(0, 10);
+        const hValues: unknown[] = [];
+        const hPlaceholders: string[] = [];
+        let hIdx = 1;
+        for (const row of priceRows) {
+          const deterministicId = `pp-${row.variantId}-${row.market}-${row.kind}-${dateUTC}`;
+          hPlaceholders.push(`($${hIdx++}, NOW(), $${hIdx++}, $${hIdx++}, $${hIdx++}, $${hIdx++}, $${hIdx++})`);
+          hValues.push(deterministicId, row.market, row.kind, row.currency, row.amount, row.variantId);
+        }
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "PricePoint" ("id", "at", "market", "kind", "currency", "amount", "variantId")
+           VALUES ${hPlaceholders.join(", ")}
+           ON CONFLICT ("id") DO NOTHING`,
+          ...hValues
+        );
+      }
+    },
+    { timeout: 30_000 }
+  );
+
+  return { cards: cardRows.length, prices: priceRows.length };
+}
+
 export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   console.log("[scryfall-ingest] Fetching bulk data catalog...");
   const bulkRes = await fetch(SCRYFALL_BULK_API);
@@ -62,179 +201,62 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   const cardsRes = await fetch(defaultCards.download_uri);
   if (!cardsRes.ok) throw new Error(`Download returned ${cardsRes.status}`);
 
-  const allCards: ScryfallCard[] = await cardsRes.json();
-  console.log(`[scryfall-ingest] Downloaded ${allCards.length} cards total.`);
-
-  // Filter: English, paper game, not tokens/art series
-  let cards = allCards.filter(
-    (c) =>
-      c.lang === "en" &&
-      c.layout !== "token" &&
-      c.layout !== "art_series" &&
-      (c.games?.includes("paper") ?? true)
+  // Stream line-by-line instead of buffering the entire ~200MB JSON into memory.
+  // Scryfall formats one card object per line inside the JSON array.
+  const nodeStream = Readable.fromWeb(
+    cardsRes.body as unknown as import("node:stream/web").ReadableStream<Uint8Array>
   );
-  if (options?.maxCards) {
-    cards = cards.slice(0, options.maxCards);
-  }
-  console.log(`[scryfall-ingest] Processing ${cards.length} English paper cards...`);
+  const rl = createInterface({ input: nodeStream, crlfDelay: Infinity });
 
+  const BATCH_SIZE = 200;
+  let batch: ScryfallCard[] = [];
   let cardsProcessed = 0;
   let pricesUpdated = 0;
-  const BATCH_SIZE = 200;
 
-  for (let i = 0; i < cards.length; i += BATCH_SIZE) {
-    const batch = cards.slice(i, i + BATCH_SIZE);
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === "[" || trimmed === "]") continue;
 
-    // Build card variant data
-    const cardRows = batch.map((card) => {
-      const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
-      const variantSuffix = isFoil ? "-foil" : "";
-      const variantId = `scryfall:${card.id}${variantSuffix}`;
-      return {
-        variantId,
-        game: "mtg",
-        cardId: card.oracle_id ?? card.id,
-        printingId: `${card.set}:${card.collector_number}`,
-        name: card.name,
-        setId: card.set,
-        collectorNumber: card.collector_number,
-        oracleText: extractOracleText(card),
-        typeLine: card.type_line ?? null,
-        colors: card.colors ?? [],
-        colorIdentity: card.color_identity ?? [],
-        cmc: card.cmc ?? null,
-        manaCost: card.mana_cost ?? null,
-        rarity: card.rarity ?? null,
-        imageUri: extractImageUri(card),
-      };
-    });
+    // Strip the trailing comma present on all lines except the last card
+    const json = trimmed.endsWith(",") ? trimmed.slice(0, -1) : trimmed;
 
-    // Build price rows up front (derived from batch data, not DB results)
-    const priceFields: Array<{
-      field: keyof NonNullable<ScryfallCard["prices"]>;
-      market: string;
-      kind: string;
-      currency: string;
-    }> = [
-      { field: "usd",         market: "tcgplayer",  kind: "market",  currency: "USD" },
-      { field: "usd_foil",    market: "tcgplayer",  kind: "foil",    currency: "USD" },
-      { field: "usd_etched",  market: "tcgplayer",  kind: "etched",  currency: "USD" },
-      { field: "eur",         market: "cardmarket", kind: "market",  currency: "EUR" },
-      { field: "eur_foil",    market: "cardmarket", kind: "foil",    currency: "EUR" },
-      { field: "eur_etched",  market: "cardmarket", kind: "etched",  currency: "EUR" },
-      { field: "tix",         market: "mtgo",       kind: "market",  currency: "TIX" },
-    ];
+    let card: ScryfallCard;
+    try {
+      card = JSON.parse(json) as ScryfallCard;
+    } catch {
+      continue;
+    }
 
-    const priceRows: { market: string; variantId: string; kind: string; currency: string; amount: number }[] = [];
-    for (const card of batch) {
-      const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
-      const variantSuffix = isFoil ? "-foil" : "";
-      const variantId = `scryfall:${card.id}${variantSuffix}`;
-      for (const pf of priceFields) {
-        const raw = card.prices?.[pf.field];
-        if (raw) {
-          const amount = parseFloat(raw);
-          if (!isNaN(amount) && amount > 0) {
-            priceRows.push({ market: pf.market, variantId, kind: pf.kind, currency: pf.currency, amount });
-          }
-        }
+    // Same filter as before
+    if (
+      card.lang !== "en" ||
+      card.layout === "token" ||
+      card.layout === "art_series" ||
+      !(card.games?.includes("paper") ?? true)
+    ) {
+      continue;
+    }
+
+    if (options?.maxCards && cardsProcessed + batch.length >= options.maxCards) break;
+
+    batch.push(card);
+
+    if (batch.length >= BATCH_SIZE) {
+      const result = await processCardBatch(batch);
+      cardsProcessed += result.cards;
+      pricesUpdated += result.prices;
+      batch = [];
+
+      if (cardsProcessed % 2000 < BATCH_SIZE) {
+        console.log(`[scryfall-ingest] Processed ${cardsProcessed} cards...`);
       }
     }
+  }
 
-    // Wrap all three bulk inserts in a single transaction so a failed batch
-    // never leaves orphaned CardVariant rows without matching PriceCache rows.
-    await prisma.$transaction(
-      async (tx) => {
-        // Bulk upsert cards
-        if (cardRows.length > 0) {
-          const values: unknown[] = [];
-          const placeholders: string[] = [];
-          let paramIdx = 1;
-
-          for (const row of cardRows) {
-            const colorsJson = row.colors.length > 0 ? JSON.stringify(row.colors) : null;
-            const ciJson = row.colorIdentity.length > 0 ? JSON.stringify(row.colorIdentity) : null;
-            placeholders.push(
-              `($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++})`
-            );
-            values.push(
-              row.variantId, row.game, row.cardId, row.printingId, row.name,
-              row.setId, row.collectorNumber, row.oracleText, row.typeLine,
-              colorsJson, ciJson, row.cmc, row.manaCost, row.rarity, row.imageUri
-            );
-          }
-
-          await tx.$executeRawUnsafe(
-            `INSERT INTO "CardVariant" ("variantId", "game", "cardId", "printingId", "name", "setId", "collectorNumber", "oracle_text", "type_line", "colors", "color_identity", "cmc", "mana_cost", "rarity", "image_uri", "updatedAt")
-             VALUES ${placeholders.map((p) => p.replace(/\)$/, ", NOW())"))}
-             ON CONFLICT ("variantId") DO UPDATE SET
-               "name" = EXCLUDED."name",
-               "cardId" = EXCLUDED."cardId",
-               "printingId" = EXCLUDED."printingId",
-               "setId" = EXCLUDED."setId",
-               "collectorNumber" = EXCLUDED."collectorNumber",
-               "oracle_text" = EXCLUDED."oracle_text",
-               "type_line" = EXCLUDED."type_line",
-               "colors" = EXCLUDED."colors",
-               "color_identity" = EXCLUDED."color_identity",
-               "cmc" = EXCLUDED."cmc",
-               "mana_cost" = EXCLUDED."mana_cost",
-               "rarity" = EXCLUDED."rarity",
-               "image_uri" = EXCLUDED."image_uri",
-               "updatedAt" = NOW()`,
-            ...values
-          );
-        }
-
-        // Bulk upsert prices
-        if (priceRows.length > 0) {
-          const pValues: unknown[] = [];
-          const pPlaceholders: string[] = [];
-          let pIdx = 1;
-
-          for (const row of priceRows) {
-            pPlaceholders.push(`($${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++})`);
-            pValues.push(row.market, row.variantId, row.kind, row.currency, row.amount);
-          }
-
-          await tx.$executeRawUnsafe(
-            `INSERT INTO "PriceCache" ("id", "market", "variantId", "kind", "currency", "amount", "updatedAt")
-             VALUES ${pPlaceholders.map((p) => p.replace(/^\(/, "(gen_random_uuid(), ").replace(/\)$/, ", NOW())"))}
-             ON CONFLICT ("market", "variantId", "kind", "currency") DO UPDATE SET
-               "amount" = EXCLUDED."amount",
-               "updatedAt" = NOW()`,
-            ...pValues
-          );
-
-          // Write PricePoint snapshots for historical charts (one per variant/market/kind/day)
-          const dateUTC = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-          const hValues: unknown[] = [];
-          const hPlaceholders: string[] = [];
-          let hIdx = 1;
-          for (const row of priceRows) {
-            const deterministicId = `pp-${row.variantId}-${row.market}-${row.kind}-${dateUTC}`;
-            hPlaceholders.push(`($${hIdx++}, NOW(), $${hIdx++}, $${hIdx++}, $${hIdx++}, $${hIdx++}, $${hIdx++})`);
-            hValues.push(deterministicId, row.market, row.kind, row.currency, row.amount, row.variantId);
-          }
-          await tx.$executeRawUnsafe(
-            `INSERT INTO "PricePoint" ("id", "at", "market", "kind", "currency", "amount", "variantId")
-             VALUES ${hPlaceholders.join(", ")}
-             ON CONFLICT ("id") DO NOTHING`,
-            ...hValues
-          );
-        }
-      },
-      { timeout: 30_000 } // 30s — generous for a 200-card batch
-    );
-
-    cardsProcessed += cardRows.length;
-    pricesUpdated += priceRows.length;
-
-    if ((i + BATCH_SIZE) % 2000 === 0 || i + BATCH_SIZE >= cards.length) {
-      console.log(
-        `[scryfall-ingest] Processed ${Math.min(i + BATCH_SIZE, cards.length)}/${cards.length} (${cardsProcessed} cards, ${pricesUpdated} prices)`
-      );
-    }
+  if (batch.length > 0) {
+    const result = await processCardBatch(batch);
+    cardsProcessed += result.cards;
+    pricesUpdated += result.prices;
   }
 
   console.log(`[scryfall-ingest] Done. Cards: ${cardsProcessed}, Prices: ${pricesUpdated}`);
