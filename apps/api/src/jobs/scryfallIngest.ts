@@ -203,7 +203,9 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
 
   // Stream line-by-line instead of buffering the entire ~200MB JSON into memory.
   // Scryfall formats one card object per line inside the JSON array.
-  const nodeStream = Readable.fromWeb(cardsRes.body as ReadableStream<Uint8Array>);
+  const nodeStream = Readable.fromWeb(
+    cardsRes.body as unknown as import("node:stream/web").ReadableStream<Uint8Array>
+  );
   const rl = createInterface({ input: nodeStream, crlfDelay: Infinity });
 
   const BATCH_SIZE = 200;
