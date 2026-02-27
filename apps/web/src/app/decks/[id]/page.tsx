@@ -24,19 +24,214 @@ const SECTION_LABEL: Record<string, string> = {
   commander: "Commander", mainboard: "Mainboard", sideboard: "Sideboard", companion: "Companion",
 };
 
+const IMPORT_PLACEHOLDER = `Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Command Tower
+4 Lightning Bolt
+
+Sideboard
+2 Negate`;
+
+// ── Import Modal ─────────────────────────────────────────────────────────────
+
+function ImportModal({
+  deckId,
+  onClose,
+  onImported,
+}: {
+  deckId: string;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [text, setText]           = useState("");
+  const [replace, setReplace]     = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult]       = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
+
+  const handleImport = async () => {
+    if (!text.trim()) return;
+    setImporting(true);
+    setResult(null);
+    try {
+      const res = await api.decks.importText(deckId, text.trim(), replace);
+      const resolved = res.resolved ?? res.imported;
+      setResult(`✓ Imported ${res.imported} cards · ${resolved} resolved to prices`);
+      onImported();
+      setTimeout(onClose, 1200);
+    } catch (e: unknown) {
+      setResult(`Error: ${(e as Error).message}`);
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
+      style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="rounded-2xl w-full max-w-xl flex flex-col animate-enter"
+        style={{
+          background: "#0e0a1e",
+          border: "1px solid #2a1f4a",
+          boxShadow: "0 0 80px rgba(139,92,246,0.25)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-white">Import Decklist</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#7c6f9a" }}>Paste your decklist — one card per line</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors"
+            style={{ color: "#7c6f9a" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#7c6f9a"; }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4 px-6 pb-6">
+          {/* Format guide (collapsible) */}
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #2a1f4a" }}>
+            <button
+              type="button"
+              onClick={() => setShowGuide(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-semibold transition-colors"
+              style={{ background: "#0a0614", color: "#9d8ec4" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#c4b5fd"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#9d8ec4"; }}
+            >
+              <span>Format guide</span>
+              <span className="text-xs">{showGuide ? "▲" : "▼"}</span>
+            </button>
+            {showGuide && (
+              <pre
+                className="px-4 py-3 text-xs leading-relaxed"
+                style={{ background: "#07040f", color: "#7c6f9a", fontFamily: "ui-monospace, monospace", borderTop: "1px solid #2a1f4a" }}
+              >{`Commander
+1 Atraxa, Praetors' Voice
+
+Mainboard        ← default section
+1 Sol Ring
+4 Lightning Bolt
+4x Counterspell
+
+Sideboard
+2 Negate
+
+# Lines starting with # or // are ignored
+# Set codes are stripped: "1 Sol Ring (CMM) 318"`}</pre>
+            )}
+          </div>
+
+          {/* Textarea */}
+          <textarea
+            autoFocus
+            value={text}
+            onChange={e => setText(e.target.value)}
+            rows={14}
+            placeholder={IMPORT_PLACEHOLDER}
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-y"
+            style={{
+              background: "#0a0614",
+              border: "1px solid #2a1f4a",
+              fontFamily: "ui-monospace, monospace",
+              lineHeight: "1.65",
+              color: "#ede9fe",
+              caretColor: "#c4b5fd",
+            }}
+            onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(139,92,246,0.5)"; }}
+            onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = "#2a1f4a"; }}
+          />
+
+          {/* Replace / Append toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setReplace(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150"
+              style={replace
+                ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
+                : { background: "transparent", border: "1px solid #2a1f4a", color: "#7c6f9a" }
+              }
+            >
+              <span className="w-2 h-2 rounded-full" style={{ background: replace ? "#c4b5fd" : "#3a2f5a" }} />
+              Replace cards
+            </button>
+            <button
+              type="button"
+              onClick={() => setReplace(false)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150"
+              style={!replace
+                ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
+                : { background: "transparent", border: "1px solid #2a1f4a", color: "#7c6f9a" }
+              }
+            >
+              <span className="w-2 h-2 rounded-full" style={{ background: !replace ? "#c4b5fd" : "#3a2f5a" }} />
+              Append to existing
+            </button>
+          </div>
+
+          {/* Result */}
+          {result && (
+            <p className="text-sm font-semibold" style={{ color: result.startsWith("✓") ? "#4ade80" : "#fca5a5" }}>
+              {result}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid #2a1f4a", color: "#7c6f9a" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={!text.trim() || importing}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
+            >
+              {importing ? "Importing…" : replace ? "Replace & Import" : "Append & Import"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function DeckDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [tab, setTab] = useState<Tab>("cards");
-  const [data, setData] = useState<DeckDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab]             = useState<Tab>("cards");
+  const [data, setData]           = useState<DeckDetailData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [showImport, setShowImport] = useState(false);
   const [edhrecData, setEdhrecData] = useState<{ commander: string; recommendations: unknown[] } | null>(null);
   const [edhrecLoading, setEdhrecLoading] = useState(false);
-  const [aiAdvice, setAiAdvice] = useState("");
+  const [aiAdvice, setAiAdvice]   = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiQuestion, setAiQuestion] = useState("What are the main weaknesses and top 5 improvements for this deck?");
-  const [importText, setImportText] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<string | null>(null);
+
+  const reload = () => {
+    api.decks.get(id).then(setData).catch(console.error);
+  };
 
   useEffect(() => {
     api.decks.get(id).then(setData).catch(console.error).finally(() => setLoading(false));
@@ -84,23 +279,6 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const handleImport = async () => {
-    if (!importText.trim()) return;
-    setImporting(true);
-    setImportResult(null);
-    try {
-      const res = await api.decks.importText(id, importText.trim());
-      setImportResult(`✓ Imported ${res.imported} cards. ${res.legality.valid ? "Deck is legal." : res.legality.issues.slice(0, 2).join(" · ")}`);
-      setImportText("");
-      const updated = await api.decks.get(id);
-      setData(updated);
-    } catch (e: unknown) {
-      setImportResult(`Error: ${(e as Error).message}`);
-    } finally {
-      setImporting(false);
-    }
-  };
-
   if (loading) return <div className="p-8 text-muted animate-pulse">Loading deck…</div>;
   if (!data) return <div className="p-8 text-red-400">Deck not found.</div>;
 
@@ -114,19 +292,38 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
     <div className="p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-3xl font-black">{deck.name}</h1>
             {deck.commander && <p className="text-accent-light mt-1">{deck.commander}</p>}
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
             <div className="text-right">
               <p className="text-2xl font-black">${totalValue.toFixed(2)}</p>
               <p className="text-muted text-xs">{totalCards} cards</p>
             </div>
-            <span className={clsx("px-3 py-1 rounded-lg text-sm font-bold border", legality.valid ? "bg-green-900/40 text-green-300 border-green-700" : "bg-red-900/40 text-red-300 border-red-700")}>
+            <span className={clsx(
+              "px-3 py-1 rounded-lg text-sm font-bold border",
+              legality.valid ? "bg-green-900/40 text-green-300 border-green-700" : "bg-red-900/40 text-red-300 border-red-700"
+            )}>
               {legality.valid ? "Legal" : `${legality.issues.length} issue${legality.issues.length > 1 ? "s" : ""}`}
             </span>
+            {/* Import button */}
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200"
+              style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", color: "#c4b5fd" }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.22)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.55)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.12)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.3)";
+              }}
+            >
+              ↑ Import
+            </button>
             <button
               onClick={handleTogglePublic}
               title={deck.isPublic ? "Deck is public — click to make private" : "Make deck public & copy share link"}
@@ -164,27 +361,15 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
       {/* Cards tab */}
       {tab === "cards" && (
         <div className="space-y-6">
-          {/* Import */}
-          <div className="bg-surface rounded-2xl border border-border p-4">
-            <p className="text-sm font-bold mb-2">Import Decklist</p>
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              rows={5}
-              placeholder={"1 Sol Ring\n1 Command Tower\n4 Lightning Bolt"}
-              className="w-full bg-bg border border-border rounded-xl px-3 py-2 text-sm text-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60 font-mono resize-none"
-            />
-            {importResult && <p className={clsx("text-sm mt-2", importResult.startsWith("✓") ? "text-green-400" : "text-red-400")}>{importResult}</p>}
-            <button
-              onClick={handleImport}
-              disabled={!importText.trim() || importing}
-              className="mt-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-accent/80 transition-colors"
-            >
-              {importing ? "Importing…" : "Import"}
-            </button>
-          </div>
-
-          {/* Card list */}
+          {sections.length === 0 && (
+            <div className="py-20 text-center rounded-2xl" style={{ border: "1px dashed #2a1f4a" }}>
+              <p className="text-4xl mb-3">🃏</p>
+              <p className="font-bold text-white mb-1">No cards yet</p>
+              <p className="text-sm" style={{ color: "#7c6f9a" }}>
+                Click <strong style={{ color: "#c4b5fd" }}>↑ Import</strong> to paste a decklist
+              </p>
+            </div>
+          )}
           {sections.map(({ key, label, cards }) => (
             <div key={key}>
               <div className="flex items-center gap-2 mb-2">
@@ -264,6 +449,15 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
         </div>
+      )}
+
+      {/* Import modal */}
+      {showImport && (
+        <ImportModal
+          deckId={id}
+          onClose={() => setShowImport(false)}
+          onImported={reload}
+        />
       )}
     </div>
   );
