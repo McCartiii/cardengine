@@ -108,8 +108,8 @@ export const api = {
       request<{ ok: boolean; deck: Deck }>("PUT", `/v1/decks/${id}`, data),
     delete: (id: string) =>
       request<{ ok: boolean }>("DELETE", `/v1/decks/${id}`),
-    importText: (id: string, text: string) =>
-      request<{ ok: boolean; imported: number; legality: { valid: boolean; issues: string[] } }>("POST", `/v1/decks/${id}/import`, { text }),
+    importText: (id: string, text: string, replace = true) =>
+      request<{ ok: boolean; imported: number; resolved?: number; legality: { valid: boolean; issues: string[] } }>("POST", `/v1/decks/${id}/import`, { text, replace }),
     edhrec: (id: string) =>
       request<{ commander: string; recommendations: unknown[] }>("GET", `/v1/decks/${id}/edhrec`),
     aiAdvice: (deckId: string, question?: string) =>
