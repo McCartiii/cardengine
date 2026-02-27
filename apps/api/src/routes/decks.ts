@@ -320,7 +320,11 @@ export function registerDeckRoutes(app: FastifyInstance) {
     if (body.replace) ops.push(prisma.deckCard.deleteMany({ where: { deckId: id } }));
     ops.push(prisma.deckCard.createMany({ data: cards }));
     ops.push(prisma.deck.update({ where: { id }, data: { updatedAt: new Date() } }));
-    await prisma.$transaction(ops);
+    try {
+      await prisma.$transaction(ops);
+    } catch (e) {
+      return reply.code(500).send({ error: `Database error: ${(e as Error).message}` });
+    }
 
     const legality = checkLegality(cards, existing.format);
     return { ok: true, imported: cards.length, resolved: nameToVariantId.size, legality };
@@ -470,6 +474,14 @@ export function registerDeckRoutes(app: FastifyInstance) {
 
 // ── Decklist text parser ──────────────────────────────────────────────────────
 
+// Archidekt-style type-category headers — skip entirely, don't treat as card names
+const TYPE_CATEGORIES = new Set([
+  "creature", "creatures", "instant", "instants", "sorcery", "sorceries",
+  "enchantment", "enchantments", "artifact", "artifacts",
+  "planeswalker", "planeswalkers", "land", "lands", "other",
+  "mana fixing", "ramp", "card draw", "removal", "utility",
+]);
+
 function parseDecklistText(
   text: string
 ): Array<{ cardName: string; quantity: number; section: string }> {
@@ -478,22 +490,33 @@ function parseDecklistText(
   let currentSection = "mainboard";
 
   for (const line of lines) {
+    // Strip trailing "(count)" that Archidekt appends to category/section headers e.g. "Creatures (20)"
+    const lower = line.toLowerCase().replace(/\s*\(\d+\)\s*$/, "").trim();
+
     // Section headers
-    const lower = line.toLowerCase();
     if (lower.startsWith("sideboard") || lower === "sb:") { currentSection = "sideboard"; continue; }
     if (lower.startsWith("commander")) { currentSection = "commander"; continue; }
     if (lower.startsWith("companion")) { currentSection = "companion"; continue; }
     if (lower.startsWith("main") || lower.startsWith("deck")) { currentSection = "mainboard"; continue; }
     if (line.startsWith("//") || line.startsWith("#")) continue; // comments
 
+    // Skip Archidekt type-category headers ("Creatures", "Lands", "Instants", …)
+    if (TYPE_CATEGORIES.has(lower)) continue;
+
+    // Strip Archidekt annotation tags: *CMDR*, *CMDR2*, *F*, *SB*, etc.
+    const isCmdr = /\*CMDR2?\*/i.test(line);
+    const isSb   = /\*SB\*/i.test(line);
+    const cleanLine = line.replace(/\s*\*[^*]+\*\s*/g, " ").trim();
+    const effectiveSection = isCmdr ? "commander" : isSb ? "sideboard" : currentSection;
+
     // "4 Lightning Bolt" or "4x Lightning Bolt" or "Lightning Bolt"
-    const match = line.match(/^(?:(\d+)[xX]?\s+)?(.+?)(?:\s+\([\w\d]+\)(?:\s+\d+)?)?$/);
+    const match = cleanLine.match(/^(?:(\d+)[xX]?\s+)?(.+?)(?:\s+\([\w\d]+\)(?:\s+\d+)?)?$/);
     if (!match) continue;
     const qty = match[1] ? parseInt(match[1], 10) : 1;
     const name = match[2]?.trim();
     if (!name || name.length < 2) continue;
 
-    cards.push({ cardName: name, quantity: qty, section: currentSection });
+    cards.push({ cardName: name, quantity: qty, section: effectiveSection });
   }
 
   return cards;
