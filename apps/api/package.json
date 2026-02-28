@@ -18,7 +18,7 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "@prisma/adapter-pg": "7.3.0",
-    "@prisma/adapter-pg-worker": "^6.9.0",
+    "@prisma/adapter-pg-worker": "7.3.0",
     "@prisma/client": "7.3.0",
     "dotenv": "^17.2.0",
     "fastify": "^5.2.0",
