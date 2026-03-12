@@ -10,17 +10,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    body: body \!== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
-  if (\!res.ok) {
+  if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw Object.assign(new Error((err as { error?: string }).error ?? "Request failed"), { status: res.status });
   }
   return res.json() as Promise<T>;
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────────────
 
 export interface CardVariant {
   variantId: string;
@@ -88,7 +88,7 @@ export interface Shop {
   distance: number | null;
 }
 
-// ── Endpoints ─────────────────────────────────────────────────────────────────
+// ── Endpoints ─────────────────────────────────────────────────────────
 
 export const api = {
   search: (q: string, limit = 40) =>
@@ -132,7 +132,7 @@ export const api = {
   shops: {
     nearby: (params: { lat?: number; lng?: number; radius?: number; city?: string }) => {
       const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).filter(([, v]) => v \!= null).map(([k, v]) => [k, String(v)]))
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
       ).toString();
       return request<{ shops: Shop[] }>("GET", `/v1/shops?${qs}`);
     },
