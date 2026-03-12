@@ -32,7 +32,7 @@ export async function withAdvisoryLock(
   const lockId = LOCK_IDS[jobName];
 
   // PGlite mode: no DATABASE_URL, skip locking and run job directly.
-  if (\!process.env.DATABASE_URL) {
+  if (!process.env.DATABASE_URL) {
     await job();
     return true;
   }
@@ -47,7 +47,7 @@ export async function withAdvisoryLock(
     );
     const acquired = rows[0]?.pg_try_advisory_lock === true;
 
-    if (\!acquired) {
+    if (!acquired) {
       console.log(`[leader-lock] Lock "${jobName}" (${lockId}) held by another instance -- skipping.`);
       return false;
     }
