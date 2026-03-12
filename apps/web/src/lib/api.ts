@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 let _token: string | null = null;
 export function setToken(t: string | null) { _token = t; }
@@ -10,10 +10,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body \!== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
-  if (!res.ok) {
+  if (\!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw Object.assign(new Error((err as { error?: string }).error ?? "Request failed"), { status: res.status });
   }
@@ -132,7 +132,7 @@ export const api = {
   shops: {
     nearby: (params: { lat?: number; lng?: number; radius?: number; city?: string }) => {
       const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v \!= null).map(([k, v]) => [k, String(v)]))
       ).toString();
       return request<{ shops: Shop[] }>("GET", `/v1/shops?${qs}`);
     },
