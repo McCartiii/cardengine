@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 let _token: string | null = null;
 export function setToken(t: string | null) { _token = t; }
@@ -20,7 +20,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return res.json() as Promise<T>;
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────────────
 
 export interface CardVariant {
   variantId: string;
@@ -88,7 +88,7 @@ export interface Shop {
   distance: number | null;
 }
 
-// ── Endpoints ─────────────────────────────────────────────────────────────────
+// ── Endpoints ─────────────────────────────────────────────────────────
 
 export const api = {
   search: (q: string, limit = 40) =>

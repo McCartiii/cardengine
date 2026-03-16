@@ -84,17 +84,23 @@ export default function BrowsePage() {
   const [cards, setCards]       = useState<CardVariant[]>([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
-    if (query.trim().length < 2) { setCards([]); setSearched(false); return; }
+    if (query.trim().length < 2) { setCards([]); setSearched(false); setError(null); return; }
     debounce.current = setTimeout(async () => {
       setLoading(true);
+      setError(null);
       try {
         const { cards: results } = await api.search(query.trim(), 60);
         setCards(results);
         setSearched(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Search failed — check that the API is reachable.");
+        setCards([]);
+        setSearched(false);
       } finally {
         setLoading(false);
       }
@@ -135,10 +141,17 @@ export default function BrowsePage() {
           />
           {loading && <span className="text-xs text-muted/60 shrink-0 animate-pulse">Searching…</span>}
           {query && !loading && (
-            <button onClick={() => { setQuery(""); setCards([]); setSearched(false); }} className="text-muted hover:text-white transition-colors shrink-0 text-xl leading-none">×</button>
+            <button onClick={() => { setQuery(""); setCards([]); setSearched(false); setError(null); }} className="text-muted hover:text-white transition-colors shrink-0 text-xl leading-none">×</button>
           )}
         </div>
       </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="mb-6 px-5 py-4 rounded-2xl text-sm animate-enter" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>
+          <span className="font-semibold">Search error:</span> {error}
+        </div>
+      )}
 
       {/* Skeleton grid */}
       {loading && (
@@ -148,7 +161,7 @@ export default function BrowsePage() {
       )}
 
       {/* Empty/start state */}
-      {!loading && !searched && (
+      {!loading && !searched && !error && (
         <div className="flex flex-col items-center justify-center py-36 gap-6 text-center animate-enter">
           <div
             className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl"
