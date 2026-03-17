@@ -1,13 +1,12 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { HoloCard } from "@/components/HoloCard";
 import useSWR from "swr";
 import { api, type CardVariant } from "@/lib/api";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 
 const RARITY_COLOR: Record<string, string> = {
   common: "#8ca0b8", uncommon: "#50c878", rare: "#0096ff", mythic: "#ff5000", special: "#cc44ff",
@@ -21,8 +20,9 @@ export default function CardDetailPage({ params }: { params: Promise<{ id: strin
   const variantId = decodeURIComponent(id);
   const { user } = useAuth();
 
-  const { data, error, isLoading } = useSWR<{ card: CardDetail }>(
-    variantId ? `card-${variantId}` : null, () => api.card(variantId)
+  const { data, error, isLoading } = useSWR(
+    variantId ? `card-${variantId}` : null,
+    () => api.card(variantId) as Promise<{ card: CardDetail }>
   );
 
   const [alertThreshold, setAlertThreshold] = useState("");
