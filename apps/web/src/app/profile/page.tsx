@@ -1,160 +1,65 @@
 "use client";
 
+import { useAuth } from "@/components/AuthProvider";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { api } from "@/lib/api";
 
-interface Profile {
-  id: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  createdAt: string;
-}
-
-const inputStyle = {
-  background: "#0a0614",
-  border: "1px solid #2a1f4a",
-  borderRadius: "12px",
-  padding: "10px 16px",
-  color: "#ede9fe",
-  fontSize: "14px",
-  outline: "none",
-  flex: 1,
-};
-
 export default function ProfilePage() {
-  const [profile, setProfile]     = useState<Profile | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [editing, setEditing]     = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  useEffect(() => { if (!authLoading && !user) router.push("/login"); }, [authLoading, user, router]);
+  const { data, mutate } = useSWR(user ? "profile" : null, () => api.profile.get());
+  const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [saving, setSaving]       = useState(false);
-
-  useEffect(() => {
-    api.profile.get()
-      .then(p => { setProfile(p); setDisplayName(p.displayName ?? ""); })
-      .catch(() => null)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { if (data?.displayName) setDisplayName(data.displayName); }, [data]);
+  async function handleSave() {
     setSaving(true);
-    try {
-      await api.profile.update({ displayName: displayName.trim() || undefined });
-      setProfile(p => p ? { ...p, displayName: displayName.trim() || null } : p);
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const initials = profile?.displayName?.slice(0, 2).toUpperCase() ?? "?";
-
+    try { await api.profile.update({ displayName }); mutate(); setSaved(true); setEditing(false); setTimeout(() => setSaved(false), 2500); }
+    finally { setSaving(false); }
+  }
+  const initials = (data?.displayName ?? user?.email ?? "?").slice(0, 2).toUpperCase();
   return (
     <div className="p-8 max-w-2xl mx-auto">
-      <div className="mb-10">
-        <h1 className="text-4xl font-black mb-2"><span className="gradient-text">Profile</span></h1>
-        <p className="text-sm" style={{ color: "#7c6f9a" }}>Your account details</p>
+      <div className="mb-8">
+        <h1 className="font-display font-extrabold text-4xl text-white leading-none mb-2">Profile</h1>
+        <p className="text-sm" style={{ color: "#3d5068" }}>Your account settings</p>
       </div>
-
-      {loading && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-5">
-            <div className="skeleton w-20 h-20 rounded-full" />
-            <div className="space-y-2">
-              <div className="skeleton h-7 w-40 rounded" />
-              <div className="skeleton h-4 w-28 rounded" />
-            </div>
-          </div>
-          <div className="skeleton h-24 w-full rounded-2xl" />
+      <div className="glass rounded-3xl p-8 mb-6 flex items-center gap-6 animate-enter" style={{ border: "1px solid rgba(0,212,255,0.1)" }}>
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-display font-extrabold text-2xl shrink-0"
+          style={{ background: "linear-gradient(135deg, #00d4ff 0%, #7c3aed 50%, #ff0080 100%)", backgroundSize: "200%", animation: "holo-shift 4s linear infinite", boxShadow: "0 0 30px rgba(0,212,255,0.3)", color: "#fff" }}>
+          {initials}
         </div>
-      )}
-
-      {!loading && !profile && (
-        <div className="py-20 text-center animate-enter">
-          <p className="text-lg font-bold text-white mb-2">Not signed in</p>
-          <p className="text-sm" style={{ color: "#7c6f9a" }}>Sign in to view your profile.</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-display font-bold text-xl text-white">{data?.displayName ?? "—"}</p>
+          <p className="text-sm mt-1 truncate" style={{ color: "#3d5068" }}>{user?.email}</p>
+          <p className="text-xs mt-2" style={{ color: "#3d5068" }}>Joined {data?.createdAt ? new Date(data.createdAt).toLocaleDateString() : "—"}</p>
         </div>
-      )}
-
-      {profile && (
-        <div className="space-y-6 animate-enter">
-          {/* Avatar + name */}
-          <div className="flex items-center gap-5">
-            {profile.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatarUrl} alt={initials} className="w-20 h-20 rounded-full object-cover ring-2 ring-accent/40" />
-            ) : (
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-black text-white shrink-0"
-                style={{ background: "linear-gradient(135deg, #7c3aed, #0891b2)", boxShadow: "0 0 28px rgba(139,92,246,0.35)" }}
-              >
-                {initials}
-              </div>
-            )}
-            <div>
-              <p className="text-2xl font-black text-white">{profile.displayName ?? "Anonymous"}</p>
-              <p className="text-sm mt-0.5" style={{ color: "#7c6f9a" }}>
-                Member since {new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-              </p>
-            </div>
+      </div>
+      <div className="glass rounded-2xl p-6 animate-enter" style={{ border: "1px solid rgba(0,212,255,0.08)" }}>
+        <h2 className="font-semibold text-white mb-4">Display Name</h2>
+        {editing ? (
+          <div className="flex gap-3">
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} autoFocus
+              className="flex-1 bg-transparent text-white text-sm focus:outline-none py-2.5"
+              style={{ borderBottom: "1px solid #00d4ff", caretColor: "#00d4ff" }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }} />
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl text-sm font-bold"
+              style={{ background: "rgba(0,212,255,0.1)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.2)" }}>{saving ? "…" : "Save"}</button>
+            <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-xl text-sm" style={{ color: "#3d5068" }}>Cancel</button>
           </div>
-
-          {/* Display name */}
-          <div className="rounded-2xl p-5" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-white">Display Name</h2>
-              {!editing && (
-                <button onClick={() => setEditing(true)}
-                  className="text-sm font-semibold transition-colors duration-200"
-                  style={{ color: "#c4b5fd" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#ede9fe"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#c4b5fd"; }}>
-                  Edit
-                </button>
-              )}
-            </div>
-            {editing ? (
-              <form onSubmit={handleSave} className="flex gap-3">
-                <input
-                  autoFocus
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  placeholder="Display name"
-                  maxLength={50}
-                  style={inputStyle}
-                  onFocus={e => { (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.5)"; }}
-                  onBlur={e => { (e.target as HTMLInputElement).style.borderColor = "#2a1f4a"; }}
-                />
-                <button type="submit" disabled={saving}
-                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-40 transition-all duration-200"
-                  style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)" }}>
-                  {saving ? "Saving…" : "Save"}
-                </button>
-                <button type="button" onClick={() => setEditing(false)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200"
-                  style={{ background: "#1a1430", border: "1px solid #2a1f4a", color: "#7c6f9a" }}>
-                  Cancel
-                </button>
-              </form>
-            ) : (
-              <p className="text-white">{profile.displayName ?? <span style={{ color: "#7c6f9a", fontStyle: "italic" }}>Not set</span>}</p>
-            )}
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-sm" style={{ color: data?.displayName ? "#e2e8f0" : "#3d5068" }}>{data?.displayName ?? "Not set"}</span>
+            <button onClick={() => setEditing(true)} className="px-4 py-2 rounded-xl text-xs font-semibold"
+              style={{ background: "rgba(0,212,255,0.06)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.15)" }}>Edit</button>
           </div>
-
-          {/* Account info */}
-          <div className="rounded-2xl p-5 space-y-3" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
-            <h2 className="font-bold text-white mb-2">Account</h2>
-            <div className="flex justify-between text-sm" style={{ borderTop: "1px solid #1e1640", paddingTop: "12px" }}>
-              <span style={{ color: "#7c6f9a" }}>User ID</span>
-              <span className="font-mono text-xs" style={{ color: "#7c6f9a" }}>{profile.id}</span>
-            </div>
-            <div className="flex justify-between text-sm" style={{ borderTop: "1px solid #1e1640", paddingTop: "12px" }}>
-              <span style={{ color: "#7c6f9a" }}>Member since</span>
-              <span className="text-white">{new Date(profile.createdAt).toLocaleDateString()}</span>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+        {saved && <p className="text-xs mt-3" style={{ color: "#50c878" }}>Saved!</p>}
+      </div>
     </div>
   );
 }

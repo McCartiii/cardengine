@@ -2,33 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { api, type CardVariant } from "@/lib/api";
+import { HoloCard } from "@/components/HoloCard";
 import Image from "next/image";
 import Link from "next/link";
 
-const RARITY_COLOR: Record<string, string> = {
-  common:   "#9ca3af",
-  uncommon: "#a8d8b9",
-  rare:     "#f59e0b",
-  mythic:   "#f97316",
-  special:  "#a855f7",
-};
-
-const RARITY_GLOW: Record<string, string> = {
-  common:   "rgba(156,163,175,0.2)",
-  uncommon: "rgba(168,216,185,0.2)",
-  rare:     "rgba(245,158,11,0.35)",
-  mythic:   "rgba(249,115,22,0.4)",
-  special:  "rgba(168,85,247,0.4)",
-};
-
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: "#0d1220", border: "1px solid #1e2d45" }}>
       <div className="skeleton aspect-[244/340] w-full" />
-      <div className="px-3 py-2 flex items-center gap-2">
-        <div className="skeleton w-2.5 h-2.5 rounded-full shrink-0" />
-        <div className="skeleton h-3 flex-1 rounded" />
-        <div className="skeleton h-3 w-10 rounded" />
+      <div className="px-3 py-2.5 flex items-center gap-2">
+        <div className="skeleton w-2 h-2 rounded-full shrink-0" />
+        <div className="skeleton h-2.5 flex-1 rounded" />
+        <div className="skeleton h-2.5 w-10 rounded" />
       </div>
     </div>
   );
@@ -42,40 +27,53 @@ function CardGrid({ cards }: { cards: CardVariant[] }) {
           key={card.variantId}
           href={`/cards/${encodeURIComponent(card.variantId)}`}
           className="group animate-enter"
-          style={{ animationDelay: `${Math.min(i * 35, 600)}ms` }}
+          style={{ animationDelay: `${Math.min(i * 30, 500)}ms` }}
         >
-          <div
-            className="rounded-2xl overflow-hidden transition-all duration-200 group-hover:scale-[1.03]"
-            style={{ background: "#110d1f", border: "1px solid #2a1f4a", boxShadow: "0 4px 20px rgba(0,0,0,0.4)" }}
-            onMouseEnter={(e) => {
-              const col = card.rarity ?? "";
-              (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 28px ${RARITY_GLOW[col] ?? "rgba(139,92,246,0.25)"}, 0 4px 20px rgba(0,0,0,0.5)`;
-              (e.currentTarget as HTMLDivElement).style.borderColor = (RARITY_COLOR[col] ?? "#8b5cf6") + "55";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 20px rgba(0,0,0,0.4)";
-              (e.currentTarget as HTMLDivElement).style.borderColor = "#2a1f4a";
-            }}
-          >
-            {card.imageUri ? (
-              <Image src={card.imageUri} alt={card.name} width={244} height={340} className="w-full object-cover" unoptimized />
-            ) : (
-              <div className="aspect-[244/340] flex flex-col items-center justify-center gap-2 p-3 text-center" style={{ background: "#1a1430" }}>
-                <span className="text-3xl opacity-30">🃏</span>
-                <span className="text-xs font-medium text-muted">{card.name}</span>
-              </div>
-            )}
-            <div className="px-3 py-2 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: RARITY_COLOR[card.rarity ?? ""] ?? "#6b7280" }} />
-              <span className="text-xs text-muted truncate flex-1">{card.name}</span>
-              {card.priceUsd != null && (
-                <span className="text-xs font-bold text-cyan shrink-0">${card.priceUsd.toFixed(2)}</span>
+          <HoloCard rarity={card.rarity ?? "common"} className="rounded-2xl">
+            <div style={{ background: "#0d1220", border: "1px solid #1e2d45", borderRadius: "1rem" }}>
+              {card.imageUri ? (
+                <Image
+                  src={card.imageUri}
+                  alt={card.name}
+                  width={244}
+                  height={340}
+                  className="w-full object-cover rounded-t-2xl"
+                  unoptimized
+                />
+              ) : (
+                <div className="aspect-[244/340] flex flex-col items-center justify-center gap-2 p-3 text-center rounded-t-2xl" style={{ background: "#141b2d" }}>
+                  <span className="text-3xl opacity-20">&#127183;</span>
+                  <span className="text-xs font-medium" style={{ color: "#3d5068" }}>{card.name}</span>
+                </div>
               )}
+              <div className="px-3 py-2.5 flex items-center gap-2">
+                <RarityDot rarity={card.rarity ?? ""} />
+                <span className="text-xs truncate flex-1" style={{ color: "#8ca0b8" }}>{card.name}</span>
+                {card.priceUsd != null && (
+                  <span className="text-xs font-bold shrink-0" style={{ color: "#00d4ff" }}>${card.priceUsd.toFixed(2)}</span>
+                )}
+              </div>
             </div>
-          </div>
+          </HoloCard>
         </Link>
       ))}
     </div>
+  );
+}
+
+function RarityDot({ rarity }: { rarity: string }) {
+  const colors: Record<string, string> = {
+    common:   "#8ca0b8",
+    uncommon: "#50c878",
+    rare:     "#0096ff",
+    mythic:   "#ff5000",
+    special:  "#cc44ff",
+  };
+  return (
+    <span
+      className="w-2 h-2 rounded-full shrink-0"
+      style={{ backgroundColor: colors[rarity] ?? "#3d5068", boxShadow: rarity !== "common" ? `0 0 5px ${colors[rarity] ?? "#3d5068"}` : "none" }}
+    />
   );
 }
 
@@ -110,25 +108,28 @@ export default function BrowsePage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
+
       {/* Hero */}
       <div className="mb-10">
-        <h1 className="text-4xl font-black mb-2 leading-tight">
-          Browse <span className="gradient-text">Every Card</span>
+        <h1 className="font-display text-5xl font-extrabold leading-none tracking-tight mb-3">
+          <span className="holo-text">CARD ENGINE</span>
         </h1>
-        <p className="text-sm" style={{ color: "#7c6f9a" }}>Search Magic: The Gathering with live pricing from TCGplayer & Cardmarket</p>
+        <p className="text-sm font-medium" style={{ color: "#3d5068" }}>
+          Search every Magic card with live TCGplayer & Cardmarket pricing
+        </p>
       </div>
 
-      {/* Search bar */}
+      {/* Search */}
       <div className="relative mb-10 max-w-2xl">
         <div
-          className="flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all duration-300"
+          className="flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all duration-200"
           style={{
-            background: "#110d1f",
-            border: `1px solid ${query ? "rgba(139,92,246,0.5)" : "#2a1f4a"}`,
-            boxShadow: query ? "0 0 0 3px rgba(139,92,246,0.12), 0 0 24px rgba(139,92,246,0.06)" : "none",
+            background: "#0d1220",
+            border: `1px solid ${query ? "rgba(0,212,255,0.4)" : "#1e2d45"}`,
+            boxShadow: query ? "0 0 0 3px rgba(0,212,255,0.08), 0 0 30px rgba(0,212,255,0.05)" : "none",
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c6f9a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3d5068" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
@@ -136,43 +137,60 @@ export default function BrowsePage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search cards by name…"
-            className="flex-1 bg-transparent text-white placeholder:text-muted/60 focus:outline-none text-sm"
+            className="flex-1 bg-transparent text-white placeholder:font-medium focus:outline-none text-sm"
+            style={{ caretColor: "#00d4ff" }}
             autoFocus
           />
-          {loading && <span className="text-xs text-muted/60 shrink-0 animate-pulse">Searching…</span>}
+          {loading && (
+            <span className="text-xs font-medium animate-pulse shrink-0" style={{ color: "#00d4ff" }}>
+              Scanning…
+            </span>
+          )}
           {query && !loading && (
-            <button onClick={() => { setQuery(""); setCards([]); setSearched(false); setError(null); }} className="text-muted hover:text-white transition-colors shrink-0 text-xl leading-none">×</button>
+            <button
+              onClick={() => { setQuery(""); setCards([]); setSearched(false); setError(null); }}
+              className="shrink-0 opacity-40 hover:opacity-100 transition-opacity text-lg leading-none"
+              style={{ color: "#ff0080" }}
+            >
+              ×
+            </button>
           )}
         </div>
       </div>
 
-      {/* Error state */}
+      {/* Error */}
       {error && (
-        <div className="mb-6 px-5 py-4 rounded-2xl text-sm animate-enter" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>
-          <span className="font-semibold">Search error:</span> {error}
+        <div className="mb-6 px-5 py-4 rounded-2xl text-sm animate-enter glass" style={{ borderColor: "rgba(255,0,128,0.3)", color: "#ff6bad" }}>
+          <span className="font-semibold">Error:</span> {error}
         </div>
       )}
 
-      {/* Skeleton grid */}
+      {/* Skeletons */}
       {loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       )}
 
-      {/* Empty/start state */}
+      {/* Empty / start state */}
       {!loading && !searched && !error && (
         <div className="flex flex-col items-center justify-center py-36 gap-6 text-center animate-enter">
-          <div
-            className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl"
-            style={{ background: "linear-gradient(135deg, #2d1b69 0%, #0e4f6e 100%)", boxShadow: "0 0 50px rgba(139,92,246,0.3)" }}
-          >
-            ✦
+          <div className="animate-float">
+            <div
+              className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl relative"
+              style={{
+                background: "linear-gradient(135deg, #060810 0%, #0d1220 100%)",
+                border: "1px solid rgba(0,212,255,0.2)",
+                boxShadow: "0 0 50px rgba(0,212,255,0.12), 0 0 100px rgba(124,58,237,0.08)",
+              }}
+            >
+              <span className="holo-text text-4xl font-display font-extrabold">CE</span>
+            </div>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Find any card</h2>
-            <p className="text-sm max-w-sm" style={{ color: "#7c6f9a" }}>
-              Type a name to search our full database with real-time prices
+            <h2 className="text-2xl font-display font-bold text-white mb-2">Find any card</h2>
+            <p className="text-sm max-w-sm" style={{ color: "#3d5068" }}>
+              Type a name to search the full Scryfall database with real-time prices
             </p>
           </div>
         </div>
@@ -181,18 +199,24 @@ export default function BrowsePage() {
       {/* No results */}
       {!loading && searched && cards.length === 0 && (
         <div className="py-24 text-center animate-enter">
-          <p className="text-5xl mb-4 opacity-30">🔍</p>
-          <p className="text-white font-bold text-lg mb-1">No results for &ldquo;{query}&rdquo;</p>
-          <p className="text-sm" style={{ color: "#7c6f9a" }}>Try a different spelling or card name</p>
+          <p className="text-5xl mb-4 opacity-20">&#128269;</p>
+          <p className="text-white font-bold font-display text-lg mb-1">No results for &ldquo;{query}&rdquo;</p>
+          <p className="text-sm" style={{ color: "#3d5068" }}>Try a different spelling or card name</p>
         </div>
       )}
 
       {/* Results */}
       {!loading && cards.length > 0 && (
         <>
-          <p className="text-xs font-medium uppercase tracking-wider mb-4" style={{ color: "#7c6f9a" }}>
-            {cards.length} result{cards.length !== 1 ? "s" : ""}
-          </p>
+          <div className="flex items-center gap-3 mb-5">
+            <span
+              className="px-2.5 py-1 rounded-lg text-xs font-bold"
+              style={{ background: "rgba(0,212,255,0.1)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.2)" }}
+            >
+              {cards.length} result{cards.length !== 1 ? "s" : ""}
+            </span>
+            <div style={{ height: 1, flex: 1, background: "rgba(0,212,255,0.06)" }} />
+          </div>
           <CardGrid cards={cards} />
         </>
       )}

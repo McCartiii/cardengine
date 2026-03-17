@@ -1,144 +1,93 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import useSWR from "swr";
 import { api } from "@/lib/api";
-import { NetworkError } from "@/components/NetworkError";
-
-interface ValueEntry {
-  variantId: string;
-  qty: number;
-  price: number;
-  lineValue: number;
-}
+import Link from "next/link";
 
 interface CollectionValue {
   totalValue: number;
   currency: string;
   cardCount: number;
-  breakdown: ValueEntry[];
+  breakdown: Array<{ variantId: string; name: string; quantity: number; price: number; total: number }>;
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function StatTile({ label, value, sub, color = "#00d4ff" }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div
-      className="rounded-2xl p-5 transition-all duration-200"
-      style={{
-        background: accent
-          ? "linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(99,102,241,0.08) 100%)"
-          : "#110d1f",
-        border: accent ? "1px solid rgba(139,92,246,0.3)" : "1px solid #2a1f4a",
-        boxShadow: accent ? "0 0 24px rgba(139,92,246,0.12)" : "none",
-      }}
-    >
-      <p className="text-xs uppercase tracking-widest font-semibold mb-2" style={{ color: "#7c6f9a" }}>{label}</p>
-      <p className={`text-2xl font-black ${accent ? "gradient-text" : "text-white"}`}>{value}</p>
+    <div className="glass rounded-2xl p-5" style={{ border: `1px solid ${color}1a` }}>
+      <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "#3d5068" }}>{label}</p>
+      <p className="font-display font-extrabold text-3xl" style={{ color }}>{value}</p>
+      {sub && <p className="text-xs mt-1" style={{ color: "#3d5068" }}>{sub}</p>}
     </div>
   );
 }
 
 export default function CollectionPage() {
-  const [data, setData]       = useState<CollectionValue | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  useEffect(() => { if (!authLoading && !user) router.push("/login"); }, [authLoading, user, router]);
+  const { data, error, isLoading } = useSWR(
+    user ? "collection-value" : null,
+    () => api.collection.value() as Promise<CollectionValue>
+  );
 
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    api.collection.value()
-      .then((d) => setData(d as CollectionValue))
-      .catch((e: Error) => {
-        const isNet = e.message === "Load failed" || e.message === "Failed to fetch" || e.name === "TypeError";
-        setError(isNet ? "network" : e.message);
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
+  if (authLoading || !user) return (
+    <div className="p-8 max-w-5xl mx-auto">
+      <div className="skeleton h-8 w-48 rounded mb-6" />
+      <div className="grid grid-cols-3 gap-4 mb-8">{[1,2,3].map(i => <div key={i} className="skeleton h-28 rounded-2xl" />)}</div>
+    </div>
+  );
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="mb-10">
-        <h1 className="text-4xl font-black mb-2"><span className="gradient-text">Collection</span></h1>
-        <p className="text-sm" style={{ color: "#7c6f9a" }}>Your card portfolio at a glance</p>
+      <div className="mb-8">
+        <h1 className="font-display font-extrabold text-4xl text-white leading-none mb-2">Collection</h1>
+        <p className="text-sm" style={{ color: "#3d5068" }}>Your card portfolio at a glance</p>
       </div>
-
-      {!loading && error === "network" && <NetworkError onRetry={load} />}
-      {!loading && error && error !== "network" && (
-        <div className="rounded-2xl p-4 text-sm animate-enter"
-          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#fca5a5" }}>
-          {error === "Forbidden" || error === "Unauthorized" ? "Sign in to view your collection." : error}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">{[1,2,3].map(i => <div key={i} className="skeleton h-28 rounded-2xl" />)}</div>
+      ) : error ? (
+        <div className="glass rounded-2xl p-6 mb-8 text-sm" style={{ color: "#ff6bad" }}>Failed to load collection data.</div>
+      ) : data ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 animate-enter">
+          <StatTile label="Total Value" value={`$${data.totalValue.toFixed(2)}`} sub={data.currency} color="#00d4ff" />
+          <StatTile label="Unique Cards" value={data.cardCount.toLocaleString()} sub="in collection" color="#a78bfa" />
+          <StatTile label="Avg per Card" value={data.cardCount > 0 ? `$${(data.totalValue / data.cardCount).toFixed(2)}` : "—"} color="#ff0080" />
         </div>
-      )}
-
-      {/* Skeleton */}
-      {loading && (
-        <div className="space-y-8">
-          <div className="grid grid-cols-3 gap-4">
-            {[0,1,2].map(i => (
-              <div key={i} className="rounded-2xl p-5" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
-                <div className="skeleton h-3 w-20 rounded mb-3" />
-                <div className="skeleton h-8 w-32 rounded" />
-              </div>
-            ))}
+      ) : null}
+      {data && data.breakdown.length > 0 && (
+        <div className="glass rounded-2xl overflow-hidden animate-enter" style={{ border: "1px solid rgba(0,212,255,0.08)" }}>
+          <div className="px-6 py-4" style={{ borderBottom: "1px solid rgba(0,212,255,0.06)" }}>
+            <h2 className="font-semibold text-sm text-white">Top Cards by Value</h2>
           </div>
-          <div className="rounded-2xl overflow-hidden" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
-            <div className="px-6 py-4" style={{ borderBottom: "1px solid #2a1f4a" }}>
-              <div className="skeleton h-5 w-40 rounded" />
-            </div>
-            {[0,1,2,3,4,5].map(i => (
-              <div key={i} className="px-6 py-3.5 flex items-center gap-4" style={{ borderTop: i > 0 ? "1px solid #1e1640" : undefined }}>
-                <div className="skeleton h-4 flex-1 rounded" />
-                <div className="skeleton h-4 w-16 rounded" />
-                <div className="skeleton h-4 w-8 rounded" />
-                <div className="skeleton h-4 w-20 rounded" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Data */}
-      {!loading && !error && data && (
-        <div className="space-y-8 animate-enter">
-          <div className="grid grid-cols-3 gap-4">
-            <StatCard label="Total Value" value={`$${data.totalValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`} accent />
-            <StatCard label="Unique Cards" value={data.cardCount.toLocaleString()} />
-            <StatCard label="Currency" value={data.currency} />
-          </div>
-
-          <div className="rounded-2xl overflow-hidden" style={{ background: "#110d1f", border: "1px solid #2a1f4a" }}>
-            <div className="px-6 py-4" style={{ borderBottom: "1px solid #2a1f4a" }}>
-              <h2 className="font-bold text-lg text-white">Top Cards by Value</h2>
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider font-semibold" style={{ color: "#7c6f9a" }}>Card</th>
-                  <th className="px-6 py-3 text-right text-xs uppercase tracking-wider font-semibold" style={{ color: "#7c6f9a" }}>Price</th>
-                  <th className="px-6 py-3 text-right text-xs uppercase tracking-wider font-semibold" style={{ color: "#7c6f9a" }}>Qty</th>
-                  <th className="px-6 py-3 text-right text-xs uppercase tracking-wider font-semibold" style={{ color: "#7c6f9a" }}>Value</th>
+          <table className="w-full text-sm">
+            <thead><tr style={{ borderBottom: "1px solid rgba(0,212,255,0.06)" }}>
+              {["Card","Qty","Price","Total"].map((h, i) => (
+                <th key={h} className={`${i > 0 ? "text-right" : "text-left"} px-6 py-3 text-xs font-semibold uppercase tracking-wider`} style={{ color: "#3d5068" }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {data.breakdown.slice(0, 20).map((row, i) => (
+                <tr key={row.variantId}
+                  style={{ borderBottom: i < Math.min(data.breakdown.length, 20) - 1 ? "1px solid rgba(0,212,255,0.04)" : "none" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "rgba(0,212,255,0.04)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}>
+                  <td className="px-6 py-3"><Link href={`/cards/${encodeURIComponent(row.variantId)}`} className="text-white hover:text-neon transition-colors font-medium">{row.name}</Link></td>
+                  <td className="px-6 py-3 text-right" style={{ color: "#3d5068" }}>x{row.quantity}</td>
+                  <td className="px-6 py-3 text-right" style={{ color: "#8ca0b8" }}>${row.price.toFixed(2)}</td>
+                  <td className="px-6 py-3 text-right font-bold" style={{ color: "#00d4ff" }}>${row.total.toFixed(2)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {data.breakdown.map((entry, i) => (
-                  <tr
-                    key={entry.variantId}
-                    className="transition-colors duration-150 animate-enter"
-                    style={{ borderTop: "1px solid #1e1640", animationDelay: `${i * 40}ms` }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "rgba(139,92,246,0.06)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = ""; }}
-                  >
-                    <td className="px-6 py-3.5">
-                      <span className="text-accent-light text-xs font-mono">{entry.variantId.slice(0, 14)}…</span>
-                    </td>
-                    <td className="px-6 py-3.5 text-right text-sm" style={{ color: "#7c6f9a" }}>${entry.price.toFixed(2)}</td>
-                    <td className="px-6 py-3.5 text-right text-sm" style={{ color: "#7c6f9a" }}>×{entry.qty}</td>
-                    <td className="px-6 py-3.5 text-right font-bold text-cyan">${entry.lineValue.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {data && data.breakdown.length === 0 && (
+        <div className="glass rounded-2xl p-12 text-center animate-enter" style={{ border: "1px solid rgba(0,212,255,0.08)" }}>
+          <p className="font-display font-bold text-lg text-white mb-1">No cards tracked yet</p>
+          <p className="text-sm" style={{ color: "#3d5068" }}>Add cards to your decks to see collection value</p>
         </div>
       )}
     </div>
