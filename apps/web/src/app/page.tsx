@@ -96,9 +96,10 @@ export default function BrowsePage() {
         setCards(results);
         setSearched(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Search failed — check that the API is reachable.");
+        const msg = err instanceof Error ? err.message : "Search failed";
+        setError(msg || "Unable to reach the API — check that NEXT_PUBLIC_API_URL is configured.");
         setCards([]);
-        setSearched(false);
+        setSearched(true);
       } finally {
         setLoading(false);
       }
@@ -115,7 +116,7 @@ export default function BrowsePage() {
           <span className="holo-text">CARD ENGINE</span>
         </h1>
         <p className="text-sm font-medium" style={{ color: "#3d5068" }}>
-          Search every Magic card with live TCGplayer & Cardmarket pricing
+          Search every Magic card with live TCGplayer &amp; Cardmarket pricing
         </p>
       </div>
 
@@ -160,8 +161,9 @@ export default function BrowsePage() {
 
       {/* Error */}
       {error && (
-        <div className="mb-6 px-5 py-4 rounded-2xl text-sm animate-enter glass" style={{ borderColor: "rgba(255,0,128,0.3)", color: "#ff6bad" }}>
-          <span className="font-semibold">Error:</span> {error}
+        <div className="mb-6 px-5 py-4 rounded-2xl text-sm font-medium animate-enter"
+          style={{ background: "rgba(255,0,128,0.08)", border: "1px solid rgba(255,0,128,0.3)", color: "#ff6bad" }}>
+          <span className="font-bold">Search error:</span> {error}
         </div>
       )}
 
@@ -197,7 +199,7 @@ export default function BrowsePage() {
       )}
 
       {/* No results */}
-      {!loading && searched && cards.length === 0 && (
+      {!loading && searched && cards.length === 0 && !error && (
         <div className="py-24 text-center animate-enter">
           <p className="text-5xl mb-4 opacity-20">&#128269;</p>
           <p className="text-white font-bold font-display text-lg mb-1">No results for &ldquo;{query}&rdquo;</p>
