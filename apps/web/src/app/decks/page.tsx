@@ -17,16 +17,28 @@ export default function DecksPage() {
   const router = useRouter();
   useEffect(() => { if (!authLoading && !user) router.push("/login"); }, [authLoading, user, router]);
   const { data, isLoading, mutate } = useSWR<{ decks: Deck[] }>(user ? "decks" : null, () => api.decks.list());
-  const [creating, setCreating]   = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [newName, setNewName]     = useState("");
-  const [newFormat, setNewFormat] = useState("commander");
+  const [creating, setCreating]     = useState(false);
+  const [showModal, setShowModal]   = useState(false);
+  const [newName, setNewName]       = useState("");
+  const [newFormat, setNewFormat]   = useState("commander");
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  function openModal() { setNewName(""); setNewFormat("commander"); setCreateError(null); setShowModal(true); }
 
   async function createDeck() {
     if (!newName.trim()) return;
     setCreating(true);
-    try { await api.decks.create({ name: newName, format: newFormat }); setNewName(""); setShowModal(false); mutate(); }
-    finally { setCreating(false); }
+    setCreateError(null);
+    try {
+      await api.decks.create({ name: newName, format: newFormat });
+      setNewName("");
+      setShowModal(false);
+      mutate();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create deck. Check your connection.");
+    } finally {
+      setCreating(false);
+    }
   }
 
   const decks = data?.decks ?? [];
@@ -37,7 +49,7 @@ export default function DecksPage() {
           <h1 className="font-display font-extrabold text-4xl text-white leading-none mb-2">Decks</h1>
           <p className="text-sm" style={{ color: "#3d5068" }}>Build and manage your decks</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
+        <button onClick={openModal} className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
           style={{ background: "linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,212,255,0.2)" }}>
           + New Deck
         </button>
@@ -49,7 +61,7 @@ export default function DecksPage() {
         <div className="glass rounded-2xl p-12 text-center" style={{ border: "1px solid rgba(0,212,255,0.08)" }}>
           <p className="font-display font-bold text-lg text-white mb-1">No decks yet</p>
           <p className="text-sm mb-6" style={{ color: "#3d5068" }}>Create your first deck to get started</p>
-          <button onClick={() => setShowModal(true)} className="inline-flex px-5 py-2.5 rounded-xl text-sm font-bold"
+          <button onClick={openModal} className="inline-flex px-5 py-2.5 rounded-xl text-sm font-bold"
             style={{ background: "rgba(0,212,255,0.1)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.2)" }}>Create Deck</button>
         </div>
       ) : (
@@ -105,9 +117,14 @@ export default function DecksPage() {
                   ))}
                 </select>
               </div>
+              {createError && (
+                <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "rgba(255,0,128,0.1)", border: "1px solid rgba(255,0,128,0.3)", color: "#ff6bad" }}>
+                  {createError}
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
-                <button onClick={createDeck} disabled={creating || !newName.trim()} className="flex-1 py-2.5 rounded-xl text-sm font-bold"
-                  style={{ background: "linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)", color: "#fff" }}>
+                <button onClick={createDeck} disabled={creating || !newName.trim()} className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-opacity"
+                  style={{ background: "linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)", color: "#fff", opacity: creating || !newName.trim() ? 0.5 : 1 }}>
                   {creating ? "Creating…" : "Create"}
                 </button>
                 <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-sm" style={{ background: "rgba(30,45,69,0.5)", color: "#3d5068" }}>Cancel</button>
