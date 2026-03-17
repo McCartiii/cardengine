@@ -28,7 +28,10 @@ export default function CollectionPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   useEffect(() => { if (!authLoading && !user) router.push("/login"); }, [authLoading, user, router]);
-  const { data, error, isLoading } = useSWR<CollectionValue>(user ? "collection-value" : null, () => api.collection.value());
+  const { data, error, isLoading } = useSWR(
+    user ? "collection-value" : null,
+    () => api.collection.value() as Promise<CollectionValue>
+  );
 
   if (authLoading || !user) return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -61,7 +64,7 @@ export default function CollectionPage() {
           </div>
           <table className="w-full text-sm">
             <thead><tr style={{ borderBottom: "1px solid rgba(0,212,255,0.06)" }}>
-              {["Card","Qty","Price","Total"].map((h,i) => (
+              {["Card","Qty","Price","Total"].map((h, i) => (
                 <th key={h} className={`${i > 0 ? "text-right" : "text-left"} px-6 py-3 text-xs font-semibold uppercase tracking-wider`} style={{ color: "#3d5068" }}>{h}</th>
               ))}
             </tr></thead>
