@@ -1,16 +1,21 @@
 import "dotenv/config";
 import { PrismaClient } from "./generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { PGlite } from "@electric-sql/pglite";
 import { PrismaPGlite } from "pglite-prisma-adapter";
 
 let prismaInstance: PrismaClient;
 
 async function createPrismaClient(): Promise<PrismaClient> {
-  // Try remote Supabase Postgres first
+  // Try remote Postgres first
   if (process.env.DATABASE_URL && process.env.USE_PGLITE !== "true") {
     try {
-      const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      });
+      const adapter = new PrismaPg(pool);
       const client = new PrismaClient({ adapter });
       // Quick connectivity check
       await client.$queryRawUnsafe("SELECT 1");
