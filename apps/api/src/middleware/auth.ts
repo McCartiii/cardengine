@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { jwtVerify } from "jose";
+import { jwtVerify, createRemoteJWKSet } from "jose";
 import { prisma } from "../db.js";
 
 export interface AuthUser {
@@ -7,56 +7,63 @@ export interface AuthUser {
   email?: string;
 }
 
-// Supabase signs JWTs with HS256 using SUPABASE_JWT_SECRET.
-// Encode once at module load.
-const jwtSecret = new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET!);
-
 // Supabase JWT payload shape (only the fields we consume)
 interface SupabaseJwtPayload {
   sub: string;
   email?: string;
-  role?: string;      // "authenticated" | "anon" | "service_role"
+  role?: string;
   aud?: string;
   exp?: number;
   iat?: number;
 }
 
-/**
- * Extracts and verifies a Supabase JWT from the Authorization header.
- * Verification is purely local (no network call) using SUPABASE_JWT_SECRET.
- * jose's jwtVerify automatically rejects expired tokens via the exp claim.
- */
+// Support both HS256 (legacy secret) and RS256 (JWKS) Supabase JWT signing.
+// SUPABASE_URL is required for JWKS. SUPABASE_JWT_SECRET is used as HS256 fallback.
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const jwksUrl = SUPABASE_URL ? new URL(`${SUPABASE_URL}/auth/v1/keys`) : null;
+const JWKS = jwksUrl ? createRemoteJWKSet(jwksUrl) : null;
+const HS256_SECRET = process.env.SUPABASE_JWT_SECRET
+  ? new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET)
+  : null;
+
+async function verifySupabaseJwt(token: string): Promise<SupabaseJwtPayload | null> {
+  // Try RS256 via JWKS first (current Supabase default)
+  if (JWKS) {
+    try {
+      const { payload } = await jwtVerify(token, JWKS, { algorithms: ["RS256", "ES256"] });
+      return payload as unknown as SupabaseJwtPayload;
+    } catch {
+      // fall through to HS256
+    }
+  }
+  // Try HS256 via legacy secret
+  if (HS256_SECRET) {
+    try {
+      const { payload } = await jwtVerify(token, HS256_SECRET, { algorithms: ["HS256"] });
+      return payload as unknown as SupabaseJwtPayload;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function extractUser(req: FastifyRequest): Promise<AuthUser | null> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) return null;
 
   const token = authHeader.slice(7);
   try {
-    const { payload } = await jwtVerify(token, jwtSecret, {
-      algorithms: ["HS256"],
-    });
-    const claims = payload as unknown as SupabaseJwtPayload;
-
-    if (!claims.sub) return null;
-
+    const claims = await verifySupabaseJwt(token);
+    if (!claims?.sub) return null;
     // Reject anonymous tokens
     if (claims.role && claims.role !== "authenticated") return null;
-
-    return {
-      sub: claims.sub,
-      email: claims.email,
-    };
+    return { sub: claims.sub, email: claims.email };
   } catch {
-    // Expired, invalid signature, malformed
     return null;
   }
 }
 
-/**
- * Fastify preHandler hook that requires authentication.
- * Sets request.user with the verified user payload.
- * Rejects with 403 if the user's account has been banned.
- */
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const user = await extractUser(req);
   if (!user) {
@@ -74,9 +81,6 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   (req as FastifyRequest & { user: AuthUser }).user = user;
 }
 
-/**
- * Optional auth -- sets request.user if token is present, but doesn't reject.
- */
 export async function optionalAuth(req: FastifyRequest) {
   const user = await extractUser(req);
   if (user) {
