@@ -186,7 +186,7 @@ function reducer(state: GameState, action: Action): GameState {
       let players = state.players.map(p => {
         if (p.id !== action.id) return p;
         const newPoison = Math.max(0, p.poison + action.delta);
-        const updated = { ...p, poison: newPoison, poisonAnim: action.delta > 0 ? "increase" as const : "", animKey: p.animKey + 1 };
+        const updated = { ...p, poison: newPoison, poisonAnim: (action.delta > 0 ? "increase" : "") as "" | "increase", animKey: p.animKey + 1 };
         if (checkEliminated(updated)) updated.isEliminated = true;
         return updated;
       });
