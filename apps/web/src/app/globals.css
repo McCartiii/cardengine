@@ -194,8 +194,8 @@ body::before {
 }
 
 @keyframes turn-glow-pulse {
-  0%, 100% { box-shadow: 0 0 12px var(--player-color, #00d4ff), 0 0 24px color-mix(in srgb, var(--player-color, #00d4ff) 40%, transparent); }
-  50% { box-shadow: 0 0 24px var(--player-color, #00d4ff), 0 0 48px color-mix(in srgb, var(--player-color, #00d4ff) 50%, transparent), 0 0 64px color-mix(in srgb, var(--player-color, #00d4ff) 20%, transparent); }
+  0%, 100% { box-shadow: 0 0 12px var(--player-color, #00d4ff), 0 0 24px rgba(0, 212, 255, 0.35); }
+  50% { box-shadow: 0 0 24px var(--player-color, #00d4ff), 0 0 48px rgba(0, 212, 255, 0.45), 0 0 64px rgba(0, 212, 255, 0.2); }
 }
 
 @keyframes time-alert {
