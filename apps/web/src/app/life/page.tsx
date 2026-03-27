@@ -143,7 +143,7 @@ function reducer(state: GameState, action: Action): GameState {
         i === state.activePlayerIndex ? { ...p, timeRemainingMs: newTime } : p
       );
       let activeIndex = state.activePlayerIndex;
-      let phase = state.phase;
+      let phase: GameState["phase"] = state.phase;
       // Time out
       if (newTime <= 0) {
         players = players.map((p, i) =>
@@ -174,7 +174,7 @@ function reducer(state: GameState, action: Action): GameState {
       });
       // Auto-pass if active player eliminated
       let activeIndex = state.activePlayerIndex;
-      let phase = state.phase;
+      let phase: GameState["phase"] = state.phase;
       if (players[activeIndex]?.isEliminated) {
         const next = nextAlivePlayer(players, activeIndex);
         if (next === -1) phase = "finished";
@@ -191,7 +191,7 @@ function reducer(state: GameState, action: Action): GameState {
         return updated;
       });
       let activeIndex = state.activePlayerIndex;
-      let phase = state.phase;
+      let phase: GameState["phase"] = state.phase;
       if (players[activeIndex]?.isEliminated) {
         const next = nextAlivePlayer(players, activeIndex);
         if (next === -1) phase = "finished";
@@ -210,7 +210,7 @@ function reducer(state: GameState, action: Action): GameState {
         return updated;
       });
       let activeIndex = state.activePlayerIndex;
-      let phase = state.phase;
+      let phase: GameState["phase"] = state.phase;
       if (players[activeIndex]?.isEliminated) {
         const next = nextAlivePlayer(players, activeIndex);
         if (next === -1) phase = "finished";
