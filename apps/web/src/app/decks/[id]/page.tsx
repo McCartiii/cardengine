@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 
 type Tab = "cards" | "edhrec" | "ai";
 type AiMessage = { role: "user" | "assistant"; content: string };
+type CollectionMode = "collection" | "mix" | "new";
 
 interface DeckDetailData {
   deck: {
@@ -24,6 +25,22 @@ const SECTION_ORDER = ["commander", "mainboard", "sideboard", "companion"];
 const SECTION_LABEL: Record<string, string> = {
   commander: "Commander", mainboard: "Mainboard", sideboard: "Sideboard", companion: "Companion",
 };
+
+const BRACKET_LABELS = ["", "Jank / Precon", "Upgraded Precon", "Optimized", "High Power", "cEDH"];
+const BRACKET_COLORS = ["", "#3d5068", "#22c55e", "#00d4ff", "#f59e0b", "#ff0080"];
+const BRACKET_DESC = [
+  "",
+  "Casual, fun, no combos",
+  "Slight upgrades, friendly power",
+  "Focused strategy, synergy-driven",
+  "Near-competitive, strong synergies",
+  "Full competitive, fast wins",
+];
+
+const GOALS = [
+  "Aggro", "Control", "Combo", "Midrange", "Ramp", "Tokens", "Voltron",
+  "Stax", "Aristocrats", "Spellslinger", "Reanimator", "Tribal", "Pillowfort", "Mill", "Infect",
+];
 
 function parseCards(text: string): { name: string; qty: number }[] {
   const match = text.match(/CARDS:\n([\s\S]*?)END_CARDS/);
@@ -111,7 +128,100 @@ Sideboard
   );
 }
 
-// ── AI Chat ────────────────────────────────────────────────────────────────────
+// ── EDHRec Tab ────────────────────────────────────────────────────────────────
+function EdhrecTab({ deck }: { deck: DeckDetailData["deck"] }) {
+  const [commanderInput, setCommanderInput] = useState(deck.commander ?? "");
+  const [edhrecData, setEdhrecData] = useState<{ commander: string; recommendations: unknown[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (name: string) => {
+    if (!name.trim()) return;
+    setLoading(true); setError(null);
+    try {
+      const data = await api.decks.edhrec(deck.id);
+      setEdhrecData(data);
+    } catch (e: unknown) {
+      const msg = (e as { message?: string }).message ?? "Failed to load";
+      // If no commander on deck, try lookup by name via the standalone endpoint
+      if (msg.includes("No commander") || msg.includes("commander")) {
+        setError(`No commander detected on this deck. Enter a commander name above and try again.`);
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [deck.id]);
+
+  // Auto-load if commander already set
+  useEffect(() => {
+    if (deck.commander) load(deck.commander);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div>
+      {/* Commander input */}
+      <div className="flex gap-2 mb-6">
+        <input
+          value={commanderInput}
+          onChange={e => setCommanderInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && load(commanderInput)}
+          placeholder="Commander name (e.g. Atraxa, Praetors' Voice)"
+          className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+        />
+        <button onClick={() => load(commanderInput)} disabled={loading || !commanderInput.trim()}
+          className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
+          style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+          {loading ? "Loading…" : "Look up"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="py-6 text-center rounded-xl mb-4" style={{ background: "rgba(255,0,128,0.06)", border: "1px solid rgba(255,0,128,0.15)" }}>
+          <p className="text-sm" style={{ color: "#fca5a5" }}>{error}</p>
+        </div>
+      )}
+
+      {loading && <p className="text-muted animate-pulse text-sm">Fetching EDHRec data…</p>}
+
+      {edhrecData && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">{edhrecData.commander} — Recommendations</h2>
+            <span className="text-xs text-muted">{(edhrecData.recommendations as unknown[]).filter((r: unknown) => !(r as { alreadyInDeck: boolean }).alreadyInDeck).length} new cards</span>
+          </div>
+          <div className="space-y-2">
+            {(edhrecData.recommendations as Array<{
+              name: string; synergy: number; inclusion: number;
+              primary_type: string; cmc: number; price_usd: number | null; alreadyInDeck: boolean;
+            }>).filter(r => !r.alreadyInDeck).slice(0, 40).map(rec => (
+              <div key={rec.name} className="flex items-center gap-4 bg-surface rounded-xl border border-border px-4 py-3 hover:border-accent/30 transition-colors">
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">{rec.name}</p>
+                  <p className="text-muted text-xs">{rec.primary_type} · CMC {rec.cmc}</p>
+                </div>
+                <span className="text-green-400 text-sm font-bold">+{rec.synergy}%</span>
+                <span className="text-muted text-xs">{rec.inclusion}% decks</span>
+                <span className="text-sm font-semibold text-gold">{rec.price_usd != null ? `$${rec.price_usd.toFixed(2)}` : "—"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!loading && !edhrecData && !error && (
+        <div className="py-16 text-center text-muted">
+          <p className="text-4xl mb-3">🧙</p>
+          <p className="text-sm">Enter a commander name and click Look up</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AI Architect Tab ──────────────────────────────────────────────────────────
 function AIChat({ deck }: { deck: DeckDetailData["deck"] }) {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [input, setInput] = useState("");
@@ -121,17 +231,43 @@ function AIChat({ deck }: { deck: DeckDetailData["deck"] }) {
   const [importResult, setImportResult] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const deckContext = `Deck: ${deck.name}\nFormat: ${deck.format}\nCommander: ${deck.commander ?? "none"}\nCards (${deck.cards.reduce((s, c) => s + c.quantity, 0)} total):\n${deck.cards.slice(0, 40).map(c => `${c.quantity}x ${c.cardName}`).join("\n")}`;
+  // Architect settings
+  const [bracket, setBracket] = useState(3);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [collectionMode, setCollectionMode] = useState<CollectionMode>("mix");
+  const [showSettings, setShowSettings] = useState(true);
 
-  const send = useCallback(async () => {
-    if (!input.trim() || streaming) return;
-    const userMsg: AiMessage = { role: "user", content: input };
+  const toggleGoal = (g: string) =>
+    setSelectedGoals(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+
+  const collectionContext = {
+    collection: "Only suggest cards the user already owns from their collection. Do not recommend cards they don't have.",
+    mix: "Prefer cards the user already owns, but suggest new cards where significant upgrades exist.",
+    new: "Suggest the best possible cards regardless of collection. Build the optimal deck.",
+  }[collectionMode];
+
+  const deckContext = [
+    `Deck: ${deck.name}`,
+    `Format: ${deck.format}`,
+    `Commander: ${deck.commander ?? "none"}`,
+    `Power bracket: ${bracket} — ${BRACKET_LABELS[bracket]} (${BRACKET_DESC[bracket]})`,
+    selectedGoals.length > 0 ? `Strategy goals: ${selectedGoals.join(", ")}` : "",
+    `Collection preference: ${collectionContext}`,
+    `Cards (${deck.cards.reduce((s, c) => s + c.quantity, 0)} total):`,
+    deck.cards.slice(0, 50).map(c => `${c.quantity}x ${c.cardName}`).join("\n"),
+  ].filter(Boolean).join("\n");
+
+  const send = useCallback(async (msg?: string) => {
+    const text = msg ?? input;
+    if (!text.trim() || streaming) return;
+    const userMsg: AiMessage = { role: "user", content: text };
     const next = [...messages, userMsg];
     setMessages(next);
     setInput("");
     setStreaming(true);
     setSuggestedCards([]);
     setImportResult(null);
+    setShowSettings(false);
     setMessages(prev => [...prev, { role: "assistant", content: "" }]);
 
     try {
@@ -184,20 +320,123 @@ function AIChat({ deck }: { deck: DeckDetailData["deck"] }) {
   }
 
   return (
-    <div className="flex flex-col h-[600px]">
+    <div className="flex flex-col h-[680px]">
+
+      {/* Settings panel */}
+      {showSettings && messages.length === 0 && (
+        <div className="rounded-2xl p-5 mb-4 space-y-5" style={{ background: "rgba(13,18,32,0.8)", border: "1px solid rgba(0,212,255,0.1)" }}>
+
+          {/* Bracket slider */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted">Power Bracket</p>
+              <span className="text-sm font-bold" style={{ color: BRACKET_COLORS[bracket] }}>
+                {bracket} — {BRACKET_LABELS[bracket]}
+              </span>
+            </div>
+            <input
+              type="range" min={1} max={5} value={bracket}
+              onChange={e => setBracket(Number(e.target.value))}
+              className="w-full accent-current"
+              style={{ accentColor: BRACKET_COLORS[bracket] }}
+            />
+            <div className="flex justify-between text-[10px] text-muted mt-1">
+              {BRACKET_LABELS.slice(1).map((l, i) => (
+                <span key={i} style={{ color: bracket === i + 1 ? BRACKET_COLORS[i + 1] : undefined }}>{i + 1}</span>
+              ))}
+            </div>
+            <p className="text-xs text-muted mt-1">{BRACKET_DESC[bracket]}</p>
+          </div>
+
+          {/* Goals */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted mb-2">Deck Goals <span className="normal-case font-normal">(select all that apply)</span></p>
+            <div className="flex flex-wrap gap-2">
+              {GOALS.map(g => (
+                <button key={g} onClick={() => toggleGoal(g)}
+                  className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
+                  style={selectedGoals.includes(g)
+                    ? { background: "rgba(0,212,255,0.15)", border: "1px solid rgba(0,212,255,0.4)", color: "#00d4ff" }
+                    : { background: "rgba(30,45,69,0.4)", border: "1px solid #1e2d45", color: "#3d5068" }
+                  }>
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Collection mode */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted mb-2">Card Pool</p>
+            <div className="flex gap-2">
+              {([
+                { value: "collection" as const, label: "My Collection", desc: "Only cards I own", color: "#4ade80" },
+                { value: "mix" as const, label: "Mix", desc: "Prefer owned, add new", color: "#00d4ff" },
+                { value: "new" as const, label: "All New", desc: "Best cards regardless", color: "#f59e0b" },
+              ]).map(({ value, label, desc, color }) => (
+                <button key={value} onClick={() => setCollectionMode(value)}
+                  className="flex-1 py-2.5 px-3 rounded-xl text-left transition-all"
+                  style={collectionMode === value
+                    ? { background: `${color}15`, border: `1px solid ${color}50`, color }
+                    : { background: "rgba(30,45,69,0.3)", border: "1px solid #1e2d45", color: "#3d5068" }
+                  }>
+                  <p className="text-xs font-bold">{label}</p>
+                  <p className="text-[10px] opacity-70">{desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toggle settings when chatting */}
+      {messages.length > 0 && (
+        <button onClick={() => setShowSettings(v => !v)} className="text-xs text-muted hover:text-white transition-colors mb-2 flex items-center gap-1">
+          ⚙ {showSettings ? "Hide" : "Show"} settings · Bracket {bracket} · {BRACKET_LABELS[bracket]} · {collectionMode}
+        </button>
+      )}
+      {messages.length > 0 && showSettings && (
+        <div className="rounded-xl p-4 mb-3 space-y-4 text-sm" style={{ background: "rgba(13,18,32,0.8)", border: "1px solid rgba(0,212,255,0.08)" }}>
+          <div className="flex items-center gap-3">
+            <span className="text-muted text-xs w-16">Bracket</span>
+            <input type="range" min={1} max={5} value={bracket} onChange={e => setBracket(Number(e.target.value))}
+              className="flex-1" style={{ accentColor: BRACKET_COLORS[bracket] }} />
+            <span className="text-xs font-bold w-24" style={{ color: BRACKET_COLORS[bracket] }}>{bracket} — {BRACKET_LABELS[bracket]}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {GOALS.map(g => (
+              <button key={g} onClick={() => toggleGoal(g)} className="px-2 py-0.5 rounded text-xs transition-all"
+                style={selectedGoals.includes(g) ? { background: "rgba(0,212,255,0.15)", border: "1px solid rgba(0,212,255,0.3)", color: "#00d4ff" } : { background: "rgba(30,45,69,0.4)", border: "1px solid #1e2d45", color: "#3d5068" }}>
+                {g}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {(["collection", "mix", "new"] as const).map(v => (
+              <button key={v} onClick={() => setCollectionMode(v)} className="flex-1 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
+                style={collectionMode === v ? { background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)", color: "#00d4ff" } : { background: "rgba(30,45,69,0.3)", border: "1px solid #1e2d45", color: "#3d5068" }}>
+                {v === "collection" ? "My Collection" : v === "mix" ? "Mix" : "All New"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
         {messages.length === 0 && (
-          <div className="py-16 text-center">
-            <p className="text-4xl mb-3">🧙</p>
-            <p className="text-muted text-sm mb-4">Ask Claude to analyze your deck, suggest improvements, or build a sideboard.</p>
+          <div className="py-8 text-center">
+            <p className="text-3xl mb-3">🧙</p>
+            <p className="text-muted text-sm mb-4">Configure your settings above, then ask Claude to build or improve your deck.</p>
             <div className="flex flex-wrap gap-2 justify-center">
               {[
-                "What are the top 5 improvements for this deck?",
-                "Suggest a sideboard for this deck",
-                "What are the main weaknesses?",
+                "Build me a deck based on these goals",
+                "What are the top 5 improvements?",
+                "Suggest a sideboard",
+                "What are my main weaknesses?",
                 "How do I pilot this deck?",
               ].map(q => (
-                <button key={q} onClick={() => setInput(q)} className="px-3 py-1.5 text-xs rounded-lg transition-colors"
+                <button key={q} onClick={() => send(q)} className="px-3 py-1.5 text-xs rounded-lg transition-colors"
                   style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.2)", color: "#c4b5fd" }}>
                   {q}
                 </button>
@@ -235,8 +474,8 @@ function AIChat({ deck }: { deck: DeckDetailData["deck"] }) {
       <div className="flex gap-2">
         <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
           placeholder="Ask about your deck…" disabled={streaming}
-          className="flex-1 bg-surface-2 border border-border rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:border-accent transition-all disabled:opacity-60" />
-        <button onClick={send} disabled={streaming || !input.trim()} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
+          className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:border-accent transition-all disabled:opacity-60" />
+        <button onClick={() => send()} disabled={streaming || !input.trim()} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
           style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
           {streaming ? "…" : "Ask"}
         </button>
@@ -245,28 +484,19 @@ function AIChat({ deck }: { deck: DeckDetailData["deck"] }) {
   );
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function DeckDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [tab, setTab] = useState<Tab>("cards");
   const [data, setData] = useState<DeckDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
-  const [edhrecData, setEdhrecData] = useState<{ commander: string; recommendations: unknown[] } | null>(null);
-  const [edhrecLoading, setEdhrecLoading] = useState(false);
 
   const reload = () => { api.decks.get(id).then(setData).catch(console.error); };
 
   useEffect(() => {
     api.decks.get(id).then(setData).catch(console.error).finally(() => setLoading(false));
   }, [id]);
-
-  useEffect(() => {
-    if (tab === "edhrec" && !edhrecData && !edhrecLoading) {
-      setEdhrecLoading(true);
-      api.decks.edhrec(id).then(setEdhrecData).catch(() => null).finally(() => setEdhrecLoading(false));
-    }
-  }, [tab, id, edhrecData, edhrecLoading]);
 
   const handleTogglePublic = async () => {
     if (!data) return;
@@ -369,39 +599,7 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {tab === "edhrec" && (
-        <div>
-          {edhrecLoading && <p className="text-muted animate-pulse">Loading EDHRec data…</p>}
-          {!edhrecLoading && !edhrecData && (
-            <div className="py-16 text-center text-muted">
-              <p className="text-4xl mb-3">🧙</p>
-              <p>No commander set or commander not found on EDHRec.</p>
-            </div>
-          )}
-          {edhrecData && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">{edhrecData.commander} — Recommendations</h2>
-              <div className="space-y-2">
-                {(edhrecData.recommendations as Array<{
-                  name: string; synergy: number; inclusion: number;
-                  primary_type: string; cmc: number; price_usd: number | null; alreadyInDeck: boolean;
-                }>).filter(r => !r.alreadyInDeck).slice(0, 30).map(rec => (
-                  <div key={rec.name} className="flex items-center gap-4 bg-surface rounded-xl border border-border px-4 py-3">
-                    <div className="flex-1">
-                      <p className="font-semibold text-sm">{rec.name}</p>
-                      <p className="text-muted text-xs">{rec.primary_type} · CMC {rec.cmc}</p>
-                    </div>
-                    <span className="text-green-400 text-sm font-bold">+{rec.synergy}%</span>
-                    <span className="text-muted text-sm">{rec.inclusion}%</span>
-                    <span className="text-sm font-semibold">{rec.price_usd != null ? `$${rec.price_usd.toFixed(2)}` : "—"}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
+      {tab === "edhrec" && <EdhrecTab deck={deck} />}
       {tab === "ai" && <AIChat deck={deck} />}
 
       {showImport && <ImportModal deckId={id} onClose={() => setShowImport(false)} onImported={reload} />}
