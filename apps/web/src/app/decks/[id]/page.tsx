@@ -139,13 +139,12 @@ function EdhrecTab({ deck }: { deck: DeckDetailData["deck"] }) {
     if (!name.trim()) return;
     setLoading(true); setError(null);
     try {
-      const data = await api.decks.edhrec(deck.id);
+      const data = await api.decks.edhrec(deck.id, name.trim());
       setEdhrecData(data);
     } catch (e: unknown) {
       const msg = (e as { message?: string }).message ?? "Failed to load";
-      // If no commander on deck, try lookup by name via the standalone endpoint
-      if (msg.includes("No commander") || msg.includes("commander")) {
-        setError(`No commander detected on this deck. Enter a commander name above and try again.`);
+      if (msg.includes("not found on EDHREC") || msg.includes("not found")) {
+        setError(`"${name}" not found on EDHRec. Check the spelling and try again.`);
       } else {
         setError(msg);
       }
