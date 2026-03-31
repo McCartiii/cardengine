@@ -79,7 +79,6 @@ async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
     const stateZip = parts[2] ?? "";
     const stateParts = stateZip.trim().split(" ");
     const state = stateParts[0] ?? null;
-    const zip = stateParts[1] ?? null;
 
     // Fetch details (website, phone, hours) — each place requires a separate API call
     const details = await fetchPlaceDetails(place.place_id);
@@ -98,7 +97,7 @@ async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
         lng: place.geometry.location.lng,
         phone: details.formatted_phone_number ?? null,
         website: details.website ?? null,
-        hours,
+        hours: hours ?? null,
         verified: false,
       },
       update: {
@@ -110,6 +109,22 @@ async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
         phone: details.formatted_phone_number ?? null,
         website: details.website ?? null,
         hours,
+      },
+    });
+  }
+}
+
+async function enrichShopDetails(shops: { id: string }[]): Promise<void> {
+  for (const shop of shops) {
+    const details = await fetchPlaceDetails(shop.id);
+    if (!details.website && !details.formatted_phone_number && !details.opening_hours) continue;
+    const hours = details.opening_hours?.weekday_text?.join(" | ") ?? undefined;
+    await prisma.shop.update({
+      where: { id: shop.id },
+      data: {
+        ...(details.website ? { website: details.website } : {}),
+        ...(details.formatted_phone_number ? { phone: details.formatted_phone_number } : {}),
+        ...(hours ? { hours } : {}),
       },
     });
   }
@@ -139,6 +154,14 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
       if (places.length > 0) {
         await upsertPlacesResults(places);
         shops = await prisma.shop.findMany({ where, take: query.limit, orderBy: { name: "asc" } });
+      }
+    }
+
+    // Background-enrich existing shops that are missing details (fire-and-forget)
+    if (GOOGLE_PLACES_KEY) {
+      const bare = shops.filter((s) => !s.website && !s.hours && !s.phone);
+      if (bare.length > 0) {
+        enrichShopDetails(bare.slice(0, 8)).catch(() => {});
       }
     }
 
