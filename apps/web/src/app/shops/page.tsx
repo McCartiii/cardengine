@@ -50,7 +50,7 @@ function ShopCard({ shop }: { shop: Shop }) {
           <h3 className="font-semibold text-white mb-1 text-base">{shop.name}</h3>
           {shop.address && (
             <p className="text-xs mb-2" style={{ color: "#526880" }}>
-              {shop.address}{shop.city ? `, ${shop.city}` : ""}{shop.state ? `, ${shop.state}` : ""}{shop.zip ? ` ${shop.zip}` : ""}
+              {shop.address}{shop.city ? `, ${shop.city}` : ""}{shop.state ? `, ${shop.state}` : ""}
             </p>
           )}
 
