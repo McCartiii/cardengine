@@ -7,6 +7,19 @@ import { clsx } from "clsx";
 type Tab = "cards" | "edhrec" | "ai";
 type AiMessage = { role: "user" | "assistant"; content: string };
 type CollectionMode = "collection" | "mix" | "new";
+type ViewMode = "list" | "art" | "artname";
+type GroupBy = "section" | "type";
+
+interface RichCard extends DeckCard {
+  variant?: {
+    imageUri: string | null;
+    typeLine: string | null;
+    manaCost: string | null;
+    colors: string[] | null;
+    cmc: number | null;
+    rarity: string | null;
+  } | null;
+}
 
 interface DeckDetailData {
   deck: {
@@ -15,7 +28,7 @@ interface DeckDetailData {
     format: string;
     commander: string | null;
     isPublic: boolean;
-    cards: DeckCard[];
+    cards: RichCard[];
   };
   totalValue: number;
   legality: { valid: boolean; issues: string[] };
@@ -25,6 +38,67 @@ const SECTION_ORDER = ["commander", "mainboard", "sideboard", "companion"];
 const SECTION_LABEL: Record<string, string> = {
   commander: "Commander", mainboard: "Mainboard", sideboard: "Sideboard", companion: "Companion",
 };
+
+const TYPE_ORDER = ["Commander", "Creature", "Planeswalker", "Instant", "Sorcery", "Artifact", "Enchantment", "Land", "Other"];
+const TYPE_COLORS: Record<string, string> = {
+  Commander: "#a855f7", Creature: "#22c55e", Planeswalker: "#f59e0b",
+  Instant: "#00d4ff", Sorcery: "#3b82f6", Artifact: "#94a3b8",
+  Enchantment: "#ec4899", Land: "#78716c", Other: "#6b7280",
+};
+
+function getCardType(typeLine: string | null | undefined): string {
+  if (!typeLine) return "Other";
+  if (typeLine.includes("Land")) return "Land";
+  if (typeLine.includes("Creature")) return "Creature";
+  if (typeLine.includes("Planeswalker")) return "Planeswalker";
+  if (typeLine.includes("Instant")) return "Instant";
+  if (typeLine.includes("Sorcery")) return "Sorcery";
+  if (typeLine.includes("Artifact")) return "Artifact";
+  if (typeLine.includes("Enchantment")) return "Enchantment";
+  return "Other";
+}
+
+function cardImageUrl(card: RichCard): string {
+  if (card.variant?.imageUri) return card.variant.imageUri;
+  return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.cardName)}&format=image&version=normal`;
+}
+
+// ── Card Art Grid ─────────────────────────────────────────────────────────────
+function CardArtGrid({ cards, showName }: { cards: RichCard[]; showName: boolean }) {
+  return (
+    <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
+      {cards.map(card => (
+        <div key={card.id} className="group relative cursor-pointer" style={{ aspectRatio: "0.716" }}>
+          <img
+            src={cardImageUrl(card)}
+            alt={card.cardName}
+            loading="lazy"
+            className="w-full h-full object-cover rounded-lg transition-transform duration-150 group-hover:scale-105 group-hover:z-10 group-hover:relative"
+            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.6)" }}
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          {card.quantity > 1 && (
+            <span className="absolute top-1 right-1 text-xs font-black px-1.5 py-0.5 rounded-md"
+              style={{ background: "rgba(0,0,0,0.8)", color: "#fff", fontSize: "10px" }}>
+              ×{card.quantity}
+            </span>
+          )}
+          {showName && (
+            <div className="absolute bottom-0 inset-x-0 rounded-b-lg px-1.5 py-1 text-center"
+              style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.85))", fontSize: "9px", color: "#fff", fontWeight: 600, lineHeight: 1.2 }}>
+              {card.cardName}
+            </div>
+          )}
+          {/* Hover tooltip */}
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20"
+            style={{ background: "rgba(0,0,0,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}>
+            {card.cardName}{card.price != null ? ` · $${card.price.toFixed(2)}` : ""}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const BRACKET_LABELS = ["", "Jank / Precon", "Upgraded Precon", "Optimized", "High Power", "cEDH"];
 const BRACKET_COLORS = ["", "#3d5068", "#22c55e", "#00d4ff", "#f59e0b", "#ff0080"];
@@ -490,6 +564,8 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
   const [data, setData] = useState<DeckDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [groupBy, setGroupBy] = useState<GroupBy>("section");
 
   const reload = () => { api.decks.get(id).then(setData).catch(console.error); };
 
@@ -570,31 +646,102 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {tab === "cards" && (
-        <div className="space-y-6">
-          {sections.length === 0 && (
+        <div>
+          {/* View controls */}
+          <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+            {/* View mode toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "rgba(13,18,32,0.8)", border: "1px solid rgba(0,212,255,0.08)" }}>
+              {([
+                { mode: "list" as ViewMode, label: "List", icon: "☰" },
+                { mode: "art" as ViewMode, label: "Art", icon: "▦" },
+                { mode: "artname" as ViewMode, label: "Art + Name", icon: "▤" },
+              ]).map(({ mode, label, icon }) => (
+                <button key={mode} onClick={() => setViewMode(mode)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{
+                    background: viewMode === mode ? "rgba(139,92,246,0.2)" : "transparent",
+                    color: viewMode === mode ? "#c4b5fd" : "#526880",
+                    border: viewMode === mode ? "1px solid rgba(139,92,246,0.3)" : "1px solid transparent",
+                  }}>
+                  <span>{icon}</span> {label}
+                </button>
+              ))}
+            </div>
+            {/* Group by toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "rgba(13,18,32,0.8)", border: "1px solid rgba(0,212,255,0.08)" }}>
+              {([
+                { g: "section" as GroupBy, label: "By Section" },
+                { g: "type" as GroupBy, label: "By Type" },
+              ]).map(({ g, label }) => (
+                <button key={g} onClick={() => setGroupBy(g)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{
+                    background: groupBy === g ? "rgba(0,212,255,0.1)" : "transparent",
+                    color: groupBy === g ? "#00d4ff" : "#526880",
+                    border: groupBy === g ? "1px solid rgba(0,212,255,0.2)" : "1px solid transparent",
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {deck.cards.length === 0 && (
             <div className="py-20 text-center rounded-2xl" style={{ border: "1px dashed #2a1f4a" }}>
               <p className="text-4xl mb-3">🃏</p>
               <p className="font-bold text-white mb-1">No cards yet</p>
               <p className="text-sm" style={{ color: "#7c6f9a" }}>Click <strong style={{ color: "#c4b5fd" }}>↑ Import</strong> to paste a decklist</p>
             </div>
           )}
-          {sections.map(({ key, label, cards }) => (
-            <div key={key}>
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{label}</h3>
-                <span className="text-xs text-muted">({cards.reduce((s, c) => s + c.quantity, 0)})</span>
-              </div>
-              <div className="bg-surface rounded-2xl border border-border overflow-hidden">
-                {cards.map((card, i) => (
-                  <div key={card.id} className={clsx("flex items-center gap-4 px-4 py-3", i > 0 && "border-t border-border")}>
-                    <span className="text-accent font-bold text-sm w-5 text-right shrink-0">{card.quantity}</span>
-                    <span className="flex-1 font-medium text-sm">{card.cardName}</span>
-                    <span className="text-muted text-sm">{card.price != null ? `$${card.price.toFixed(2)}` : "—"}</span>
+
+          {/* Build groups based on groupBy */}
+          {(() => {
+            const allCards = deck.cards;
+            let groups: { key: string; label: string; color?: string; cards: RichCard[] }[];
+
+            if (groupBy === "type") {
+              const byType = new Map<string, RichCard[]>();
+              for (const card of allCards) {
+                const t = card.section === "commander" ? "Commander" : getCardType(card.variant?.typeLine);
+                if (!byType.has(t)) byType.set(t, []);
+                byType.get(t)!.push(card);
+              }
+              groups = TYPE_ORDER
+                .filter(t => byType.has(t))
+                .map(t => ({ key: t, label: t, color: TYPE_COLORS[t], cards: byType.get(t)! }));
+            } else {
+              groups = sections.map(s => ({ key: s.key, label: s.label, cards: s.cards as RichCard[] }));
+            }
+
+            return (
+              <div className="space-y-6">
+                {groups.map(({ key, label, color, cards }) => (
+                  <div key={key}>
+                    <div className="flex items-center gap-2 mb-3">
+                      {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />}
+                      <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: color ?? "#526880" }}>{label}</h3>
+                      <span className="text-xs" style={{ color: "#3d5068" }}>({cards.reduce((s, c) => s + c.quantity, 0)})</span>
+                    </div>
+
+                    {viewMode === "list" ? (
+                      <div className="bg-surface rounded-2xl border border-border overflow-hidden">
+                        {cards.map((card, i) => (
+                          <div key={card.id} className={clsx("flex items-center gap-4 px-4 py-3", i > 0 && "border-t border-border")}>
+                            <span className="text-accent font-bold text-sm w-5 text-right shrink-0">{card.quantity}</span>
+                            <span className="flex-1 font-medium text-sm">{card.cardName}</span>
+                            {card.variant?.typeLine && <span className="text-xs hidden sm:block" style={{ color: "#3d5068" }}>{card.variant.typeLine.split("—")[0].trim()}</span>}
+                            <span className="text-muted text-sm shrink-0">{card.price != null ? `$${card.price.toFixed(2)}` : "—"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <CardArtGrid cards={cards} showName={viewMode === "artname"} />
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          ))}
+            );
+          })()}
         </div>
       )}
 
