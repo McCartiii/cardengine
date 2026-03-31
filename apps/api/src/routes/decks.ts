@@ -417,6 +417,7 @@ export function registerDeckRoutes(app: FastifyInstance) {
   app.get("/v1/decks/:id/edhrec", { preHandler: [requireAuth] }, async (req, reply) => {
     const user = getUser(req);
     const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { commander: commanderOverride } = z.object({ commander: z.string().optional() }).parse(req.query);
 
     const deck = await prisma.deck.findUnique({
       where: { id },
@@ -428,6 +429,7 @@ export function registerDeckRoutes(app: FastifyInstance) {
     }
 
     const commanderName =
+      commanderOverride?.trim() ||
       deck.commander ??
       deck.cards.find((c) => c.section === "commander")?.cardName;
 
