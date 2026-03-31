@@ -24,8 +24,12 @@ interface PlacesResult {
   geometry: { location: { lat: number; lng: number } };
   opening_hours?: { open_now: boolean };
   rating?: number;
-  formatted_phone_number?: string;
+}
+
+interface PlaceDetails {
   website?: string;
+  formatted_phone_number?: string;
+  opening_hours?: { weekday_text?: string[] };
 }
 
 async function fetchGooglePlaces(query: string, lat?: number, lng?: number): Promise<PlacesResult[]> {
@@ -52,17 +56,34 @@ async function fetchGooglePlaces(query: string, lat?: number, lng?: number): Pro
   }
 }
 
+async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
+  if (!GOOGLE_PLACES_KEY) return {};
+  const fields = "website,formatted_phone_number,opening_hours";
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_KEY}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return {};
+    const data = await res.json() as { result?: PlaceDetails; status: string };
+    return data.result ?? {};
+  } catch {
+    return {};
+  }
+}
+
 async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
   for (const place of places) {
     const addr = place.formatted_address ?? "";
     const parts = addr.split(",").map((s) => s.trim());
-    // Best-effort address parsing: "123 Main St, City, State ZIP, Country"
     const street = parts[0] ?? null;
     const city = parts[1] ?? null;
     const stateZip = parts[2] ?? "";
     const stateParts = stateZip.trim().split(" ");
     const state = stateParts[0] ?? null;
     const zip = stateParts[1] ?? null;
+
+    // Fetch details (website, phone, hours) — each place requires a separate API call
+    const details = await fetchPlaceDetails(place.place_id);
+    const hours = details.opening_hours?.weekday_text?.join(" | ") ?? null;
 
     await prisma.shop.upsert({
       where: { id: place.place_id },
@@ -75,8 +96,9 @@ async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
         zip,
         lat: place.geometry.location.lat,
         lng: place.geometry.location.lng,
-        phone: null,
-        website: null,
+        phone: details.formatted_phone_number ?? null,
+        website: details.website ?? null,
+        hours,
         verified: false,
       },
       update: {
@@ -85,6 +107,9 @@ async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
         city,
         lat: place.geometry.location.lat,
         lng: place.geometry.location.lng,
+        phone: details.formatted_phone_number ?? null,
+        website: details.website ?? null,
+        hours,
       },
     });
   }
@@ -113,7 +138,6 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
       const places = await fetchGooglePlaces(query.city ?? "", query.lat, query.lng);
       if (places.length > 0) {
         await upsertPlacesResults(places);
-        // Re-query after upsert
         shops = await prisma.shop.findMany({ where, take: query.limit, orderBy: { name: "asc" } });
       }
     }
@@ -159,14 +183,12 @@ export function registerLocalSceneRoutes(app: FastifyInstance) {
         lng: z.number().optional(),
         phone: z.string().optional(),
         website: z.string().url().optional(),
+        hours: z.string().optional(),
       })
       .parse(req.body);
 
     const shop = await prisma.shop.create({
-      data: {
-        ...body,
-        verified: false,
-      },
+      data: { ...body, verified: false },
     });
     return { shop };
   });
