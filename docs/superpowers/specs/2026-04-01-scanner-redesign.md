@@ -76,7 +76,7 @@ function hammingDistance(a: bigint, b: bigint): number {
 - Populated by `scryfallIngest.ts`: fetch image → resize → compute → store
 - Both non-foil and foil image URIs hashed separately where Scryfall provides them
 - Endpoint: `GET /v1/bundles/mtg/hashes?cursor=&limit=2000`
-  - Returns `{ items: [{ variantId, dHash, pHash }], hasMore, nextCursor }`
+  - Returns `{ items: [{ variantId, dHash, pHash, foilDHash?, foilPHash? }], hasMore, nextCursor }`
 
 ### Mobile
 - New SQLite table:
@@ -84,12 +84,14 @@ function hammingDistance(a: bigint, b: bigint): number {
   CREATE TABLE hash_index (
     variantId TEXT PRIMARY KEY,
     dHash TEXT NOT NULL,
-    pHash TEXT NOT NULL
+    pHash TEXT NOT NULL,
+    foilDHash TEXT,
+    foilPHash TEXT
   );
   ```
 - Download triggered by `downloadAndStoreBundle`, runs after card data
 - ~30k rows × ~60 bytes = ~1.8MB on disk
-- On app start: load full table into `Map<string, { dHash: bigint, pHash: bigint }>` (~3MB RAM)
+- Lazy-loaded into `Map<string, { dHash: bigint, pHash: bigint, foilDHash?: bigint, foilPHash?: bigint }>` (~3MB RAM) on first scanner open, not blocking app startup
 - Refreshes on same 24hr cadence as card bundle
 
 ---
@@ -126,7 +128,7 @@ On new hash received:
 - Green flash on viewfinder overlay
 
 ### Foil handling
-- Foil image URI hashed separately → stored as second row or separate columns
+- Foil image URI hashed separately → stored as `foilDHash` and `foilPHash` columns on the same row
 - dHash tolerates minor shimmer; pHash tolerates color shift
 - Multi-frame (best of 8) catches frames where glare angle moves off artwork
 - Expected auto-confirm rates:
