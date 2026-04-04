@@ -190,7 +190,7 @@
   --color-tab-settings-bg: var(--tab-settings-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-cinzel: var(--font-cinzel);
+  --font-display: var(--font-cinzel);
 }
 
 /* ─── Base styles ─── */
@@ -280,7 +280,7 @@ body {
 
 /* ─── Typography utilities ─── */
 .font-display {
-  font-family: var(--font-cinzel), 'Cinzel', serif;
+  font-family: var(--font-display), 'Cinzel', serif;
   letter-spacing: -0.01em;
 }
 .font-stat {
