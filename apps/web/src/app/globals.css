@@ -63,10 +63,11 @@
   /* Identity tints — applied via inline styles on card containers */
   --id-W-tint:   #FFFDF0; --id-W-border:  #EDD87A; --id-W-glow: rgba(234,179,8,0.18);
   --id-U-tint:   #EFF6FF; --id-U-border:  #93C5FD; --id-U-glow: rgba(59,130,246,0.18);
-  --id-B-tint:   #F5F3F8; --id-B-border:  #C4B5D4; --id-B-glow: rgba(109,40,217,0.14);
+  --id-B-tint:   #F5F3F8; --id-B-border:  #C4B5D4; --id-B-glow: rgba(109,40,217,0.14); /* intentionally softer — dark identity is subtle */
   --id-R-tint:   #FFF5F2; --id-R-border:  #FCA5A5; --id-R-glow: rgba(239,68,68,0.18);
   --id-G-tint:   #F0FBF3; --id-G-border:  #86EFAC; --id-G-glow: rgba(34,197,94,0.18);
   --id-multi-tint:  #FFFBF0; --id-multi-border: #E8D5A0; --id-multi-glow: rgba(201,168,76,0.18);
+  --id-C-tint:   #F8F7F5; --id-C-border:  #D1C9BE; --id-C-glow: rgba(168,147,124,0.12);
 
   /* Market colors */
   --market-tcg: #C9A84C; --market-tcg-bg: #FFF8E1;
@@ -121,7 +122,7 @@
 
   --success: #34D399; --success-light: #064E3B; --success-text: #6EE7B7;
   --danger:  #F87171; --danger-light:  #450A0A; --danger-text:  #FCA5A5;
-  --warning: #C9A84C; --warning-light: #2A1F06; --warning-text: #E8C96C;
+  --warning: #FBBF24; --warning-light: #451A03; --warning-text: #FDE68A;
 
   --mana-W: #422006; --mana-W-text: #FDE68A;
   --mana-U: #1E3A5F; --mana-U-text: #93C5FD;
@@ -135,6 +136,7 @@
   --id-R-tint:   #1A0A07; --id-R-border:  #5C1A1A; --id-R-glow: rgba(239,68,68,0.20);
   --id-G-tint:   #081409; --id-G-border:  #14532D; --id-G-glow: rgba(34,197,94,0.20);
   --id-multi-tint:  #1A1608; --id-multi-border: #5C4A1A; --id-multi-glow: rgba(201,168,76,0.20);
+  --id-C-tint:   #111009; --id-C-border:  #2A2420; --id-C-glow: rgba(168,147,124,0.14);
 
   --market-tcg: #C9A84C; --market-tcg-bg: #2A1F06;
   --market-mkm: #34D399; --market-mkm-bg: #064E3B;
