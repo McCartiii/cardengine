@@ -5,28 +5,28 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Backgrounds */
-  --bg: #F8F6F3;
-  --surface: #FFFFFF;
-  --surface-raised: #FFFFFF;
-  --surface-sunken: #F1EEED;
+  /* Surfaces */
+  --bg:              #F6F2EC;
+  --surface:         #FDFAF6;
+  --surface-raised:  #FFFFFF;
+  --surface-sunken:  #EDE7DC;
 
   /* Text */
-  --text-primary: #1C1917;
-  --text-secondary: #78716C;
-  --text-muted: #A8A29E;
-  --text-inverse: #FFFFFF;
+  --text-primary:   #18150F;
+  --text-secondary: #6B5D4F;
+  --text-muted:     #A8937C;
+  --text-inverse:   #FFFFFF;
 
   /* Borders */
-  --border: #E7E5E4;
-  --border-strong: #D6D3D1;
-  --border-focus: #CA8A04;
+  --border:        #DDD5C8;
+  --border-strong: #C4B49A;
+  --border-focus:  #C9A84C;
 
-  /* Primary accent (Gold) */
-  --accent: #CA8A04;
-  --accent-hover: #A16207;
-  --accent-light: #FEFCE8;
-  --accent-text: #854D0E;
+  /* Gold accent */
+  --accent:       #C9A84C;
+  --accent-hover: #A87C28;
+  --accent-light: #FFF8E1;
+  --accent-text:  #8B7030;
 
   /* Per-tab colors */
   --tab-collection: #059669;
@@ -42,152 +42,115 @@
   --tab-settings: #475569;
   --tab-settings-bg: #F1F5F9;
 
-  /* Secondary / success */
+  /* Semantic */
   --success: #10B981;
   --success-light: #ECFDF5;
   --success-text: #065F46;
-
-  /* Danger */
   --danger: #EF4444;
   --danger-light: #FEF2F2;
   --danger-text: #991B1B;
-
-  /* Warning */
   --warning: #F59E0B;
   --warning-light: #FFFBEB;
   --warning-text: #92400E;
 
-  /* MTG Mana colors */
-  --mana-W: #F9F3E3;
-  --mana-W-text: #92700C;
-  --mana-U: #DBEAFE;
-  --mana-U-text: #1E40AF;
-  --mana-B: #E5E5E5;
-  --mana-B-text: #374151;
-  --mana-R: #FEE2E2;
-  --mana-R-text: #991B1B;
-  --mana-G: #DCFCE7;
-  --mana-G-text: #166534;
+  /* Mana colors */
+  --mana-W: #F9F3E3; --mana-W-text: #92700C;
+  --mana-U: #DBEAFE; --mana-U-text: #1E40AF;
+  --mana-B: #E5E5E5; --mana-B-text: #374151;
+  --mana-R: #FEE2E2; --mana-R-text: #991B1B;
+  --mana-G: #DCFCE7; --mana-G-text: #166534;
+
+  /* Identity tints — applied via inline styles on card containers */
+  --id-W-tint:   #FFFDF0; --id-W-border:  #EDD87A; --id-W-glow: rgba(234,179,8,0.18);
+  --id-U-tint:   #EFF6FF; --id-U-border:  #93C5FD; --id-U-glow: rgba(59,130,246,0.18);
+  --id-B-tint:   #F5F3F8; --id-B-border:  #C4B5D4; --id-B-glow: rgba(109,40,217,0.14);
+  --id-R-tint:   #FFF5F2; --id-R-border:  #FCA5A5; --id-R-glow: rgba(239,68,68,0.18);
+  --id-G-tint:   #F0FBF3; --id-G-border:  #86EFAC; --id-G-glow: rgba(34,197,94,0.18);
+  --id-multi-tint:  #FFFBF0; --id-multi-border: #E8D5A0; --id-multi-glow: rgba(201,168,76,0.18);
 
   /* Market colors */
-  --market-tcg: #CA8A04;
-  --market-tcg-bg: #FEFCE8;
-  --market-mkm: #10B981;
-  --market-mkm-bg: #ECFDF5;
-  --market-ck: #3B82F6;
-  --market-ck-bg: #EFF6FF;
-  --market-ebay: #EF4444;
-  --market-ebay-bg: #FEF2F2;
-  --market-mtgo: #F59E0B;
-  --market-mtgo-bg: #FFFBEB;
+  --market-tcg: #C9A84C; --market-tcg-bg: #FFF8E1;
+  --market-mkm: #10B981; --market-mkm-bg: #ECFDF5;
+  --market-ck:  #3B82F6; --market-ck-bg:  #EFF6FF;
+  --market-ebay: #EF4444; --market-ebay-bg: #FEF2F2;
+  --market-mtgo: #F59E0B; --market-mtgo-bg: #FFFBEB;
 
-  /* Rarity colors */
-  --rarity-mythic: #EA580C;
-  --rarity-mythic-bg: #FFF7ED;
-  --rarity-rare: #CA8A04;
-  --rarity-rare-bg: #FEFCE8;
-  --rarity-uncommon: #6B7280;
-  --rarity-uncommon-bg: #F3F4F6;
-  --rarity-common: #9CA3AF;
-  --rarity-common-bg: #F9FAFB;
+  /* Rarity */
+  --rarity-mythic: #FB923C; --rarity-mythic-bg: #FFF4E6;
+  --rarity-rare:   #C9A84C; --rarity-rare-bg:   #FFFBEB;
+  --rarity-uncommon: #94A3B8; --rarity-uncommon-bg: #F1F5F9;
+  --rarity-common:   #6B7280; --rarity-common-bg:   #F3F4F6;
 
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --radius-full: 9999px;
+  --radius-sm: 6px; --radius-md: 10px;
+  --radius-lg: 14px; --radius-xl: 20px; --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-card: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-card-hover: 0 4px 12px rgba(28, 25, 23, 0.1), 0 2px 4px rgba(28, 25, 23, 0.06);
-  --shadow-elevated: 0 8px 24px rgba(28, 25, 23, 0.12), 0 2px 8px rgba(28, 25, 23, 0.08);
-  --shadow-modal: 0 16px 48px rgba(28, 25, 23, 0.16), 0 4px 16px rgba(28, 25, 23, 0.08);
+  --shadow-card:       0 2px 8px rgba(24,21,15,0.07), 0 1px 2px rgba(24,21,15,0.04);
+  --shadow-card-hover: 0 14px 36px rgba(24,21,15,0.14), 0 4px 10px rgba(24,21,15,0.07);
+  --shadow-elevated:   0 8px 24px rgba(24,21,15,0.12), 0 2px 8px rgba(24,21,15,0.06);
+  --shadow-modal:      0 16px 48px rgba(24,21,15,0.16), 0 4px 16px rgba(24,21,15,0.08);
 }
 
-/* ─── Dark mode ─── */
 .dark {
-  --bg: #1C1917;
-  --surface: #292524;
-  --surface-raised: #33302E;
-  --surface-sunken: #1A1816;
+  --bg:              #0D0B09;
+  --surface:         #161310;
+  --surface-raised:  #1E1A16;
+  --surface-sunken:  #0A0807;
 
-  --text-primary: #F5F5F4;
-  --text-secondary: #A8A29E;
-  --text-muted: #78716C;
-  --text-inverse: #1C1917;
+  --text-primary:   #F2ECE4;
+  --text-secondary: #A89880;
+  --text-muted:     #665A4A;
+  --text-inverse:   #0D0B09;
 
-  --border: #44403C;
-  --border-strong: #57534E;
-  --border-focus: #FBBF24;
+  --border:        #2A2420;
+  --border-strong: #3D352C;
+  --border-focus:  #C9A84C;
 
-  /* Primary accent (Gold — dark) */
-  --accent: #FBBF24;
-  --accent-hover: #F59E0B;
-  --accent-light: #451A03;
-  --accent-text: #FDE68A;
+  --accent:       #C9A84C;
+  --accent-hover: #E8C96C;
+  --accent-light: #2A1F06;
+  --accent-text:  #E8C96C;
 
-  /* Per-tab colors — dark */
-  --tab-collection: #34D399;
-  --tab-collection-bg: #064E3B;
-  --tab-scan: #FB7185;
-  --tab-scan-bg: #4C0519;
-  --tab-deck: #A78BFA;
-  --tab-deck-bg: #2E1065;
-  --tab-map: #38BDF8;
-  --tab-map-bg: #0C4A6E;
-  --tab-watchlist: #FBBF24;
-  --tab-watchlist-bg: #451A03;
-  --tab-settings: #94A3B8;
-  --tab-settings-bg: #1E293B;
+  --tab-collection: #34D399; --tab-collection-bg: #064E3B;
+  --tab-scan:       #FB7185; --tab-scan-bg:       #4C0519;
+  --tab-deck:       #A78BFA; --tab-deck-bg:       #2E1065;
+  --tab-map:        #38BDF8; --tab-map-bg:        #0C4A6E;
+  --tab-watchlist:  #C9A84C; --tab-watchlist-bg:  #2A1F06;
+  --tab-settings:   #94A3B8; --tab-settings-bg:   #1E293B;
 
-  --success: #34D399;
-  --success-light: #064E3B;
-  --success-text: #6EE7B7;
+  --success: #34D399; --success-light: #064E3B; --success-text: #6EE7B7;
+  --danger:  #F87171; --danger-light:  #450A0A; --danger-text:  #FCA5A5;
+  --warning: #C9A84C; --warning-light: #2A1F06; --warning-text: #E8C96C;
 
-  --danger: #F87171;
-  --danger-light: #450A0A;
-  --danger-text: #FCA5A5;
+  --mana-W: #422006; --mana-W-text: #FDE68A;
+  --mana-U: #1E3A5F; --mana-U-text: #93C5FD;
+  --mana-B: #374151; --mana-B-text: #D1D5DB;
+  --mana-R: #450A0A; --mana-R-text: #FCA5A5;
+  --mana-G: #052E16; --mana-G-text: #86EFAC;
 
-  --warning: #FBBF24;
-  --warning-light: #451A03;
-  --warning-text: #FDE68A;
+  --id-W-tint:   #1A1708; --id-W-border:  #5C4E10; --id-W-glow: rgba(234,179,8,0.20);
+  --id-U-tint:   #091524; --id-U-border:  #1E3A5F; --id-U-glow: rgba(59,130,246,0.20);
+  --id-B-tint:   #100D18; --id-B-border:  #2D1B4E; --id-B-glow: rgba(109,40,217,0.20);
+  --id-R-tint:   #1A0A07; --id-R-border:  #5C1A1A; --id-R-glow: rgba(239,68,68,0.20);
+  --id-G-tint:   #081409; --id-G-border:  #14532D; --id-G-glow: rgba(34,197,94,0.20);
+  --id-multi-tint:  #1A1608; --id-multi-border: #5C4A1A; --id-multi-glow: rgba(201,168,76,0.20);
 
-  --mana-W: #422006;
-  --mana-W-text: #FDE68A;
-  --mana-U: #1E3A5F;
-  --mana-U-text: #93C5FD;
-  --mana-B: #374151;
-  --mana-B-text: #D1D5DB;
-  --mana-R: #450A0A;
-  --mana-R-text: #FCA5A5;
-  --mana-G: #052E16;
-  --mana-G-text: #86EFAC;
+  --market-tcg: #C9A84C; --market-tcg-bg: #2A1F06;
+  --market-mkm: #34D399; --market-mkm-bg: #064E3B;
+  --market-ck:  #60A5FA; --market-ck-bg:  #1E3A5F;
+  --market-ebay: #F87171; --market-ebay-bg: #450A0A;
+  --market-mtgo: #C9A84C; --market-mtgo-bg: #2A1F06;
 
-  --market-tcg: #FBBF24;
-  --market-tcg-bg: #451A03;
-  --market-mkm: #34D399;
-  --market-mkm-bg: #064E3B;
-  --market-ck: #60A5FA;
-  --market-ck-bg: #1E3A5F;
-  --market-ebay: #F87171;
-  --market-ebay-bg: #450A0A;
-  --market-mtgo: #FBBF24;
-  --market-mtgo-bg: #451A03;
+  --rarity-mythic: #FB923C; --rarity-mythic-bg: #431407;
+  --rarity-rare:   #C9A84C; --rarity-rare-bg:   #2A1F06;
+  --rarity-uncommon: #94A3B8; --rarity-uncommon-bg: #374151;
+  --rarity-common:   #6B7280; --rarity-common-bg:   #1F2937;
 
-  --rarity-mythic: #FB923C;
-  --rarity-mythic-bg: #431407;
-  --rarity-rare: #FACC15;
-  --rarity-rare-bg: #422006;
-  --rarity-uncommon: #9CA3AF;
-  --rarity-uncommon-bg: #374151;
-  --rarity-common: #6B7280;
-  --rarity-common-bg: #1F2937;
-
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-card:       0 2px 8px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.18);
+  --shadow-card-hover: 0 14px 36px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.32);
+  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.28);
+  --shadow-modal:      0 16px 48px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.32);
 }
 
 /* ─── Tailwind theme inline ─── */
@@ -262,6 +225,11 @@ body {
   50% { opacity: 0.6; }
 }
 
+@keyframes mythic-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(251,146,60,0.6)); }
+  50%       { filter: drop-shadow(0 0 7px rgba(251,146,60,1)) drop-shadow(0 0 14px rgba(251,146,60,0.5)); }
+}
+
 /* ─── Utility animation classes ─── */
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out both;
@@ -285,6 +253,10 @@ body {
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+.animate-mythic-pulse {
+  animation: mythic-pulse 2s ease-in-out infinite;
+}
+
 /* Staggered animation delays for lists */
 .stagger-1 { animation-delay: 0.05s; }
 .stagger-2 { animation-delay: 0.1s; }
@@ -295,9 +267,10 @@ body {
 
 /* ─── Card hover lift ─── */
 .card-hover {
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .card-hover:hover {
   box-shadow: var(--shadow-card-hover);
-  transform: translateY(-2px);
+  transform: translateY(-5px) scale(1.02);
 }
