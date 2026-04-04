@@ -190,6 +190,7 @@
   --color-tab-settings-bg: var(--tab-settings-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-cinzel: var(--font-cinzel);
 }
 
 /* ─── Base styles ─── */
@@ -275,4 +276,15 @@ body {
 .card-hover:hover {
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-5px) scale(1.02);
+}
+
+/* ─── Typography utilities ─── */
+.font-display {
+  font-family: var(--font-cinzel), 'Cinzel', serif;
+  letter-spacing: -0.01em;
+}
+.font-stat {
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
