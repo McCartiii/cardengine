@@ -1,0 +1,93 @@
+<h2>What direction do you want to take the visual polish?</h2>
+<p class="subtitle">Pick the vibe that feels right — or mix elements from multiple</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="premium-dark" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0F0E0D; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-height: 160px;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="width: 28px; height: 28px; background: #FBBF24; border-radius: 8px;"></div>
+        <div style="width: 80px; height: 10px; background: #F5F5F4; border-radius: 4px; opacity: 0.9;"></div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <div style="flex: 1; background: #292524; border: 1px solid #44403C; border-radius: 12px; padding: 12px;">
+          <div style="width: 40px; height: 56px; background: linear-gradient(135deg, #3B82F6, #1D4ED8); border-radius: 6px; margin-bottom: 8px;"></div>
+          <div style="width: 60px; height: 7px; background: #A8A29E; border-radius: 3px;"></div>
+          <div style="display: flex; gap: 4px; margin-top: 6px;">
+            <div style="background: #451A03; color: #FBBF24; font-size: 8px; padding: 2px 6px; border-radius: 999px; font-weight: 600;">Rare</div>
+          </div>
+        </div>
+        <div style="flex: 1; background: #292524; border: 1px solid #44403C; border-radius: 12px; padding: 12px;">
+          <div style="width: 40px; height: 56px; background: linear-gradient(135deg, #EF4444, #B91C1C); border-radius: 6px; margin-bottom: 8px;"></div>
+          <div style="width: 50px; height: 7px; background: #A8A29E; border-radius: 3px;"></div>
+          <div style="display: flex; gap: 4px; margin-top: 6px;">
+            <div style="background: #431407; color: #FB923C; font-size: 8px; padding: 2px 6px; border-radius: 999px; font-weight: 600;">Mythic</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Premium Dark</h3>
+      <p>Dark surfaces, gold accents, feels like a high-end TCG app. Richer shadows, glows on special cards, more depth.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="clean-modern" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #F8F6F3; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-height: 160px;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="width: 28px; height: 28px; background: #CA8A04; border-radius: 8px;"></div>
+        <div style="width: 80px; height: 10px; background: #1C1917; border-radius: 4px; opacity: 0.9;"></div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <div style="flex: 1; background: #FFFFFF; border: 1px solid #E7E5E4; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+          <div style="width: 40px; height: 56px; background: linear-gradient(135deg, #3B82F6, #1D4ED8); border-radius: 6px; margin-bottom: 8px;"></div>
+          <div style="width: 60px; height: 7px; background: #78716C; border-radius: 3px;"></div>
+          <div style="display: flex; gap: 4px; margin-top: 6px;">
+            <div style="background: #FEFCE8; color: #CA8A04; font-size: 8px; padding: 2px 6px; border-radius: 999px; font-weight: 600; border: 1px solid #FEF08A;">Rare</div>
+          </div>
+        </div>
+        <div style="flex: 1; background: #FFFFFF; border: 1px solid #E7E5E4; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+          <div style="width: 40px; height: 56px; background: linear-gradient(135deg, #EF4444, #B91C1C); border-radius: 6px; margin-bottom: 8px;"></div>
+          <div style="width: 50px; height: 7px; background: #78716C; border-radius: 3px;"></div>
+          <div style="display: flex; gap: 4px; margin-top: 6px;">
+            <div style="background: #FFF7ED; color: #EA580C; font-size: 8px; padding: 2px 6px; border-radius: 999px; font-weight: 600; border: 1px solid #FDBA74;">Mythic</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Clean & Modern</h3>
+      <p>Refine the current light mode. Better spacing, stronger type hierarchy, crisper borders, more consistent components.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="tcg-character" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #F8F3E8; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-height: 160px;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #CA8A04, #EA580C); border-radius: 8px;"></div>
+        <div style="width: 80px; height: 10px; background: #1C1917; border-radius: 4px; opacity: 0.9;"></div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <div style="flex: 1; background: #FFFBF0; border: 1.5px solid #D4A853; border-radius: 10px; padding: 12px;">
+          <div style="width: 40px; height: 56px; background: linear-gradient(135deg, #3B82F6, #1D4ED8); border-radius: 6px; margin-bottom: 8px; box-shadow: 0 0 8px rgba(59,130,246,0.4);"></div>
+          <div style="width: 60px; height: 7px; background: #78716C; border-radius: 3px;"></div>
+          <div style="display: flex; gap: 4px; margin-top: 6px;">
+            <div style="background: linear-gradient(90deg, #FEFCE8, #FEF9C3); color: #A16207; font-size: 8px; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid #CA8A04; letter-spacing: 0.03em;">RARE</div>
+          </div>
+        </div>
+        <div style="flex: 1; background: #FFFBF0; border: 1.5px solid #D4A853; border-radius: 10px; padding: 12px;">
+          <div style="width: 40px; height: 56px; background: linear-gradient(135deg, #EF4444, #B91C1C); border-radius: 6px; margin-bottom: 8px; box-shadow: 0 0 8px rgba(239,68,68,0.4);"></div>
+          <div style="width: 50px; height: 7px; background: #78716C; border-radius: 3px;"></div>
+          <div style="display: flex; gap: 4px; margin-top: 6px;">
+            <div style="background: linear-gradient(90deg, #FFF7ED, #FEF3C7); color: #9A3412; font-size: 8px; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid #EA580C; letter-spacing: 0.03em;">MYTHIC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>TCG Character</h3>
+      <p>Lean into the parchment/gold theme harder. More texture, warmer tones, rarity indicators with real weight — like the game itself.</p>
+    </div>
+  </div>
+
+</div>
