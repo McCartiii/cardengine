@@ -46,9 +46,9 @@ export function Button({
   const goldStyle =
     variant === "gold"
       ? {
+          ...style,
           background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
           boxShadow: "0 2px 10px var(--accent-light), inset 0 1px 0 rgba(255,255,255,0.15)",
-          ...style,
         }
       : style;
 

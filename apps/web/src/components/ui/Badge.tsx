@@ -4,7 +4,7 @@
 import React from "react";
 import { SetSymbol } from "./SetSymbol";
 
-type BadgeVariant =
+export type BadgeVariant =
   | "default"
   | "accent"
   | "success"
@@ -17,7 +17,7 @@ type BadgeVariant =
   | "mana-W" | "mana-U" | "mana-B" | "mana-R" | "mana-G"
   | "tcg" | "mkm" | "ck" | "ebay" | "mtgo";
 
-interface BadgeProps {
+export interface BadgeProps {
   children: React.ReactNode;
   variant?: BadgeVariant;
   className?: string;
@@ -32,11 +32,11 @@ const variantStyles: Record<BadgeVariant, string> = {
   danger:    "bg-danger-light text-[var(--danger-text)] border border-[var(--danger)] border-opacity-30",
   warning:   "bg-warning-light text-[var(--warning-text)] border border-[var(--warning)] border-opacity-30",
 
-  // Rarity — metallic feel
-  mythic:   "border",
-  rare:     "border",
-  uncommon: "border",
-  common:   "border",
+  // Rarity — unused here; rarity path returns early using rarityConfig inline styles
+  mythic:   "",
+  rare:     "",
+  uncommon: "",
+  common:   "",
 
   // Mana
   "mana-W": "bg-[var(--mana-W)] text-[var(--mana-W-text)]",
