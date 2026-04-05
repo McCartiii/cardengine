@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, SafeAreaView } from "react-native";
 import { CollectionTab } from "./tabs/CollectionTab";
 import { ScannerTab } from "./tabs/ScannerTab";
@@ -7,6 +7,7 @@ import { MapTab } from "./tabs/MapTab";
 import { ProfileTab } from "./tabs/ProfileTab";
 import { TabBar, type TabItem } from "../components/ui/TabBar";
 import { colors } from "../theme";
+import { downloadCardBundle, downloadHashBundle } from "../lib/sync";
 
 const t = colors.light;
 
@@ -22,6 +23,11 @@ const tabs: TabItem[] = [
 
 export function MainApp() {
   const [activeTab, setActiveTab] = useState<Tab>("collection");
+
+  useEffect(() => {
+    downloadCardBundle().catch((e) => console.warn("[startup] Card bundle download failed:", e));
+    downloadHashBundle().catch((e) => console.warn("[startup] Hash bundle download failed:", e));
+  }, []);
 
   const renderTab = () => {
     switch (activeTab) {
