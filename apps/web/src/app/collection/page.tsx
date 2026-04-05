@@ -263,7 +263,7 @@ export default function CollectionPage() {
               <Link
                 key={card.variantId}
                 href={`/card/${encodeURIComponent(card.variantId)}`}
-                className={`animate-slide-up flex gap-4 rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow-card)] card-hover`}
+                className={`animate-slide-up flex gap-4 rounded-2xl bg-surface p-4 card-hover`}
                 style={{
                   animationDelay: `${Math.min(idx * 0.03, 0.3)}s`,
                   borderWidth: "1.5px",
