@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "cards.scryfall.io",
       },
+      {
+        protocol: "https",
+        hostname: "c1.scryfall.com",
+      },
     ],
   },
   transpilePackages: ["@cardengine/engine", "@cardengine/mtg-adapter"],

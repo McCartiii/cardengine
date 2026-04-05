@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 
 export function registerTelemetryRoutes(app: FastifyInstance) {
-  app.post("/v1/telemetry/scanner-mismatch", async (req) => {
+  app.post("/v1/telemetry/scanner-mismatch", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const body = z
       .object({
         userId: z.string().optional(),
@@ -20,7 +20,7 @@ export function registerTelemetryRoutes(app: FastifyInstance) {
     return { ok: true, id: record.id };
   });
 
-  app.post("/v1/telemetry/rules-disagreement", async (req) => {
+  app.post("/v1/telemetry/rules-disagreement", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const body = z
       .object({
         userId: z.string().optional(),

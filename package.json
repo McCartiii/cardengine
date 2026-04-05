@@ -31,8 +31,15 @@
     "vitest": "^4.0.18"
   },
   "private": "true",
+  "engines": {
+    "node": ">=20.19"
+  },
   "workspaces": [
-    "apps/*",
+    "apps/api",
+    "apps/web",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3"
+  }
 }

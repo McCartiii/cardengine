@@ -1,53 +1,51 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { supabaseAdmin } from "../supabase.js";
+import { prisma } from "../db.js";
 
 export interface AuthUser {
-  sub: string; // user ID (UUID)
+  sub: string;
   email?: string;
 }
 
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
 /**
- * Extracts and verifies a Supabase JWT from the Authorization header.
- * Uses the Supabase Admin SDK to verify the token against Supabase's auth server.
- * Returns the decoded user payload or null if invalid/missing.
+ * Verifies a Supabase JWT by calling the Supabase auth API.
+ * Works regardless of signing algorithm (HS256, RS256, ES256).
  */
+async function verifyToken(token: string): Promise<AuthUser | null> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+      },
+    });
+    if (!res.ok) return null;
+    const user = await res.json() as { id?: string; email?: string };
+    if (!user?.id) return null;
+    return { sub: user.id, email: user.email };
+  } catch {
+    return null;
+  }
+}
+
 export async function extractUser(req: FastifyRequest): Promise<AuthUser | null> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const token = authHeader.slice(7);
-  const {
-    data: { user },
-    error
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !user) return null;
-
-  return {
-    sub: user.id,
-    email: user.email
-  };
+  return verifyToken(authHeader.slice(7));
 }
 
-/**
- * Fastify preHandler hook that requires authentication.
- * Sets request.user with the verified user payload.
- */
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const user = await extractUser(req);
-  if (!user) {
-    reply.code(401).send({ error: "Unauthorized" });
-    return;
-  }
+  if (!user) { reply.code(401).send({ error: "Unauthorized" }); return; }
+  const dbUser = await prisma.user.findUnique({ where: { id: user.sub }, select: { banned: true } });
+  if (dbUser?.banned) { reply.code(403).send({ error: "Account suspended" }); return; }
   (req as FastifyRequest & { user: AuthUser }).user = user;
 }
 
-/**
- * Optional auth - sets request.user if token is present, but doesn't reject.
- */
 export async function optionalAuth(req: FastifyRequest) {
   const user = await extractUser(req);
-  if (user) {
-    (req as FastifyRequest & { user: AuthUser }).user = user;
-  }
+  if (user) (req as FastifyRequest & { user: AuthUser }).user = user;
 }

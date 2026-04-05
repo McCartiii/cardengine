@@ -84,15 +84,17 @@ function isWithinColorIdentity(
 }
 
 /**
- * Build a set of owned card names (lowercased) from collection events.
+ * Build the set of owned variant IDs and card names from collection events.
+ * Performs a single DB round-trip for events + one for name resolution.
  */
-async function getOwnedCardNames(userId: string): Promise<Set<string>> {
+async function getOwnedCollection(
+  userId: string
+): Promise<{ variantIds: Set<string>; names: Set<string> }> {
   const events = await prisma.collectionEvent.findMany({
     where: { userId },
     select: { type: true, variantId: true, payload: true },
   });
 
-  // Materialize net quantities per variant
   const quantities = new Map<string, number>();
   for (const e of events) {
     const qty = quantities.get(e.variantId) ?? 0;
@@ -105,46 +107,18 @@ async function getOwnedCardNames(userId: string): Promise<Set<string>> {
     }
   }
 
-  // Get variant IDs the user actually has (qty > 0)
-  const ownedVariantIds = [...quantities.entries()]
-    .filter(([, q]) => q > 0)
-    .map(([vid]) => vid);
+  const variantIds = new Set(
+    [...quantities.entries()].filter(([, q]) => q > 0).map(([vid]) => vid)
+  );
 
-  if (ownedVariantIds.length === 0) return new Set();
+  if (variantIds.size === 0) return { variantIds, names: new Set() };
 
-  // Resolve to card names
   const variants = await prisma.cardVariant.findMany({
-    where: { variantId: { in: ownedVariantIds } },
+    where: { variantId: { in: [...variantIds] } },
     select: { name: true },
   });
 
-  return new Set(variants.map((v) => v.name.toLowerCase()));
-}
-
-/**
- * Build a map of owned variant IDs from collection events.
- */
-async function getOwnedVariantIds(userId: string): Promise<Set<string>> {
-  const events = await prisma.collectionEvent.findMany({
-    where: { userId },
-    select: { type: true, variantId: true, payload: true },
-  });
-
-  const quantities = new Map<string, number>();
-  for (const e of events) {
-    const qty = quantities.get(e.variantId) ?? 0;
-    const payload = e.payload as Record<string, unknown>;
-    const eventQty = (payload.quantity as number) ?? 1;
-    if (e.type === "add") {
-      quantities.set(e.variantId, qty + eventQty);
-    } else if (e.type === "remove") {
-      quantities.set(e.variantId, qty - eventQty);
-    }
-  }
-
-  return new Set(
-    [...quantities.entries()].filter(([, q]) => q > 0).map(([vid]) => vid)
-  );
+  return { variantIds, names: new Set(variants.map((v) => v.name.toLowerCase())) };
 }
 
 // ── Suggest Decks ──────────────────────────────────────────────────────────────
@@ -154,7 +128,7 @@ async function getOwnedVariantIds(userId: string): Promise<Set<string>> {
  */
 export async function suggestDecks(userId: string): Promise<DeckSuggestion[]> {
   // Get all owned variant IDs
-  const ownedVariantIds = await getOwnedVariantIds(userId);
+  const { variantIds: ownedVariantIds } = await getOwnedCollection(userId);
   if (ownedVariantIds.size === 0) return [];
 
   const ownedIds = [...ownedVariantIds];
@@ -288,7 +262,7 @@ export async function getRecommendations(
   // Get owned card names if user is authenticated
   let ownedNames = new Set<string>();
   if (userId) {
-    ownedNames = await getOwnedCardNames(userId);
+    ({ names: ownedNames } = await getOwnedCollection(userId));
   }
 
   // Filter EDHREC recommendations: exclude cards already in the deck
@@ -342,7 +316,7 @@ export async function getRecommendations(
             variantId: { in: variantIds },
             market: "tcgplayer",
             kind: "market",
-            currency: "usd",
+            currency: "USD",
           },
         })
       : [];
@@ -440,7 +414,7 @@ export async function getSwapSuggestions(
   // Get owned card names
   let ownedNames = new Set<string>();
   if (userId) {
-    ownedNames = await getOwnedCardNames(userId);
+    ({ names: ownedNames } = await getOwnedCollection(userId));
   }
 
   const currentSet = new Set(currentCards.map((n) => n.toLowerCase()));
@@ -534,7 +508,7 @@ export async function getSwapSuggestions(
             variantId: { in: addVariantIds },
             market: "tcgplayer",
             kind: "market",
-            currency: "usd",
+            currency: "USD",
           },
         })
       : [];
