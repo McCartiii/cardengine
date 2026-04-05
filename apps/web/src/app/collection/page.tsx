@@ -8,6 +8,7 @@ import Link from "next/link";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { getIdentityStyle } from "@/lib/identity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -179,7 +180,7 @@ export default function CollectionPage() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="animate-fade-in">
-          <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">
+          <h1 className="text-3xl font-extrabold tracking-tight text-text-primary font-display">
             Collection
           </h1>
           <p className="mt-1 text-text-secondary">Browse, search, and manage your cards</p>
@@ -263,7 +264,13 @@ export default function CollectionPage() {
                 key={card.variantId}
                 href={`/card/${encodeURIComponent(card.variantId)}`}
                 className={`animate-slide-up flex gap-4 rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow-card)] card-hover`}
-                style={{ animationDelay: `${Math.min(idx * 0.03, 0.3)}s` }}
+                style={{
+                  animationDelay: `${Math.min(idx * 0.03, 0.3)}s`,
+                  borderWidth: "1.5px",
+                  borderStyle: "solid",
+                  boxShadow: "var(--shadow-card)",
+                  ...getIdentityStyle(card.colorIdentity ?? []),
+                }}
               >
                 {card.imageUri && (
                   <img
@@ -275,14 +282,14 @@ export default function CollectionPage() {
                 )}
                 <div className="flex flex-1 flex-col justify-between min-w-0">
                   <div>
-                    <h3 className="font-semibold text-text-primary truncate">
+                    <h3 className="font-semibold text-text-primary truncate font-display">
                       {card.name}
                     </h3>
                     <p className="mt-0.5 text-xs text-text-secondary">
                       {card.setId?.toUpperCase()} {card.collectorNumber}
                     </p>
                     {card.rarity && (
-                      <Badge variant={rarityBadgeVariant(card.rarity)} className="mt-1.5">
+                      <Badge variant={rarityBadgeVariant(card.rarity)} setCode={card.setId ?? undefined} className="mt-1.5">
                         {card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1)}
                       </Badge>
                     )}
