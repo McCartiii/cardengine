@@ -1046,6 +1046,57 @@ app.get("/v1/bundles/:game/count", async (req) => {
   return { game: params.game, count };
 });
 
+// ── Hash bundle (for mobile perceptual-hash index) ──
+app.get("/v1/bundles/:game/hashes", async (req) => {
+  const params = z.object({ game: z.string() }).parse(req.params);
+  const query = z
+    .object({
+      cursor: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(5000).default(2000),
+    })
+    .parse(req.query);
+
+  const where: Record<string, unknown> = {
+    game: params.game,
+    dHash: { not: null },
+  };
+
+  if (query.cursor) {
+    where.variantId = { gt: query.cursor };
+  }
+
+  const cards = await prisma.cardVariant.findMany({
+    where,
+    orderBy: { variantId: "asc" },
+    take: query.limit + 1,
+    select: {
+      variantId: true,
+      dHash: true,
+      pHash: true,
+      foilDHash: true,
+      foilPHash: true,
+    },
+  });
+
+  const hasMore = cards.length > query.limit;
+  const items = hasMore ? cards.slice(0, query.limit) : cards;
+  const nextCursor = hasMore ? items[items.length - 1]!.variantId : null;
+
+  return {
+    game: params.game,
+    count: items.length,
+    hasMore,
+    nextCursor,
+    items: items.map((c) => ({
+      variantId: c.variantId,
+      dHash: c.dHash!,
+      pHash: c.pHash!,
+      foilDHash: c.foilDHash ?? undefined,
+      foilPHash: c.foilPHash ?? undefined,
+    })),
+  };
+});
+
 // ── Prices ──
 app.get("/v1/prices/:market", async (req) => {
   const params = z.object({ market: z.string() }).parse(req.params);
