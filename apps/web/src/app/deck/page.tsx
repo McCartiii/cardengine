@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DeckStatStrip } from "@/components/ui/DeckStatStrip";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -33,6 +34,7 @@ interface DeckCard {
   typeLine?: string;
   setId?: string;
   collectorNumber?: string;
+  rarity?: string;
 }
 
 type ImportTab = "paste" | "url";
@@ -65,6 +67,18 @@ interface SwapSuggestion {
   };
   netSynergyGain: number;
   category: string;
+}
+
+function parseCmc(manaCost: string): number {
+  if (!manaCost) return 0;
+  let total = 0;
+  const genericMatch = manaCost.match(/\{(\d+)\}/);
+  if (genericMatch) total += parseInt(genericMatch[1], 10);
+  const coloredSymbols = manaCost.match(/\{[WUBRG]\}/g) ?? [];
+  const hybridSymbols = manaCost.match(/\{[WUBRG]\/[WUBRG]\}/g) ?? [];
+  const phyrexianSymbols = manaCost.match(/\{[WUBRG]\/P\}/g) ?? [];
+  total += coloredSymbols.length + hybridSymbols.length + phyrexianSymbols.length;
+  return total;
 }
 
 export default function DeckEditorPage() {
@@ -108,6 +122,19 @@ export default function DeckEditorPage() {
     (a, c) => a + (c.priceUsd ?? 0) * c.quantity,
     0
   );
+
+  const deckStats = useMemo(() => {
+    const mainDeckCards = cards.filter((c) => c.board === "main" || c.board === "commander");
+    const total = mainDeckCards.reduce((sum, c) => sum + c.quantity, 0);
+    const cmcSum = mainDeckCards.reduce((sum, c) => {
+      const cmc = parseCmc(c.manaCost ?? "");
+      return sum + cmc * c.quantity;
+    }, 0);
+    const avgCmc = total > 0 ? cmcSum / total : null;
+    const rares = mainDeckCards.filter((c) => c.rarity === "rare").reduce((s, c) => s + c.quantity, 0);
+    const mythics = mainDeckCards.filter((c) => c.rarity === "mythic").reduce((s, c) => s + c.quantity, 0);
+    return { total, avgCmc, rares, mythics };
+  }, [cards]);
 
   // Load user for NavBar
   useEffect(() => {
@@ -579,7 +606,7 @@ export default function DeckEditorPage() {
             type="text"
             value={deckName}
             onChange={(e) => setDeckName(e.target.value)}
-            className="text-2xl font-bold bg-transparent text-text-primary border-none outline-none"
+            className="text-2xl font-bold font-display bg-transparent text-text-primary border-none outline-none"
           />
           <select
             value={format}
@@ -595,6 +622,14 @@ export default function DeckEditorPage() {
             <option value="pauper">Pauper</option>
           </select>
         </div>
+
+        <DeckStatStrip
+          cardCount={deckStats.total}
+          avgCmc={deckStats.avgCmc}
+          rareCount={deckStats.rares}
+          mythicCount={deckStats.mythics}
+          className="mt-3 max-w-xs"
+        />
 
         {/* Stats panel */}
         <div className="mt-4 flex flex-wrap gap-6 rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow-card)] animate-slide-up">
