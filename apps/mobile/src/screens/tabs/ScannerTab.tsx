@@ -1,4 +1,9 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -11,32 +16,50 @@ import {
   Vibration,
   FlatList,
   Dimensions,
-  type ViewStyle,
 } from "react-native";
-import { getDb, insertLedgerEvent, searchCards } from "../../lib/localDb";
-import { colors, spacing, radii, typography, shadows, tabColors } from "../../theme";
+import { useAnimatedStyle, useSharedValue, withTiming, runOnJS } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { getDb, insertLedgerEvent, searchCards, loadHashIndex } from "../../lib/localDb";
+import { downloadHashBundle } from "../../lib/sync";
+import { colors, spacing, radii, typography, tabColors } from "../../theme";
+import { MobileHashIndex } from "../../scanner/HashIndex";
+import { computeDHashFromRGB9x8 } from "../../scanner/hashUtils";
 
 const t = colors.light;
 const tc = tabColors.scanner;
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 const SCREEN_WIDTH = Dimensions.get("window").width;
+const CELL_SIZE = (SCREEN_WIDTH - 32) / 3;
 
-// Dynamic imports for native modules (not available in Expo Go)
+// ── Dynamic imports (not available in Expo Go) ──
 let Camera: React.ComponentType<any> | null = null;
+let useFrameProcessor: ((...args: any[]) => any) | null = null;
+let useResizePlugin: (() => any) | null = null;
 let TextRecognition: { recognize: (uri: string) => Promise<any> } | null = null;
+let ImageManipulator: any = null;
 
 try {
   const VisionCamera = require("react-native-vision-camera");
   Camera = VisionCamera.Camera;
-} catch {
-  // Not available in Expo Go
-}
+  useFrameProcessor = VisionCamera.useFrameProcessor;
+} catch { /* not available in Expo Go */ }
+
+try {
+  const ResizePlugin = require("vision-camera-resize-plugin");
+  useResizePlugin = ResizePlugin.useResizePlugin;
+} catch { /* not available in Expo Go */ }
 
 try {
   TextRecognition = require("@react-native-ml-kit/text-recognition").default;
-} catch {
-  // Not available
-}
+} catch { /* not available */ }
+
+try {
+  ImageManipulator = require("expo-image-manipulator");
+} catch { /* not available */ }
+
+// ── Types ──
+type ScanMode = "rapid" | "binder";
+type GridSize = 9 | 12;
+type OverlayState = "idle" | "detecting" | "confirmed" | "lowConfidence" | "ocrFallback";
 
 interface ScanCandidate {
   variantId: string;
@@ -65,8 +88,16 @@ interface ScannedCard {
   addedToCollection: boolean;
 }
 
-type ScanMode = "rapid" | "grid";
+interface BinderCell {
+  variantId: string;
+  name: string;
+  imageUri?: string;
+  setId?: string;
+  confidence: "high" | "medium" | "none";
+  selected: boolean;
+}
 
+// ── Levenshtein (OCR fallback) ──
 function levenshtein(a: string, b: string): number {
   const la = a.length, lb = b.length;
   if (la === 0) return lb;
@@ -76,203 +107,145 @@ function levenshtein(a: string, b: string): number {
     const curr = [i];
     for (let j = 1; j <= lb; j++) {
       curr[j] = a[i - 1] === b[j - 1]
-        ? prev[j - 1]
-        : 1 + Math.min(prev[j], curr[j - 1], prev[j - 1]);
+        ? prev[j - 1]!
+        : 1 + Math.min(prev[j]!, curr[j - 1]!, prev[j - 1]!);
     }
     prev = curr;
   }
-  return prev[lb];
+  return prev[lb]!;
 }
 
-/** Extract card fields from ML Kit OCR result */
+// ── OCR field extraction (fallback) ──
 function extractCardFields(result: any): {
-  name: string;
-  setCode?: string;
-  collectorNumber?: string;
-  manaCost?: string;
+  name: string; setCode?: string; collectorNumber?: string;
 } {
   const blocks = result?.blocks ?? [];
-  if (blocks.length === 0 && result?.text) {
-    const lines = result.text.split("\n").filter((l: string) => l.trim().length > 1);
-    return { name: lines[0]?.replace(/[^a-zA-Z0-9\s,'-]/g, "").trim() ?? "" };
-  }
-
   let nameBlock = "";
   let bottomText = "";
-  let topRightText = "";
-
   const imgHeight = result?.height ?? 1000;
   const imgWidth = result?.width ?? 700;
-
   for (const block of blocks) {
     const frame = block.frame ?? block.boundingBox ?? {};
     const y = frame.y ?? frame.top ?? 0;
     const x = frame.x ?? frame.left ?? 0;
     const text = (block.text ?? "").trim();
     if (!text) continue;
-
     const yRatio = y / imgHeight;
     const xRatio = x / imgWidth;
-
     if (yRatio < 0.15 && xRatio < 0.6) {
-      // Top-left: card name
-      if (!nameBlock || y < (blocks.find((b: any) => b.text === nameBlock)?.frame?.y ?? Infinity)) {
-        nameBlock = text;
-      }
-    } else if (yRatio < 0.15 && xRatio > 0.6) {
-      topRightText += " " + text;
+      if (!nameBlock) nameBlock = text;
     } else if (yRatio > 0.85) {
       bottomText += " " + text;
     }
   }
-
-  // Fallback: use first line
   if (!nameBlock) {
     const lines = (result?.text ?? "").split("\n").filter((l: string) => l.trim().length > 1);
     nameBlock = lines[0] ?? "";
   }
-
   const name = nameBlock.replace(/[^a-zA-Z0-9\s,'-]/g, "").trim();
-
-  // Extract set code and collector number from bottom text
   let setCode: string | undefined;
   let collectorNumber: string | undefined;
   const bottomMatch = bottomText.match(/([A-Z]{3,5})\s*[·•.\-]?\s*(\d{1,4}[a-z]?)/i);
   if (bottomMatch) {
-    setCode = bottomMatch[1].toUpperCase();
+    setCode = bottomMatch[1]!.toUpperCase();
     collectorNumber = bottomMatch[2];
   }
-
-  // Extract mana symbols from top-right
-  let manaCost: string | undefined;
-  const manaMatch = topRightText.match(/[{(]?([WUBRGCX0-9]+)[)}]?/i);
-  if (manaMatch) {
-    manaCost = manaMatch[0];
-  }
-
-  return { name, setCode, collectorNumber, manaCost };
+  return { name, setCode, collectorNumber };
 }
 
-/** Try to match card offline using local SQLite DB */
-async function matchOffline(fields: { name: string; setCode?: string; collectorNumber?: string }): Promise<ScanCandidate | null> {
+// ── OCR offline match (fallback) ──
+async function matchOfflineOcr(fields: {
+  name: string; setCode?: string; collectorNumber?: string;
+}): Promise<ScanCandidate | null> {
   try {
     const database = await getDb();
     const nameNorm = fields.name.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
     if (nameNorm.length < 2) return null;
-
     const results = await searchCards(database, nameNorm, 20);
-
     let best: any = null;
     let bestScore = 0;
-
     for (const row of results) {
       const card = row as any;
       const cName = (card.name ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, "");
       let score = 0;
       let matchType = "fuzzy";
-
-      if (cName === nameNorm) {
-        score = 80;
-        matchType = "exact_name";
-      } else if (cName.startsWith(nameNorm) || nameNorm.startsWith(cName)) {
-        score = 70;
-        matchType = "prefix";
-      } else {
+      if (cName === nameNorm) { score = 80; matchType = "exact_name"; }
+      else if (cName.startsWith(nameNorm) || nameNorm.startsWith(cName)) { score = 70; matchType = "prefix"; }
+      else {
         const dist = levenshtein(nameNorm, cName);
         const maxLen = Math.max(nameNorm.length, cName.length);
         score = Math.round((1 - dist / maxLen) * 60);
       }
-
       if (fields.setCode && card.setId?.toLowerCase() === fields.setCode.toLowerCase()) {
         score += 10;
         if (fields.collectorNumber && card.collectorNumber === fields.collectorNumber) {
-          score += 10;
-          matchType = "set_collector";
+          score += 10; matchType = "set_collector";
         }
       }
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = { ...card, score, matchType };
-      }
+      if (score > bestScore) { bestScore = score; best = { ...card, score, matchType }; }
     }
-
     if (best && best.score >= 50) {
       return {
-        variantId: best.variantId,
-        cardId: best.cardId,
-        name: best.name,
-        setId: best.setId,
-        collectorNumber: best.collectorNumber,
-        imageUri: best.imageUri,
-        manaCost: best.manaCost,
-        typeLine: best.typeLine,
-        rarity: best.rarity,
-        score: best.score,
-        matchType: best.matchType,
-        prices: [],
+        variantId: best.variantId, cardId: best.cardId, name: best.name,
+        setId: best.setId, collectorNumber: best.collectorNumber,
+        imageUri: best.imageUri, manaCost: best.manaCost, typeLine: best.typeLine,
+        rarity: best.rarity, score: best.score, matchType: best.matchType, prices: [],
       };
     }
-  } catch {
-    // Offline match failed
-  }
+  } catch { /* offline match failed */ }
   return null;
 }
 
-/** Try to match card via API endpoint */
-async function matchOnline(fields: {
-  name: string;
-  setCode?: string;
-  collectorNumber?: string;
-  manaCost?: string;
-}): Promise<ScanCandidate[]> {
-  try {
-    const res = await fetch(`${API_URL}/v1/scan/identify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: fields.name,
-        setCode: fields.setCode,
-        collectorNumber: fields.collectorNumber,
-        manaCost: fields.manaCost,
-        limit: 5,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data.candidates ?? [];
-    }
-  } catch {
-    // API unreachable
+// ── Singleton hash index (loaded once per scanner session) ──
+const globalHashIndex = new MobileHashIndex();
+let hashIndexLoaded = false;
+
+async function ensureHashIndexLoaded(): Promise<void> {
+  if (hashIndexLoaded) return;
+  const database = await getDb();
+  const rows = await loadHashIndex(database);
+  if (rows.length === 0) {
+    await downloadHashBundle();
+    const freshRows = await loadHashIndex(database);
+    globalHashIndex.load(freshRows);
+  } else {
+    globalHashIndex.load(rows);
   }
-  return [];
+  hashIndexLoaded = true;
 }
 
+// ── Component ──
 export function ScannerTab() {
   const [hasPermission, setHasPermission] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>("rapid");
   const [isActive, setIsActive] = useState(true);
-  const [scanning, setScanning] = useState(false);
-  const [continuousMode, setContinuousMode] = useState(true);
-  const [ocrText, setOcrText] = useState<string | null>(null);
+  const [overlayState, setOverlayState] = useState<OverlayState>("idle");
+  const [ocrHint, setOcrHint] = useState<string | null>(null);
+  const [hashIndexReady, setHashIndexReady] = useState(false);
 
-  // Rapid-fire state
   const [scannedCards, setScannedCards] = useState<ScannedCard[]>([]);
-  const [lastScannedId, setLastScannedId] = useState<string | null>(null);
   const [scanCount, setScanCount] = useState(0);
   const [sessionValue, setSessionValue] = useState(0);
-
-  // Disambiguation state (when auto-confirm can't decide)
+  const [lastScannedId, setLastScannedId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerCandidates, setPickerCandidates] = useState<ScanCandidate[]>([]);
 
-  // Grid mode state
-  const [gridCards, setGridCards] = useState<Array<ScanCandidate & { selected: boolean }>>([]);
-  const [gridProcessing, setGridProcessing] = useState(false);
+  const [gridSize, setGridSize] = useState<GridSize>(9);
+  const [binderCells, setBinderCells] = useState<BinderCell[]>([]);
+  const [binderProcessing, setBinderProcessing] = useState(false);
+  const [binderProgress, setBinderProgress] = useState(0);
 
   const cameraRef = useRef<any>(null);
   const scanLockRef = useRef(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const ringBuffer = useRef<Array<string | null>>(new Array(8).fill(null));
+  const ringIdx = useRef(0);
+
+  const confidenceFill = useSharedValue(0);
+
+  useEffect(() => {
+    ensureHashIndexLoaded().then(() => setHashIndexReady(true));
+  }, []);
 
   useEffect(() => {
     if (Camera) {
@@ -288,339 +261,338 @@ export function ScannerTab() {
     }
   }, []);
 
-  // Continuous scan loop for rapid-fire mode
-  useEffect(() => {
-    if (!continuousMode || !isActive || scanMode !== "rapid" || !Camera || !hasPermission) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
+  const onHashReceived = useCallback((dHashHex: string) => {
+    if (scanLockRef.current || scanMode !== "rapid") return;
+
+    const result = globalHashIndex.lookup(dHashHex, dHashHex);
+    const variantId = result?.variantId ?? null;
+
+    ringBuffer.current[ringIdx.current % 8] = variantId;
+    ringIdx.current++;
+
+    const counts: Record<string, number> = {};
+    for (const id of ringBuffer.current) {
+      if (id) counts[id] = (counts[id] ?? 0) + 1;
     }
 
-    intervalRef.current = setInterval(() => {
-      if (!scanLockRef.current && cameraRef.current && TextRecognition) {
-        processFrame();
-      }
-    }, 800);
+    const topId = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+    if (topId && topId[1] >= 3) {
+      const matchedId = topId[0]!;
+      if (matchedId !== lastScannedId) {
+        autoConfirmByVariantId(matchedId);
       }
-    };
-  }, [continuousMode, isActive, scanMode, hasPermission]);
+      setOverlayState("confirmed");
+      confidenceFill.value = withTiming(1, { duration: 100 });
+    } else if (ringIdx.current > 0 && ringIdx.current % 8 === 0 && !topId) {
+      setOverlayState("lowConfidence");
+      triggerOcrFallback();
+    } else if (variantId) {
+      setOverlayState("detecting");
+      confidenceFill.value = withTiming((topId?.[1] ?? 1) / 3, { duration: 80 });
+    } else {
+      setOverlayState("idle");
+      confidenceFill.value = withTiming(0, { duration: 200 });
+    }
+  }, [scanMode, lastScannedId]);
 
-  const processFrame = useCallback(async () => {
+  const resize = useResizePlugin ? useResizePlugin() : null;
+
+  const frameProcessor = useFrameProcessor && resize && hashIndexReady
+    ? useFrameProcessor((frame: any) => {
+        'worklet';
+        try {
+          const resized = resize(frame, {
+            scale: { width: 9, height: 8 },
+            pixelFormat: 'rgb',
+            dataType: 'uint8',
+          });
+          const dHash = computeDHashFromRGB9x8(new Uint8Array(resized.buffer));
+          runOnJS(onHashReceived)(dHash);
+        } catch { /* ignore frame errors */ }
+      }, [onHashReceived, resize, hashIndexReady])
+    : undefined;
+
+  const autoConfirmByVariantId = useCallback(async (variantId: string) => {
+    scanLockRef.current = true;
+    Vibration.vibrate(50);
+    ringBuffer.current = new Array(8).fill(null);
+    ringIdx.current = 0;
+
+    try {
+      const database = await getDb();
+      const rows = await database.getAllAsync<any>(
+        `SELECT * FROM cards WHERE variantId = ? LIMIT 1`, [variantId]
+      );
+      const card = rows[0];
+      if (!card) return;
+
+      setScannedCards((prev) => {
+        const existing = prev.find((c) => c.variantId === variantId);
+        if (existing) {
+          return prev.map((c) =>
+            c.variantId === variantId ? { ...c, quantity: c.quantity + 1 } : c
+          );
+        }
+        return [
+          {
+            variantId: card.variantId,
+            cardId: card.cardId,
+            name: card.name,
+            setId: card.setId,
+            collectorNumber: card.collectorNumber,
+            imageUri: card.imageUri,
+            quantity: 1,
+            priceUsd: 0,
+            addedToCollection: false,
+          },
+          ...prev,
+        ];
+      });
+
+      setLastScannedId(variantId);
+      setScanCount((c) => c + 1);
+      setOverlayState("confirmed");
+
+      setTimeout(() => {
+        scanLockRef.current = false;
+        setLastScannedId(null);
+        setOverlayState("idle");
+        confidenceFill.value = withTiming(0, { duration: 300 });
+      }, 1500);
+    } catch {
+      scanLockRef.current = false;
+    }
+  }, []);
+
+  const triggerOcrFallback = useCallback(async () => {
     if (scanLockRef.current || !cameraRef.current || !TextRecognition) return;
     scanLockRef.current = true;
-    setScanning(true);
+    setOverlayState("ocrFallback");
+    setOcrHint("Trying text match...");
 
     try {
       const photo = await cameraRef.current.takePhoto({ qualityPrioritization: "speed" });
       const recognized = await TextRecognition.recognize(photo.path);
-
-      if (!recognized?.text || recognized.text.trim().length < 3) {
-        scanLockRef.current = false;
-        setScanning(false);
-        return;
-      }
+      if (!recognized?.text || recognized.text.trim().length < 3) return;
 
       const fields = extractCardFields(recognized);
-      if (!fields.name || fields.name.length < 2) {
-        scanLockRef.current = false;
-        setScanning(false);
-        return;
-      }
+      if (!fields.name || fields.name.length < 2) return;
 
-      setOcrText(fields.name);
-
-      // Try online first, fall back to offline
-      let candidates = await matchOnline(fields);
-      if (candidates.length === 0) {
-        const offlineMatch = await matchOffline(fields);
-        if (offlineMatch) candidates = [offlineMatch];
-      }
-
-      if (candidates.length === 0) {
-        scanLockRef.current = false;
-        setScanning(false);
-        return;
-      }
-
-      const topCandidate = candidates[0];
-
-      // Auto-confirm if score >= 70 and not the same card we just scanned
-      if (topCandidate.score >= 70 && topCandidate.variantId !== lastScannedId) {
-        autoConfirmCard(topCandidate);
-      } else if (topCandidate.score < 70 && candidates.length > 1) {
-        // Pause continuous scanning, show disambiguation picker
-        setContinuousMode(false);
-        setPickerCandidates(candidates);
+      const candidate = await matchOfflineOcr(fields);
+      if (candidate && candidate.score >= 70 && candidate.variantId !== lastScannedId) {
+        await autoConfirmByVariantId(candidate.variantId);
+      } else if (candidate) {
+        setPickerCandidates([candidate]);
         setShowPicker(true);
       }
-    } catch {
-      // Frame processing error, continue
-    } finally {
+    } catch { /* ignore */ } finally {
       scanLockRef.current = false;
-      setScanning(false);
+      setOcrHint(null);
     }
-  }, [lastScannedId]);
+  }, [lastScannedId, autoConfirmByVariantId]);
 
-  const autoConfirmCard = useCallback((candidate: ScanCandidate) => {
-    Vibration.vibrate(50);
-
-    const priceUsd = candidate.prices?.find(
-      (p) => p.market === "tcgplayer" && p.kind === "market" && p.currency === "USD"
-    )?.amount ?? 0;
-
-    setScannedCards((prev) => {
-      const existing = prev.find((c) => c.variantId === candidate.variantId);
-      if (existing) {
-        return prev.map((c) =>
-          c.variantId === candidate.variantId
-            ? { ...c, quantity: c.quantity + 1 }
-            : c
-        );
-      }
-      return [
-        {
-          variantId: candidate.variantId,
-          cardId: candidate.cardId,
-          name: candidate.name,
-          setId: candidate.setId,
-          collectorNumber: candidate.collectorNumber,
-          imageUri: candidate.imageUri,
-          quantity: 1,
-          priceUsd,
-          addedToCollection: false,
-        },
-        ...prev,
-      ];
-    });
-
-    setLastScannedId(candidate.variantId);
-    setScanCount((c) => c + 1);
-    setSessionValue((v) => v + priceUsd);
-
-    // Reset lastScannedId after 2 seconds to allow re-scanning same card
-    setTimeout(() => setLastScannedId(null), 2000);
-  }, []);
-
-  const pickCandidate = (candidate: ScanCandidate) => {
-    autoConfirmCard(candidate);
-    setShowPicker(false);
-    setPickerCandidates([]);
-    setContinuousMode(true);
-  };
-
-  const adjustQuantity = (variantId: string, delta: number) => {
-    setScannedCards((prev) => {
-      const card = prev.find((c) => c.variantId === variantId);
-      if (!card) return prev;
-      const newQty = card.quantity + delta;
-      if (newQty <= 0) {
-        setScanCount((c) => c - card.quantity);
-        setSessionValue((v) => v - card.priceUsd * card.quantity);
-        return prev.filter((c) => c.variantId !== variantId);
-      }
-      setScanCount((c) => c + delta);
-      setSessionValue((v) => v + card.priceUsd * delta);
-      return prev.map((c) => (c.variantId === variantId ? { ...c, quantity: newQty } : c));
-    });
-  };
-
-  const undoLastScan = () => {
-    setScannedCards((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[0];
-      if (last.quantity > 1) {
-        setScanCount((c) => c - 1);
-        setSessionValue((v) => v - last.priceUsd);
-        return prev.map((c, i) => (i === 0 ? { ...c, quantity: c.quantity - 1 } : c));
-      }
-      setScanCount((c) => c - 1);
-      setSessionValue((v) => v - last.priceUsd);
-      return prev.slice(1);
-    });
-  };
-
-  const addAllToCollection = async () => {
-    const cardsToAdd = scannedCards.filter((c) => !c.addedToCollection);
-    if (cardsToAdd.length === 0) {
-      Alert.alert("Nothing to add", "All scanned cards are already in your collection.");
+  const addAllToCollection = useCallback(async () => {
+    const toAdd = scannedCards.filter((c) => !c.addedToCollection);
+    if (toAdd.length === 0) {
+      Alert.alert("Nothing to add", "All cards already in collection.");
       return;
     }
-
     try {
       const database = await getDb();
-      for (const card of cardsToAdd) {
+      for (const card of toAdd) {
         for (let i = 0; i < card.quantity; i++) {
           await insertLedgerEvent(database, {
             id: `scan-${card.variantId}-${Date.now()}-${i}`,
             at: new Date().toISOString(),
             type: "add",
             variantId: card.variantId,
-            payload: { source: "scan", quantity: 1 },
+            payload: { source: "rapid_scan", quantity: 1 },
           });
         }
       }
-
-      setScannedCards((prev) =>
-        prev.map((c) => ({ ...c, addedToCollection: true }))
-      );
-
-      const totalCards = cardsToAdd.reduce((sum, c) => sum + c.quantity, 0);
-      Alert.alert("Added to Collection", `${totalCards} card(s) added successfully.`);
+      setScannedCards((prev) => prev.map((c) => ({ ...c, addedToCollection: true })));
+      Alert.alert("Added", `${toAdd.reduce((s, c) => s + c.quantity, 0)} card(s) added.`);
     } catch {
       Alert.alert("Error", "Failed to add cards to collection.");
     }
-  };
+  }, [scannedCards]);
 
-  // ── Grid Mode: Capture + Process ──
-  const captureGrid = useCallback(async () => {
-    if (!cameraRef.current || !TextRecognition) return;
-    setGridProcessing(true);
-    setGridCards([]);
-
-    try {
-      const photo = await cameraRef.current.takePhoto({ qualityPrioritization: "balanced" });
-      const recognized = await TextRecognition.recognize(photo.path);
-
-      if (!recognized?.text) {
-        Alert.alert("No text found", "Could not detect card text. Ensure cards are well-lit and clearly visible.");
-        setGridProcessing(false);
-        return;
+  const undoLastScan = useCallback(() => {
+    setScannedCards((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[0]!;
+      if (last.quantity > 1) {
+        setScanCount((c) => c - 1);
+        setSessionValue((v) => v - last.priceUsd);
+        return prev.map((c, i) => i === 0 ? { ...c, quantity: c.quantity - 1 } : c);
       }
-
-      // Cluster text blocks by spatial proximity into card regions
-      const blocks = recognized.blocks ?? [];
-      const imgHeight = recognized.height ?? 1000;
-      const imgWidth = recognized.width ?? 700;
-
-      // Group blocks into grid cells based on Y/X position
-      const cardRegions: Array<{ texts: string[]; y: number; x: number }> = [];
-      const cellHeight = imgHeight / 4;
-      const cellWidth = imgWidth / 3;
-
-      for (const block of blocks) {
-        const frame = block.frame ?? block.boundingBox ?? {};
-        const y = frame.y ?? frame.top ?? 0;
-        const x = frame.x ?? frame.left ?? 0;
-        const text = (block.text ?? "").trim();
-        if (!text || text.length < 2) continue;
-
-        // Find which grid cell this block belongs to
-        const cellRow = Math.floor(y / cellHeight);
-        const cellCol = Math.floor(x / cellWidth);
-        const cellKey = `${cellRow}-${cellCol}`;
-
-        let region = cardRegions.find(
-          (r) =>
-            Math.floor(r.y / cellHeight) === cellRow &&
-            Math.floor(r.x / cellWidth) === cellCol
-        );
-        if (!region) {
-          region = { texts: [], y, x };
-          cardRegions.push(region);
-        }
-        region.texts.push(text);
-      }
-
-      // For each region, extract the first meaningful text line as the card name
-      const detectedCards: Array<ScanCandidate & { selected: boolean }> = [];
-
-      for (const region of cardRegions) {
-        const allText = region.texts.join("\n");
-        const lines = allText.split("\n").filter((l) => l.trim().length > 2);
-        if (lines.length === 0) continue;
-
-        const candidateName = lines[0].replace(/[^a-zA-Z0-9\s,'-]/g, "").trim();
-        if (candidateName.length < 2) continue;
-
-        // Try to match
-        let candidates = await matchOnline({ name: candidateName });
-        if (candidates.length === 0) {
-          const offlineMatch = await matchOffline({ name: candidateName });
-          if (offlineMatch) candidates = [offlineMatch];
-        }
-
-        if (candidates.length > 0) {
-          detectedCards.push({ ...candidates[0], selected: true });
-        }
-      }
-
-      setGridCards(detectedCards);
-      Vibration.vibrate(100);
-    } catch {
-      Alert.alert("Grid Scan Error", "Failed to process the image.");
-    } finally {
-      setGridProcessing(false);
-    }
+      setScanCount((c) => c - 1);
+      setSessionValue((v) => v - last.priceUsd);
+      return prev.slice(1);
+    });
   }, []);
 
-  const toggleGridCard = (idx: number) => {
-    setGridCards((prev) =>
-      prev.map((c, i) => (i === idx ? { ...c, selected: !c.selected } : c))
-    );
-  };
-
-  const addSelectedGridCards = async () => {
-    const selected = gridCards.filter((c) => c.selected);
-    if (selected.length === 0) {
-      Alert.alert("No cards selected", "Select cards to add to your collection.");
-      return;
-    }
+  const captureBinderPage = useCallback(async () => {
+    if (!cameraRef.current || !ImageManipulator) return;
+    setBinderProcessing(true);
+    setBinderCells([]);
+    setBinderProgress(0);
 
     try {
-      const database = await getDb();
-      for (const card of selected) {
-        await insertLedgerEvent(database, {
-          id: `grid-${card.variantId}-${Date.now()}`,
-          at: new Date().toISOString(),
-          type: "add",
-          variantId: card.variantId,
-          payload: { source: "grid_scan", quantity: 1 },
-        });
+      const photo = await cameraRef.current.takePhoto({ qualityPrioritization: "quality" });
+      const photoUri = `file://${photo.path}`;
+
+      const n = gridSize;
+      const totalCells = n * n;
+      const results: BinderCell[] = [];
+      let processed = 0;
+
+      const dimInfo = await ImageManipulator.manipulateAsync(
+        photoUri,
+        [{ resize: { width: 100 } }],
+        { base64: false }
+      );
+      const aspectRatio = dimInfo.height / dimInfo.width;
+      const fullWidth = photo.width ?? 3024;
+      const fullHeight = photo.height ?? Math.round(fullWidth * aspectRatio);
+
+      const cellW = Math.floor(fullWidth / n);
+      const cellH = Math.floor(fullHeight / n);
+
+      const BATCH = 9;
+      for (let start = 0; start < totalCells; start += BATCH) {
+        const batchCells = [];
+        for (let offset = 0; offset < BATCH && start + offset < totalCells; offset++) {
+          const idx = start + offset;
+          const row = Math.floor(idx / n);
+          const col = idx % n;
+          batchCells.push({ row, col, idx });
+        }
+
+        await Promise.all(
+          batchCells.map(async ({ row, col }) => {
+            try {
+              const cropped = await ImageManipulator.manipulateAsync(
+                photoUri,
+                [{
+                  crop: {
+                    originX: col * cellW,
+                    originY: row * cellH,
+                    width: cellW,
+                    height: cellH,
+                  },
+                }, { resize: { width: 64, height: 64 } }],
+                { base64: true, format: ImageManipulator.SaveFormat?.PNG ?? "png" }
+              );
+
+              if (!cropped.base64) return;
+
+              const pixels = decodePngBase64ToRGBA(cropped.base64, 64, 64);
+              if (!pixels) return;
+
+              if (isEmptySlot(pixels, 64, 64)) return;
+
+              const { computeDHashFromRGBA, computePHashFromRGBA } = require("../../scanner/hashUtils");
+              const dHashHex = computeDHashFromRGBA(pixels, 64, 64);
+              const pHashHex = computePHashFromRGBA(pixels, 64, 64);
+
+              const match = globalHashIndex.lookup(dHashHex, pHashHex);
+              if (!match) return;
+
+              const database = await getDb();
+              const dbRows = await database.getAllAsync<any>(
+                `SELECT variantId, name, imageUri, setId FROM cards WHERE variantId = ? LIMIT 1`,
+                [match.variantId]
+              );
+              const card = dbRows[0];
+              if (!card) return;
+
+              results.push({
+                variantId: card.variantId,
+                name: card.name,
+                imageUri: card.imageUri,
+                setId: card.setId,
+                confidence: match.confidence,
+                selected: true,
+              });
+            } catch { /* skip cell on error */ }
+          })
+        );
+
+        processed += batchCells.length;
+        setBinderProgress(Math.round((processed / totalCells) * 100));
+        setBinderCells([...results]);
       }
-      Alert.alert("Added", `${selected.length} card(s) added to your collection.`);
-      setGridCards([]);
+
+      Vibration.vibrate(100);
+    } catch {
+      Alert.alert("Scan Error", "Failed to process binder page.");
+    } finally {
+      setBinderProcessing(false);
+    }
+  }, [gridSize]);
+
+  const toggleBinderCell = useCallback((variantId: string) => {
+    setBinderCells((prev) =>
+      prev.map((c) => c.variantId === variantId ? { ...c, selected: !c.selected } : c)
+    );
+  }, []);
+
+  const addSelectedBinderCards = useCallback(async () => {
+    const selected = binderCells.filter((c) => c.selected);
+    if (selected.length === 0) {
+      Alert.alert("Nothing selected", "Tap cards to select them.");
+      return;
+    }
+    try {
+      const database = await getDb();
+      await database.withTransactionAsync(async () => {
+        for (const card of selected) {
+          await insertLedgerEvent(database, {
+            id: `binder-${card.variantId}-${Date.now()}`,
+            at: new Date().toISOString(),
+            type: "add",
+            variantId: card.variantId,
+            payload: { source: "binder_scan", quantity: 1 },
+          });
+        }
+      });
+      Alert.alert("Added", `${selected.length} card(s) added to collection.`);
+      setBinderCells([]);
     } catch {
       Alert.alert("Error", "Failed to add cards.");
     }
-  };
+  }, [binderCells]);
 
-  // Fallback UI when camera is not available (Expo Go)
+  const overlayBorderStyle = useAnimatedStyle(() => ({
+    borderColor:
+      overlayState === "confirmed" ? "#22C55E" :
+      overlayState === "detecting" ? "#3B82F6" :
+      overlayState === "lowConfidence" ? "#F59E0B" :
+      overlayState === "ocrFallback" ? "#6B7280" :
+      "#FFFFFF",
+    opacity: overlayState === "idle" ? 0.4 : 1,
+  }));
+
   if (!Camera) {
     return (
       <View style={styles.container}>
         <View style={styles.fallback}>
-          <Text style={styles.fallbackIcon}>&#x1F4F7;</Text>
-          <Text style={styles.fallbackTitle}>Card Scanner</Text>
-          <Text style={styles.fallbackText}>
-            Camera scanning requires a development build.{"\n"}
-            Run &quot;npx expo run:ios&quot; or &quot;npx expo run:android&quot;
-            to use the scanner.
+          <Text style={styles.fallbackTitle}>Camera not available</Text>
+          <Text style={styles.fallbackSubtitle}>
+            Use a development build (not Expo Go) to enable the scanner.
           </Text>
-          <View style={styles.modeRow}>
-            <TouchableOpacity
-              style={[styles.modeBtn, scanMode === "rapid" && styles.modeBtnActive]}
-              onPress={() => setScanMode("rapid")}
-            >
-              <Text style={[styles.modeBtnText, scanMode === "rapid" && styles.modeBtnTextActive]}>
-                Rapid Fire
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modeBtn, scanMode === "grid" && styles.modeBtnActive]}
-              onPress={() => setScanMode("grid")}
-            >
-              <Text style={[styles.modeBtnText, scanMode === "grid" && styles.modeBtnTextActive]}>
-                Grid Mode
-              </Text>
-            </TouchableOpacity>
-          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (!hasPermission) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.fallback}>
+          <Text style={styles.fallbackTitle}>Camera permission required</Text>
         </View>
       </View>
     );
@@ -628,642 +600,400 @@ export function ScannerTab() {
 
   return (
     <View style={styles.container}>
-      {/* Mode Selector */}
-      <View style={styles.header}>
-        <View style={styles.modeRow}>
-          <TouchableOpacity
-            style={[styles.modeBtn, scanMode === "rapid" && styles.modeBtnActive]}
-            onPress={() => { setScanMode("rapid"); setGridCards([]); }}
-          >
-            <Text style={[styles.modeBtnText, scanMode === "rapid" && styles.modeBtnTextActive]}>
-              Rapid Fire
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeBtn, scanMode === "grid" && styles.modeBtnActive]}
-            onPress={() => { setScanMode("grid"); setContinuousMode(false); }}
-          >
-            <Text style={[styles.modeBtnText, scanMode === "grid" && styles.modeBtnTextActive]}>
-              Grid Mode
-            </Text>
-          </TouchableOpacity>
-        </View>
-        {scanMode === "rapid" && (
-          <View style={styles.statsRow}>
-            <Text style={styles.statText}>{scanCount} scanned</Text>
-            <Text style={styles.statDivider}>|</Text>
-            <Text style={styles.statValue}>${sessionValue.toFixed(2)}</Text>
-          </View>
-        )}
+      <View style={styles.modeBar}>
+        <TouchableOpacity
+          style={[styles.modeBtn, scanMode === "rapid" && styles.modeBtnActive]}
+          onPress={() => setScanMode("rapid")}
+        >
+          <Text style={[styles.modeBtnText, scanMode === "rapid" && styles.modeBtnTextActive]}>
+            Single
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeBtn, scanMode === "binder" && styles.modeBtnActive]}
+          onPress={() => setScanMode("binder")}
+        >
+          <Text style={[styles.modeBtnText, scanMode === "binder" && styles.modeBtnTextActive]}>
+            Binder
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Camera */}
       <View style={styles.cameraContainer}>
-        {hasPermission ? (
-          <>
-            <Camera
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-              photo={true}
-              isActive={isActive && !showPicker}
-            />
-            <View style={styles.overlay}>
-              {scanMode === "rapid" ? (
-                <View style={[styles.guideBox, scanning && styles.guideBoxScanning]}>
-                  <Text style={styles.guideText}>
-                    {scanning ? "Reading..." : continuousMode ? "Hold card in frame" : "Paused"}
-                  </Text>
-                  {ocrText && (
-                    <Text style={styles.ocrPreview} numberOfLines={1}>
-                      {ocrText}
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.gridGuide}>
-                  {/* Grid overlay lines */}
-                  <View style={styles.gridLine1H} />
-                  <View style={styles.gridLine2H} />
-                  <View style={styles.gridLine3H} />
-                  <View style={styles.gridLine1V} />
-                  <View style={styles.gridLine2V} />
-                  <Text style={styles.gridLabel}>
-                    {gridProcessing ? "Processing..." : "Arrange cards in grid"}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </>
-        ) : (
-          <View style={styles.noPermission}>
-            <Text style={styles.noPermissionText}>Camera permission required</Text>
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={undefined}
+          isActive={isActive}
+          frameProcessor={scanMode === "rapid" ? frameProcessor : undefined}
+          photo
+        />
+
+        {scanMode === "rapid" && (
+          <Animated.View style={[styles.cardOverlay, overlayBorderStyle]}>
+            {overlayState === "confirmed" && (
+              <Text style={styles.overlayConfirmedText}>✓</Text>
+            )}
+            {overlayState === "lowConfidence" && (
+              <Text style={styles.overlayHintText}>Adjust angle</Text>
+            )}
+            {overlayState === "ocrFallback" && (
+              <Text style={styles.overlayHintText}>{ocrHint}</Text>
+            )}
+          </Animated.View>
+        )}
+
+        {scanMode === "binder" && (
+          <View style={styles.binderGridOverlay}>
+            {Array.from({ length: gridSize }).map((_, row) =>
+              Array.from({ length: gridSize }).map((_, col) => (
+                <View
+                  key={`${row}-${col}`}
+                  style={[
+                    styles.binderCell,
+                    {
+                      width: `${100 / gridSize}%` as any,
+                      height: `${100 / gridSize}%` as any,
+                    },
+                  ]}
+                />
+              ))
+            )}
+          </View>
+        )}
+
+        {!hashIndexReady && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator color="#fff" />
+            <Text style={styles.loadingText}>Loading card index...</Text>
           </View>
         )}
       </View>
 
-      {/* Disambiguation picker */}
-      {showPicker && (
-        <View style={styles.pickerOverlay}>
-          <Text style={styles.pickerTitle}>Which card?</Text>
-          <ScrollView style={styles.pickerList}>
-            {pickerCandidates.map((c) => (
-              <TouchableOpacity
-                key={c.variantId}
-                style={styles.pickerItem}
-                onPress={() => pickCandidate(c)}
-              >
-                {c.imageUri && (
-                  <Image source={{ uri: c.imageUri }} style={styles.pickerImage} resizeMode="contain" />
+      {scanMode === "rapid" && (
+        <View style={styles.rapidControls}>
+          <View style={styles.sessionStats}>
+            <Text style={styles.statText}>{scanCount} cards</Text>
+            {sessionValue > 0 && (
+              <Text style={styles.statText}>${sessionValue.toFixed(2)}</Text>
+            )}
+          </View>
+          <View style={styles.rapidActions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={undoLastScan}>
+              <Text style={styles.actionBtnText}>Undo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={addAllToCollection}>
+              <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>
+                Add {scanCount > 0 ? scanCount : ""} to Collection
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={scannedCards}
+            keyExtractor={(c) => c.variantId}
+            horizontal
+            style={styles.scannedList}
+            renderItem={({ item }) => (
+              <View style={styles.scannedCard}>
+                {item.imageUri ? (
+                  <Image source={{ uri: item.imageUri }} style={styles.scannedCardImage} />
+                ) : (
+                  <View style={[styles.scannedCardImage, styles.scannedCardPlaceholder]}>
+                    <Text style={styles.scannedCardName}>{item.name[0]}</Text>
+                  </View>
                 )}
-                <View style={styles.pickerInfo}>
-                  <Text style={styles.pickerName}>{c.name}</Text>
-                  <Text style={styles.pickerSet}>
-                    {c.setId?.toUpperCase()} {c.collectorNumber} ({c.score}%)
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            style={styles.pickerCancel}
-            onPress={() => {
-              setShowPicker(false);
-              setPickerCandidates([]);
-              setContinuousMode(true);
-            }}
-          >
-            <Text style={styles.pickerCancelText}>Skip</Text>
-          </TouchableOpacity>
+                {item.quantity > 1 && (
+                  <View style={styles.quantityBadge}>
+                    <Text style={styles.quantityText}>×{item.quantity}</Text>
+                  </View>
+                )}
+                {item.addedToCollection && (
+                  <View style={styles.addedBadge}>
+                    <Text style={styles.addedText}>✓</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          />
         </View>
       )}
 
-      {/* Bottom panel */}
-      <View style={styles.bottomPanel}>
-        {scanMode === "rapid" ? (
-          <>
-            {/* Scan tray */}
-            {scannedCards.length > 0 && (
+      {scanMode === "binder" && (
+        <View style={styles.binderControls}>
+          <View style={styles.gridSizeRow}>
+            <Text style={styles.gridSizeLabel}>Grid:</Text>
+            {([9, 12] as GridSize[]).map((size) => (
+              <TouchableOpacity
+                key={size}
+                style={[styles.gridSizeBtn, gridSize === size && styles.gridSizeBtnActive]}
+                onPress={() => setGridSize(size)}
+              >
+                <Text style={[styles.gridSizeBtnText, gridSize === size && styles.gridSizeBtnTextActive]}>
+                  {size}×{size}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {!binderProcessing && binderCells.length === 0 && (
+            <TouchableOpacity style={styles.captureBtn} onPress={captureBinderPage}>
+              <Text style={styles.captureBtnText}>Scan Page</Text>
+            </TouchableOpacity>
+          )}
+
+          {binderProcessing && (
+            <View style={styles.processingRow}>
+              <ActivityIndicator color={tc.color} />
+              <Text style={styles.processingText}>Processing {binderProgress}%</Text>
+            </View>
+          )}
+
+          {binderCells.length > 0 && (
+            <>
+              <View style={styles.binderResultsHeader}>
+                <Text style={styles.binderResultsTitle}>
+                  {binderCells.filter((c) => c.selected).length} of {binderCells.length} selected
+                </Text>
+                <TouchableOpacity onPress={() => setBinderCells((prev) => prev.map((c) => ({ ...c, selected: true })))}>
+                  <Text style={styles.binderSelectAll}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setBinderCells((prev) => prev.map((c) => ({ ...c, selected: false })))}>
+                  <Text style={styles.binderSelectAll}>None</Text>
+                </TouchableOpacity>
+              </View>
+
               <FlatList
-                data={scannedCards}
-                keyExtractor={(item) => item.variantId}
-                horizontal
-                style={styles.tray}
-                showsHorizontalScrollIndicator={false}
+                data={binderCells}
+                keyExtractor={(c) => c.variantId}
+                numColumns={3}
+                style={styles.binderResultsList}
                 renderItem={({ item }) => (
-                  <View style={[styles.trayCard, item.addedToCollection && styles.trayCardAdded]}>
-                    {item.imageUri && (
-                      <Image source={{ uri: item.imageUri }} style={styles.trayImage} resizeMode="contain" />
+                  <TouchableOpacity
+                    style={[
+                      styles.binderResultCell,
+                      !item.selected && styles.binderResultCellDeselected,
+                      item.confidence === "medium" && styles.binderResultCellMedium,
+                    ]}
+                    onPress={() => toggleBinderCell(item.variantId)}
+                  >
+                    {item.imageUri ? (
+                      <Image source={{ uri: item.imageUri }} style={styles.binderResultImage} />
+                    ) : (
+                      <View style={[styles.binderResultImage, styles.binderResultPlaceholder]}>
+                        <Text style={styles.binderResultPlaceholderText}>{item.name[0]}</Text>
+                      </View>
                     )}
-                    <Text style={styles.trayName} numberOfLines={1}>{item.name}</Text>
-                    <View style={styles.trayQtyRow}>
-                      <TouchableOpacity onPress={() => adjustQuantity(item.variantId, -1)} style={styles.qtyBtn}>
-                        <Text style={styles.qtyBtnText}>-</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.trayQty}>x{item.quantity}</Text>
-                      <TouchableOpacity onPress={() => adjustQuantity(item.variantId, 1)} style={styles.qtyBtn}>
-                        <Text style={styles.qtyBtnText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                    {item.priceUsd > 0 && (
-                      <Text style={styles.trayPrice}>${(item.priceUsd * item.quantity).toFixed(2)}</Text>
-                    )}
-                  </View>
+                    <Text style={styles.binderResultName} numberOfLines={1}>{item.name}</Text>
+                  </TouchableOpacity>
                 )}
               />
-            )}
 
-            {/* Controls row */}
-            <View style={styles.controlRow}>
-              <TouchableOpacity
-                style={styles.controlBtn}
-                onPress={undoLastScan}
-                disabled={scannedCards.length === 0}
-              >
-                <Text style={styles.controlBtnText}>Undo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.scanToggle, continuousMode && styles.scanToggleActive]}
-                onPress={() => setContinuousMode(!continuousMode)}
-              >
-                <Text style={styles.scanToggleText}>
-                  {continuousMode ? "Pause" : "Resume"}
+              <TouchableOpacity style={styles.addAllBtn} onPress={addSelectedBinderCards}>
+                <Text style={styles.addAllBtnText}>
+                  Add {binderCells.filter((c) => c.selected).length} Cards
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.addAllBtn, scannedCards.length === 0 && styles.addAllBtnDisabled]}
-                onPress={addAllToCollection}
-                disabled={scannedCards.length === 0}
-              >
-                <Text style={styles.addAllBtnText}>Add All</Text>
+              <TouchableOpacity style={styles.clearBtn} onPress={() => setBinderCells([])}>
+                <Text style={styles.clearBtnText}>Clear & Rescan</Text>
               </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <>
-            {/* Grid results */}
-            {gridCards.length > 0 && (
-              <ScrollView style={styles.gridResults} horizontal={false}>
-                <View style={styles.gridResultsInner}>
-                  {gridCards.map((card, idx) => (
-                    <TouchableOpacity
-                      key={card.variantId + "-" + idx}
-                      style={[styles.gridCard, card.selected && styles.gridCardSelected]}
-                      onPress={() => toggleGridCard(idx)}
-                    >
-                      {card.imageUri && (
-                        <Image source={{ uri: card.imageUri }} style={styles.gridImage} resizeMode="contain" />
-                      )}
-                      <Text style={styles.gridCardName} numberOfLines={1}>{card.name}</Text>
-                      <View style={[styles.gridCheck, card.selected && styles.gridCheckActive]}>
-                        <Text style={styles.gridCheckText}>{card.selected ? "\u2713" : ""}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            )}
-
-            <View style={styles.controlRow}>
-              <TouchableOpacity
-                style={[styles.scanButton, gridProcessing && styles.scanButtonDisabled]}
-                onPress={captureGrid}
-                disabled={gridProcessing}
-              >
-                {gridProcessing ? (
-                  <ActivityIndicator color={t.textInverse} />
-                ) : (
-                  <Text style={styles.scanButtonText}>Capture Grid</Text>
-                )}
-              </TouchableOpacity>
-
-              {gridCards.length > 0 && (
-                <TouchableOpacity style={styles.addAllBtn} onPress={addSelectedGridCards}>
-                  <Text style={styles.addAllBtnText}>
-                    Add {gridCards.filter((c) => c.selected).length} Cards
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </>
-        )}
-      </View>
+            </>
+          )}
+        </View>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: t.bg,
-  },
+// ── PNG decode helper ──
+function decodePngBase64ToRGBA(base64: string, _width: number, _height: number): Uint8Array | null {
+  try {
+    const { decode } = require("fast-png");
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const decoded = decode(bytes);
+    if (decoded.channels === 4) return new Uint8Array(decoded.data.buffer);
+    const rgba = new Uint8Array(decoded.width * decoded.height * 4);
+    for (let i = 0; i < decoded.width * decoded.height; i++) {
+      rgba[i * 4] = decoded.data[i * 3]!;
+      rgba[i * 4 + 1] = decoded.data[i * 3 + 1]!;
+      rgba[i * 4 + 2] = decoded.data[i * 3 + 2]!;
+      rgba[i * 4 + 3] = 255;
+    }
+    return rgba;
+  } catch {
+    return null;
+  }
+}
 
-  // Header / Mode selector
-  header: {
-    paddingTop: 50,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    backgroundColor: t.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: t.border,
-    ...shadows.card,
-  } as ViewStyle,
-  modeRow: {
+// ── Empty slot detection ──
+function isEmptySlot(pixels: Uint8Array, width: number, height: number): boolean {
+  const sampleCount = Math.min(100, Math.floor(pixels.length / 4));
+  const step = Math.floor((width * height) / sampleCount);
+  let minL = 255, maxL = 0;
+  for (let i = 0; i < sampleCount; i++) {
+    const idx = (i * step) * 4;
+    const r = pixels[idx] ?? 128;
+    const g = pixels[idx + 1] ?? 128;
+    const b = pixels[idx + 2] ?? 128;
+    const l = (r * 299 + g * 587 + b * 114) / 1000;
+    if (l < minL) minL = l;
+    if (l > maxL) maxL = l;
+  }
+  return (maxL - minL) < 30;
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  modeBar: {
     flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: 6,
+    backgroundColor: t.surface,
+    margin: spacing.sm,
+    borderRadius: radii.md,
+    padding: 2,
   },
   modeBtn: {
     flex: 1,
     paddingVertical: spacing.sm,
+    alignItems: "center",
     borderRadius: radii.sm,
-    backgroundColor: t.surfaceSunken,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: t.border,
   },
-  modeBtnActive: {
-    backgroundColor: tc.color,
-    borderColor: tc.color,
-  },
-  modeBtnText: {
-    ...typography.caption,
-    fontWeight: "600",
-    color: t.textSecondary,
-  },
-  modeBtnTextActive: {
-    color: t.textInverse,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingTop: spacing.xs,
-  },
-  statText: {
-    ...typography.caption,
-    color: t.textSecondary,
-  },
-  statDivider: {
-    ...typography.caption,
-    color: t.border,
-  },
-  statValue: {
-    ...typography.caption,
-    fontWeight: "700",
-    color: tc.color,
-  },
-
-  // Camera — stays dark for viewfinder visibility
-  cameraContainer: {
-    flex: 1,
-    position: "relative",
-    backgroundColor: "#000000",
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  guideBox: {
-    width: 260,
-    height: 370,
-    borderWidth: 2,
-    borderColor: tc.color,
-    borderRadius: radii.md,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  guideBoxScanning: {
-    borderColor: t.success,
-  },
-  guideText: {
-    ...typography.caption,
-    fontWeight: "600",
-    color: tc.color,
-  },
-  ocrPreview: {
-    ...typography.small,
-    color: t.success,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    textAlign: "center",
-  },
-  noPermission: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: t.surfaceSunken,
-  },
-  noPermissionText: {
-    ...typography.body,
-    color: t.textMuted,
-  },
-
-  // Grid guide overlay (camera)
-  gridGuide: {
-    width: "90%",
-    height: "80%",
-    borderWidth: 2,
-    borderColor: tc.color,
-    borderRadius: radii.md,
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gridLine1H: { position: "absolute", top: "25%", left: 8, right: 8, height: 1, backgroundColor: `${tc.color}80` },
-  gridLine2H: { position: "absolute", top: "50%", left: 8, right: 8, height: 1, backgroundColor: `${tc.color}80` },
-  gridLine3H: { position: "absolute", top: "75%", left: 8, right: 8, height: 1, backgroundColor: `${tc.color}80` },
-  gridLine1V: { position: "absolute", left: "33%", top: 8, bottom: 8, width: 1, backgroundColor: `${tc.color}80` },
-  gridLine2V: { position: "absolute", left: "66%", top: 8, bottom: 8, width: 1, backgroundColor: `${tc.color}80` },
-  gridLabel: {
-    ...typography.caption,
-    fontWeight: "600",
-    color: tc.color,
-  },
-
-  // Picker overlay (disambiguation)
-  pickerOverlay: {
+  modeBtnActive: { backgroundColor: tc.color },
+  modeBtnText: { ...typography.body, color: t.textSecondary },
+  modeBtnTextActive: { color: "#fff", fontWeight: "600" as const },
+  cameraContainer: { height: 320, marginHorizontal: spacing.sm, borderRadius: radii.lg, overflow: "hidden", position: "relative" },
+  cardOverlay: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: t.surface,
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-    padding: spacing.lg,
-    maxHeight: "60%",
-    zIndex: 10,
-    ...shadows.elevated,
-  } as ViewStyle,
-  pickerTitle: {
-    ...typography.heading,
-    color: t.textPrimary,
-    marginBottom: spacing.md,
-  },
-  pickerList: { maxHeight: 300 },
-  pickerItem: {
-    flexDirection: "row",
-    backgroundColor: t.surfaceSunken,
+    top: "10%",
+    left: "10%",
+    right: "10%",
+    bottom: "10%",
+    borderWidth: 2,
     borderRadius: radii.md,
-    padding: spacing.md,
-    marginBottom: 6,
+    borderStyle: "dashed",
     alignItems: "center",
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: t.border,
-  },
-  pickerImage: {
-    width: 40,
-    height: 56,
-    borderRadius: radii.sm,
-  },
-  pickerInfo: { flex: 1 },
-  pickerName: {
-    ...typography.body,
-    fontWeight: "600",
-    color: t.textPrimary,
-  },
-  pickerSet: {
-    ...typography.small,
-    color: t.textSecondary,
-    marginTop: 2,
-  },
-  pickerCancel: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-    backgroundColor: t.surfaceSunken,
-    borderRadius: radii.sm,
-  },
-  pickerCancelText: {
-    ...typography.caption,
-    fontWeight: "600",
-    color: t.textSecondary,
-  },
-
-  // Bottom panel
-  bottomPanel: {
-    backgroundColor: t.surface,
-    borderTopWidth: 1,
-    borderTopColor: t.border,
-    paddingBottom: spacing["2xl"],
-    ...shadows.elevated,
-  } as ViewStyle,
-
-  // Scan tray (horizontal card list)
-  tray: {
-    maxHeight: 140,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  trayCard: {
-    width: 90,
-    marginRight: spacing.sm,
-    backgroundColor: t.surface,
-    borderRadius: radii.sm,
-    padding: 6,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: t.border,
-    ...shadows.card,
-  } as ViewStyle,
-  trayCardAdded: {
-    borderColor: t.success,
-    backgroundColor: t.successLight,
-  },
-  trayImage: {
-    width: 55,
-    height: 76,
-    borderRadius: radii.sm,
-    marginBottom: spacing.xs,
-  },
-  trayName: {
-    ...typography.small,
-    fontWeight: "600",
-    color: t.textPrimary,
-    textAlign: "center",
-  },
-  trayQtyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  qtyBtn: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: t.surfaceSunken,
     justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: t.border,
   },
-  qtyBtnText: {
-    ...typography.body,
-    fontWeight: "700",
-    color: t.textPrimary,
-  },
-  trayQty: {
-    ...typography.small,
-    fontWeight: "600",
-    color: t.textSecondary,
-  },
-  trayPrice: {
-    ...typography.small,
-    fontWeight: "600",
-    color: tc.color,
-    marginTop: 2,
-  },
-
-  // Control row
-  controlRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  controlBtn: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: t.surfaceSunken,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: t.border,
-  },
-  controlBtnText: {
-    ...typography.caption,
-    fontWeight: "600",
-    color: t.textSecondary,
-  },
-  scanToggle: {
-    flex: 2,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: tc.color,
-    alignItems: "center",
-  },
-  scanToggleActive: {
-    backgroundColor: t.danger,
-  },
-  scanToggleText: {
-    ...typography.caption,
-    fontWeight: "700",
-    color: t.textInverse,
-  },
-  addAllBtn: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: t.success,
-    alignItems: "center",
-  },
-  addAllBtnDisabled: { opacity: 0.4 },
-  addAllBtnText: {
-    ...typography.caption,
-    fontWeight: "700",
-    color: t.textInverse,
-  },
-
-  // Grid results
-  gridResults: {
-    maxHeight: 200,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  gridResultsInner: {
+  overlayConfirmedText: { fontSize: 48, color: "#22C55E" },
+  overlayHintText: { fontSize: 14, color: "#fff", backgroundColor: "rgba(0,0,0,0.5)", padding: 4, borderRadius: 4 },
+  binderGridOverlay: {
+    ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
   },
-  gridCard: {
-    width: (SCREEN_WIDTH - 40) / 4,
-    backgroundColor: t.surface,
-    borderRadius: radii.sm,
-    padding: spacing.xs,
+  binderCell: {
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: t.border,
-    position: "relative",
-    ...shadows.card,
-  } as ViewStyle,
-  gridCardSelected: {
-    borderColor: t.success,
-  },
-  gridImage: {
-    width: "100%",
-    height: 70,
-    borderRadius: radii.sm,
-  },
-  gridCardName: {
-    fontSize: 9,
-    fontWeight: "500",
-    color: t.textPrimary,
-    textAlign: "center",
-    marginTop: 2,
-  },
-  gridCheck: {
-    position: "absolute",
-    top: spacing.xs,
-    right: spacing.xs,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: t.surfaceSunken,
     justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: t.borderStrong,
+    gap: spacing.sm,
   },
-  gridCheckActive: {
-    backgroundColor: t.success,
-    borderColor: t.success,
-  },
-  gridCheckText: {
-    ...typography.small,
-    fontWeight: "700",
-    color: t.textInverse,
-  },
-
-  // Shared
-  scanButton: {
+  loadingText: { color: "#fff", ...typography.body },
+  rapidControls: { flex: 1, padding: spacing.sm },
+  sessionStats: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
+  statText: { ...typography.body, color: t.textSecondary },
+  rapidActions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
+  actionBtn: {
     flex: 1,
-    backgroundColor: tc.color,
+    paddingVertical: spacing.sm,
     borderRadius: radii.md,
-    padding: 14,
+    borderWidth: 1,
+    borderColor: t.border,
     alignItems: "center",
   },
-  scanButtonDisabled: { opacity: 0.6 },
-  scanButtonText: {
-    ...typography.body,
-    fontWeight: "600",
-    color: t.textInverse,
+  actionBtnPrimary: { backgroundColor: tc.color, borderColor: tc.color },
+  actionBtnText: { ...typography.body, color: t.textPrimary },
+  actionBtnTextPrimary: { color: "#fff", fontWeight: "600" as const },
+  scannedList: { flexGrow: 0 },
+  scannedCard: { width: 60, height: 84, marginRight: spacing.sm, borderRadius: radii.sm, overflow: "hidden", position: "relative" },
+  scannedCardImage: { width: "100%", height: "100%" },
+  scannedCardPlaceholder: { backgroundColor: t.surface, alignItems: "center", justifyContent: "center" },
+  scannedCardName: { fontSize: 20, fontWeight: "bold" as const, color: t.textPrimary },
+  quantityBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    backgroundColor: tc.color,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
-
-  fallback: {
-    flex: 1,
+  quantityText: { fontSize: 10, color: "#fff", fontWeight: "bold" as const },
+  addedBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    backgroundColor: "#22C55E",
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: "center",
     justifyContent: "center",
+  },
+  addedText: { fontSize: 10, color: "#fff" },
+  binderControls: { flex: 1, padding: spacing.sm },
+  gridSizeRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  gridSizeLabel: { ...typography.body, color: t.textSecondary },
+  gridSizeBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: t.border,
+  },
+  gridSizeBtnActive: { backgroundColor: tc.color, borderColor: tc.color },
+  gridSizeBtnText: { ...typography.body, color: t.textPrimary },
+  gridSizeBtnTextActive: { color: "#fff", fontWeight: "600" as const },
+  captureBtn: {
+    backgroundColor: tc.color,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
-    paddingHorizontal: spacing["3xl"],
-  },
-  fallbackIcon: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
-  fallbackTitle: {
-    ...typography.title,
-    color: t.textPrimary,
     marginBottom: spacing.sm,
   },
-  fallbackText: {
-    ...typography.caption,
-    color: t.textSecondary,
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: spacing.xl,
+  captureBtnText: { color: "#fff", fontWeight: "700" as const, fontSize: 16 },
+  processingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  processingText: { ...typography.body, color: t.textSecondary },
+  binderResultsHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  binderResultsTitle: { flex: 1, ...typography.body, color: t.textPrimary },
+  binderSelectAll: { ...typography.body, color: tc.color },
+  binderResultsList: { flex: 1 },
+  binderResultCell: {
+    width: CELL_SIZE,
+    alignItems: "center",
+    marginBottom: spacing.sm,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
+  binderResultCellDeselected: { opacity: 0.35 },
+  binderResultCellMedium: { borderColor: "#F59E0B" },
+  binderResultImage: { width: CELL_SIZE, height: CELL_SIZE * 1.4, borderRadius: radii.sm },
+  binderResultPlaceholder: { backgroundColor: t.surface, alignItems: "center", justifyContent: "center" },
+  binderResultPlaceholderText: { fontSize: 24, color: t.textSecondary },
+  binderResultName: { ...typography.caption, color: t.textPrimary, paddingHorizontal: 2, marginTop: 2 },
+  addAllBtn: {
+    backgroundColor: tc.color,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  addAllBtnText: { color: "#fff", fontWeight: "700" as const, fontSize: 16 },
+  clearBtn: {
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  clearBtnText: { ...typography.body, color: t.textSecondary },
+  fallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  fallbackTitle: { ...typography.heading, color: t.textPrimary, marginBottom: spacing.sm },
+  fallbackSubtitle: { ...typography.body, color: t.textSecondary, textAlign: "center" },
 });
