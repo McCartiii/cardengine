@@ -8,6 +8,8 @@ import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SetSymbol } from "@/components/ui/SetSymbol";
+import { getIdentityStyle } from "@/lib/identity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -816,11 +818,16 @@ export default function CardDetailPage() {
           {/* Card image */}
           <div className="flex flex-col items-center gap-4 animate-scale-in">
             {card.imageUri ? (
-              <img
-                src={card.imageUri}
-                alt={card.name}
-                className="w-full max-w-[320px] rounded-2xl shadow-[var(--shadow-elevated)]"
-              />
+              <div
+                className="rounded-xl overflow-hidden"
+                style={getIdentityStyle(card.colorIdentity ?? [])}
+              >
+                <img
+                  src={card.imageUri}
+                  alt={card.name}
+                  className="w-full max-w-[320px] rounded-2xl shadow-[var(--shadow-elevated)]"
+                />
+              </div>
             ) : (
               <div className="flex h-[440px] w-full max-w-[320px] items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface-sunken">
                 <span className="text-text-muted">No image</span>
@@ -856,7 +863,7 @@ export default function CardDetailPage() {
             {/* Name, mana, type */}
             <div className="animate-slide-up">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-bold text-text-primary">
+                <h1 className="text-3xl font-bold text-text-primary font-display">
                   {card.name}
                 </h1>
                 {card.manaCost && <ManaCost cost={card.manaCost} />}
@@ -877,14 +884,17 @@ export default function CardDetailPage() {
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {card.rarity && (
-                  <Badge variant={toRarityVariant(card.rarity)} className="capitalize">
+                  <Badge variant={toRarityVariant(card.rarity)} className="capitalize" setCode={card.setId ?? undefined}>
                     {card.rarity}
                   </Badge>
                 )}
                 {card.setId && (
-                  <Badge variant="default">
-                    {card.setId.toUpperCase()} #{card.collectorNumber}
-                  </Badge>
+                  <div className="flex items-center gap-2 mt-1">
+                    <SetSymbol setCode={card.setId} rarity={card.rarity} size={16} />
+                    <span className="text-sm text-text-secondary font-mono">
+                      {card.setId.toUpperCase()} {card.collectorNumber}
+                    </span>
+                  </div>
                 )}
                 {card.colors && card.colors.length > 0 && (
                   <ColorDots colors={card.colors as string[]} />
