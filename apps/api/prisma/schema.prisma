@@ -45,6 +45,10 @@ model CardVariant {
   manaCost        String?  @map("mana_cost")
   rarity          String?
   imageUri        String?  @map("image_uri")
+  dHash           String?  @map("d_hash")
+  pHash           String?  @map("p_hash")
+  foilDHash       String?  @map("foil_d_hash")
+  foilPHash       String?  @map("foil_p_hash")
 
   updatedAt DateTime @updatedAt
 
