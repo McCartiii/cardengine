@@ -69,7 +69,10 @@ async function computeHashes(imageUrl: string): Promise<{ dHash: string; pHash: 
       .toBuffer({ resolveWithObject: true });
     const pHashVal = computePHashFromRaw(pData, pInfo.width, pInfo.height, pInfo.channels);
 
-    return { dHash: dHashVal.toString(16), pHash: pHashVal.toString(16) };
+    return {
+      dHash: dHashVal.toString(16).padStart(16, "0"),
+      pHash: pHashVal.toString(16).padStart(16, "0"),
+    };
   } catch {
     return null;
   }
