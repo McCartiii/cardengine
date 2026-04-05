@@ -46,20 +46,24 @@ export class HashIndex {
 
     for (const row of this.rows) {
       const dd = hammingDistance(queryDHash, row.dHash);
-      if (dd <= dThr && dd < bestDistance) {
+      const rowDHashHit = dd <= dThr;
+      if (rowDHashHit && dd < bestDistance) {
         bestDistance = dd;
         bestResult = { variantId: row.variantId, distance: dd, matchType: "dHash" };
       }
 
+      let rowFoilDHashHit = false;
       if (row.foilDHash !== undefined) {
         const fdd = hammingDistance(queryDHash, row.foilDHash);
-        if (fdd <= dThr && fdd < bestDistance) {
+        rowFoilDHashHit = fdd <= dThr;
+        if (rowFoilDHashHit && fdd < bestDistance) {
           bestDistance = fdd;
           bestResult = { variantId: row.variantId, distance: fdd, matchType: "foilDHash" };
         }
       }
 
-      if (bestResult === null || bestResult.matchType === "pHash" || bestResult.matchType === "foilPHash") {
+      // Only use pHash as fallback when this row's dHash (and foilDHash) both missed.
+      if (!rowDHashHit && !rowFoilDHashHit) {
         const pd = hammingDistance(queryPHash, row.pHash);
         if (pd <= pThr && pd < bestDistance) {
           bestDistance = pd;

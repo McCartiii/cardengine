@@ -1,3 +1,10 @@
+/**
+ * Compute a 63-bit perceptual hash (pHash) via 2D DCT from an RGBA pixel array.
+ * Downsamples to 32×32 luma, computes the top-left 8×8 DCT block, then
+ * thresholds the 63 AC coefficients (DC at index 0 is excluded) at their median.
+ * Excluding DC gives tolerance to uniform brightness shifts (foil cards).
+ * Returns a bigint with bits 0–62 set; max Hamming distance between two pHashes is 63.
+ */
 export function computePHash(
   pixels: Uint8Array | Uint8ClampedArray,
   width: number,

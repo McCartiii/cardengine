@@ -44,12 +44,12 @@ describe("computeDHash", () => {
 });
 
 describe("computePHash", () => {
-  it("returns a 64-bit bigint", () => {
+  it("returns a 63-bit bigint (DC component excluded)", () => {
     const pixels = makePixels(100, 100, () => [128, 128, 128]);
     const hash = computePHash(pixels, 100, 100);
     expect(typeof hash).toBe("bigint");
     expect(hash >= 0n).toBe(true);
-    expect(hash < (1n << 64n)).toBe(true);
+    expect(hash < (1n << 63n)).toBe(true); // 63 AC coefficients → max bit index 62
   });
 
   it("identical images produce identical hashes", () => {
@@ -137,5 +137,32 @@ describe("HashIndex", () => {
     const result = index.lookup(0b111111111n, 0xFFFFFFFFFFFFFFFFn, { dHashThreshold: 8, pHashThreshold: 12 });
     expect(result?.variantId).toBe("v1");
     expect(result?.matchType).toBe("foilDHash");
+  });
+
+  it("uses pHash for a row whose dHash missed, even when another row had a dHash hit", () => {
+    // v1: dHash hits with distance 5, pHash is garbage
+    // v2: dHash misses (64 bits off), pHash hits with distance 1
+    // v2 should win because pHash distance 1 < dHash distance 5, AND v2's own dHash missed
+    const index = new HashIndex([
+      { variantId: "v1", dHash: 0b11111n, pHash: 0xFFFFFFFFFFFFFFFFn },
+      { variantId: "v2", dHash: 0xFFFFFFFFFFFFFFFFn, pHash: 0b11111110n },
+    ]);
+    // query dHash=0n: Hamming vs v1=5 (hits, d=5), vs v2=64 (misses)
+    // query pHash=0b11111111n: v2 pHash distance=1 (< bestDistance 5) → v2 wins
+    const result = index.lookup(0n, 0b11111111n, { dHashThreshold: 8, pHashThreshold: 12 });
+    expect(result?.variantId).toBe("v2");
+    expect(result?.matchType).toBe("pHash");
+    expect(result?.distance).toBe(1);
+  });
+
+  it("load() replaces the row store", () => {
+    const index = new HashIndex([{ variantId: "v1", dHash: 0n, pHash: 0n }]);
+    expect(index.size).toBe(1);
+    index.load([
+      { variantId: "v2", dHash: 0n, pHash: 0n },
+      { variantId: "v3", dHash: 1n, pHash: 0n },
+    ]);
+    expect(index.size).toBe(2);
+    expect(index.lookup(0n, 0n)?.variantId).toBe("v2");
   });
 });
