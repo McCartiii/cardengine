@@ -2,6 +2,8 @@ import { supabase } from "./supabase";
 import {
   getDb,
   insertCardBundle,
+  insertHashBundle,
+  hashIndexIsPopulated,
   getUnsyncedEvents,
   markEventsSynced,
 } from "./localDb";
@@ -103,6 +105,50 @@ export async function downloadCardBundle(
   } catch (err) {
     console.warn("[sync] Bundle download failed (offline?):", err);
   }
+}
+
+/**
+ * Download the hash index from the API using cursor-based pagination.
+ * Skips if already populated (hashes don't change often).
+ */
+export async function downloadHashBundle(
+  onProgress?: (downloaded: number) => void
+): Promise<void> {
+  const database = await getDb();
+
+  const alreadyPopulated = await hashIndexIsPopulated(database);
+  if (alreadyPopulated) {
+    console.log("[sync] Hash index already populated, skipping download.");
+    return;
+  }
+
+  console.log("[sync] Downloading hash index...");
+  let cursor: string | null = null;
+  let totalDownloaded = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const url = `${API_URL}/v1/bundles/mtg/hashes?limit=2000${cursorParam}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Hash bundle fetch failed: ${res.status}`);
+    const data = await res.json();
+
+    if (data.items?.length > 0) {
+      await insertHashBundle(database, data.items);
+      totalDownloaded += data.items.length;
+      onProgress?.(totalDownloaded);
+    }
+
+    if (!data.hasMore || !data.nextCursor) {
+      hasMore = false;
+    } else {
+      cursor = data.nextCursor;
+    }
+  }
+
+  console.log(`[sync] Downloaded ${totalDownloaded} hashes.`);
 }
 
 /**
