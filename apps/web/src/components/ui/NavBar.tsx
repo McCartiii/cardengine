@@ -77,16 +77,31 @@ export function NavBar({ user }: { user: { email?: string } | null }) {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
+    <nav
+      className="sticky top-0 z-50 border-b border-border"
+      style={{
+        background: "var(--surface-overlay, color-mix(in srgb, var(--surface) 92%, transparent))",
+        backdropFilter: "blur(16px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(16px) saturate(1.4)",
+        boxShadow: "0 1px 0 var(--border), 0 4px 16px rgba(24,21,15,0.06)",
+      }}
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <Link
           href="/"
-          className="text-lg font-bold text-text-primary tracking-tight flex items-center gap-2"
+          className="text-base font-bold tracking-tight flex items-center gap-2.5"
+          style={{ color: "var(--text-primary)" }}
         >
-          <span className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center text-white text-xs font-bold">
+          <span
+            className="w-8 h-8 flex items-center justify-center rounded-[9px] text-[11px] font-black text-white"
+            style={{
+              background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-text) 100%)",
+              boxShadow: "0 2px 8px var(--accent-light, rgba(201,168,76,0.3)), inset 0 1px 0 rgba(255,255,255,0.2)",
+            }}
+          >
             CE
           </span>
-          Card Engine
+          <span className="font-display">Card Engine</span>
         </Link>
 
         <div className="flex items-center gap-1">
@@ -94,17 +109,19 @@ export function NavBar({ user }: { user: { email?: string } | null }) {
             <>
               {navItems.map((item) => {
                 const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href + "/");
+                  pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150
-                      ${isActive ? "" : "hover:opacity-90"}`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150
+                      ${isActive ? "font-semibold" : "hover:opacity-90"}`}
                     style={{
                       backgroundColor: isActive ? item.tabBg : "transparent",
                       color: item.tabColor,
+                      boxShadow: isActive
+                        ? "0 1px 4px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5)"
+                        : "none",
                     }}
                   >
                     {item.icon}
@@ -117,13 +134,18 @@ export function NavBar({ user }: { user: { email?: string } | null }) {
             <>
               <Link
                 href="/login"
-                className="rounded-lg px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+                className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                style={{ color: "var(--text-secondary)" }}
               >
                 Sign in
               </Link>
               <Link
                 href="/register"
-                className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-sm"
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
+                  boxShadow: "0 2px 8px rgba(201,168,76,0.3)",
+                }}
               >
                 Get started
               </Link>
