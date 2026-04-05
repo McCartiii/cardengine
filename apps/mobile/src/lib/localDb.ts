@@ -91,6 +91,15 @@ async function initSchema(database: SQLite.SQLiteDatabase) {
       data TEXT NOT NULL,
       fetchedAt TEXT NOT NULL
     );
+
+    -- Perceptual hash index for scanner
+    CREATE TABLE IF NOT EXISTS hash_index (
+      variantId TEXT PRIMARY KEY,
+      dHash TEXT NOT NULL,
+      pHash TEXT NOT NULL,
+      foilDHash TEXT,
+      foilPHash TEXT
+    );
   `);
 }
 
@@ -231,4 +240,65 @@ export async function insertLedgerEvent(
     `INSERT OR IGNORE INTO ledger_events (id, at, type, variantId, payload, synced) VALUES (?, ?, ?, ?, ?, 0)`,
     [event.id, event.at, event.type, event.variantId, JSON.stringify(event.payload)]
   );
+}
+
+/** Insert or replace hash index rows from the API bundle. */
+export async function insertHashBundle(
+  database: SQLite.SQLiteDatabase,
+  items: Array<{
+    variantId: string;
+    dHash: string;
+    pHash: string;
+    foilDHash?: string;
+    foilPHash?: string;
+  }>
+): Promise<void> {
+  const BATCH = 500;
+  for (let i = 0; i < items.length; i += BATCH) {
+    const batch = items.slice(i, i + BATCH);
+    await database.withTransactionAsync(async () => {
+      for (const item of batch) {
+        await database.runAsync(
+          `INSERT OR REPLACE INTO hash_index (variantId, dHash, pHash, foilDHash, foilPHash)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            item.variantId,
+            item.dHash,
+            item.pHash,
+            item.foilDHash ?? null,
+            item.foilPHash ?? null,
+          ]
+        );
+      }
+    });
+  }
+}
+
+/** Load the full hash index into memory. Call once on scanner open. */
+export async function loadHashIndex(
+  database: SQLite.SQLiteDatabase
+): Promise<Array<{
+  variantId: string;
+  dHash: string;
+  pHash: string;
+  foilDHash: string | null;
+  foilPHash: string | null;
+}>> {
+  return database.getAllAsync<{
+    variantId: string;
+    dHash: string;
+    pHash: string;
+    foilDHash: string | null;
+    foilPHash: string | null;
+  }>(`SELECT variantId, dHash, pHash, foilDHash, foilPHash FROM hash_index`);
+}
+
+/** Returns true if the hash index has been populated. */
+export async function hashIndexIsPopulated(
+  database: SQLite.SQLiteDatabase
+): Promise<boolean> {
+  const row = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM hash_index`
+  );
+  return (row?.count ?? 0) > 0;
 }
