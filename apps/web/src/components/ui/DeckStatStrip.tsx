@@ -1,5 +1,4 @@
 // apps/web/src/components/ui/DeckStatStrip.tsx
-import React from "react";
 
 interface DeckStatStripProps {
   cardCount: number;
@@ -18,19 +17,18 @@ export function DeckStatStrip({
 }: DeckStatStripProps) {
   return (
     <div
+      role="group"
+      aria-label="Deck statistics"
       className={`flex divide-x divide-border overflow-hidden rounded-lg border border-border bg-surface-sunken ${className}`}
     >
-      <StatCell value={cardCount.toString()} label="Cards" />
+      <StatCell value={Number.isFinite(cardCount) ? cardCount.toString() : "—"} label="Cards" />
       <StatCell
-        value={avgCmc !== null ? avgCmc.toFixed(1) : "—"}
+        value={avgCmc != null && Number.isFinite(avgCmc) ? avgCmc.toFixed(1) : "—"}
         label="Avg CMC"
       />
+      <StatCell value={Number.isFinite(rareCount) ? rareCount.toString() : "—"} label="Rares" />
       <StatCell
-        value={rareCount.toString()}
-        label="Rares"
-      />
-      <StatCell
-        value={mythicCount.toString()}
+        value={Number.isFinite(mythicCount) ? mythicCount.toString() : "—"}
         label="Mythics"
         valueClassName="text-[var(--rarity-mythic)]"
       />
