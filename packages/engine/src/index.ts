@@ -70,3 +70,12 @@ export type { ExportBlob, DecklistImportResult } from "./export/types.js";
 
 // Sync
 export type { SyncManager } from "./sync/types.js";
+
+// Hashing
+export {
+  computeDHash,
+  computePHash,
+  hammingDistance,
+  HashIndex,
+} from "./hashing/index.js";
+export type { HashRow, HashLookupResult, LookupOptions } from "./hashing/index.js";
