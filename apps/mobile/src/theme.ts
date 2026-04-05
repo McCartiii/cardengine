@@ -130,7 +130,12 @@ export const identityTints = {
 
 export type IdentityKey = keyof typeof identityTints.light;
 
-/** Returns the style object for a card container given its colorIdentity array */
+/**
+ * Returns the style object for a card container given its colorIdentity array.
+ * - 0 colors → neutral (colorless)
+ * - 1–2 colors → first color's tint (2-color cards show dominant color, by design)
+ * - 3+ colors → gold/multi tint
+ */
 export function getIdentityTintStyle(
   colorIdentity: string[],
   mode: "light" | "dark"

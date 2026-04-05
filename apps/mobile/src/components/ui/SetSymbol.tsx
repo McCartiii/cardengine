@@ -53,19 +53,25 @@ export function SetSymbol({ setCode, rarity, size = 16 }: SetSymbolProps) {
     fetch(`https://svgs.scryfall.io/sets/${code}.svg`, {
       signal: abortRef.current.signal,
     })
-      .then((r) => r.text())
+      .then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.text();
+      })
       .then((text) => {
         const colored = injectColor(text, color);
         svgCache.set(cacheKey, colored);
         if (mounted) setSvgXml(colored);
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+        // Network error or bad response — fall through to circle fallback
+      });
 
     return () => {
       mounted = false;
       abortRef.current?.abort();
     };
-  }, [cacheKey, setCode, color]);
+  }, [cacheKey]);
 
   useEffect(() => {
     if (!isMythic || !svgXml) return;
