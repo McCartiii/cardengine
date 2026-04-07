@@ -19,6 +19,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerLocalSceneRoutes } from "./routes/localScene.js";
 import { registerTelemetryRoutes } from "./routes/telemetry.js";
 import { registerDeckRoutes } from "./routes/decks.js";
+import { registerDeckAgentRoutes } from "./routes/deckAgent.js";
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
@@ -137,6 +138,7 @@ registerAdminRoutes(app);
 registerLocalSceneRoutes(app);
 registerTelemetryRoutes(app);
 registerDeckRoutes(app);
+registerDeckAgentRoutes(app);
 
 // ── Daily pricing refresh job ──
 const DAILY_MS = 24 * 60 * 60 * 1000;
