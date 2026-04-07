@@ -155,8 +155,9 @@
 /* ─── Rainbow foil hover effect (applied to card image wrappers) ─── */
 .card-foil-hover {
   position: relative;
-  overflow: hidden;
   border-radius: inherit;
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
 .card-foil-hover::before {
   content: '';
@@ -176,7 +177,6 @@
   mix-blend-mode: screen;
   pointer-events: none;
   transition: opacity 0.25s ease;
-  animation: spin-hue 4s linear infinite;
   z-index: 1;
 }
 .card-foil-hover::after {
@@ -201,13 +201,14 @@
 .card-foil-hover:hover {
   transform: translateY(-6px) scale(1.04);
   box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 24px rgba(200,100,255,0.25);
-  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
-              box-shadow 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
-.card-foil-hover:hover::before { opacity: 1; }
+.card-foil-hover:hover::before {
+  opacity: 1;
+  animation: spin-hue 4s linear infinite;
+}
 .card-foil-hover:hover::after {
   opacity: 1;
-  animation: btn-sweep 1.2s ease-in-out infinite;
+  animation: btn-sweep 1.2s ease-in-out infinite alternate;
 }
 
 /* ─── Button shimmer sweep (applied to primary/danger buttons) ─── */
