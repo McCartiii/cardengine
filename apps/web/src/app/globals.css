@@ -278,8 +278,8 @@
   transition: opacity 0.25s ease;
   z-index: 2;
 }
-.card-foil-overlay:hover::before { opacity: 1; }
-.card-foil-overlay:hover::after {
+.card-foil-overlay.foil-visible::before { opacity: 1; }
+.card-foil-overlay.foil-visible::after {
   opacity: 1;
   animation: btn-sweep 1.2s ease-in-out infinite alternate;
 }
