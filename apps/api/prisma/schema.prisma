@@ -252,3 +252,27 @@ model PushToken {
 
   @@index([userId])
 }
+
+// ── Deck AI ──
+
+model MetaSnapshot {
+  id        String   @id @default(cuid())
+  format    String   // "commander" | "standard" | "modern" | "pioneer" | "legacy"
+  bracket   Int      // 1-5 (commander only; 0 for non-commander formats)
+  data      Json     // scraped tier list / top decks
+  fetchedAt DateTime @default(now())
+
+  @@unique([format, bracket])
+  @@index([format, fetchedAt])
+}
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  userId    String?  // null for unauthenticated
+  messages  Json     // Anthropic.MessageParam[] — full conversation history
+  context   Json     // { bracket, budget, mode, commander, deckCards }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
