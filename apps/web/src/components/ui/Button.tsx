@@ -15,13 +15,13 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "btn-shimmer text-white shadow-sm active:scale-[0.98] hover:-translate-y-px",
+    "btn-shimmer text-white active:scale-[0.98] hover:-translate-y-px",
   secondary:
     "bg-surface-raised text-text-primary border border-border hover:border-border-strong hover:-translate-y-px hover:shadow-sm active:scale-[0.98]",
   ghost:
     "bg-transparent text-text-secondary border border-border hover:bg-surface-sunken hover:text-text-primary active:scale-[0.98]",
   danger:
-    "btn-shimmer text-white shadow-sm active:scale-[0.98] hover:-translate-y-px",
+    "btn-shimmer text-white active:scale-[0.98] hover:-translate-y-px",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

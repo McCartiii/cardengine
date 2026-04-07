@@ -214,7 +214,6 @@
 /* ─── Button shimmer sweep (applied to primary/danger buttons) ─── */
 .btn-shimmer {
   position: relative;
-  overflow: hidden;
 }
 .btn-shimmer::after {
   content: '';
