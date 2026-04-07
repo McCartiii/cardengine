@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { CardImage } from "@/components/ui/CardImage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -216,10 +217,12 @@ export default function WatchlistPage() {
                         className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left transition-all hover:shadow-[var(--shadow-card)] card-hover"
                       >
                         {r.imageUri && (
-                          <img
+                          <CardImage
                             src={r.imageUri}
                             alt={r.name}
                             className="h-10 w-auto rounded"
+                            wrapperClassName="rounded"
+                            foil={false}
                           />
                         )}
                         <div className="flex-1">
