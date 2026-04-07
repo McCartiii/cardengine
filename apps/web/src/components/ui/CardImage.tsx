@@ -1,7 +1,7 @@
 // apps/web/src/components/ui/CardImage.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface CardImageProps {
   src: string;
@@ -27,10 +27,13 @@ export function CardImage({
 }: CardImageProps) {
   const [loaded, setLoaded] = useState(false);
 
+  useEffect(() => {
+    setLoaded(false);
+  }, [src]);
+
   return (
     <div
-      className={`relative inline-block ${foil ? "card-foil-hover" : ""} ${wrapperClassName}`}
-      style={{ borderRadius: "inherit" }}
+      className={`relative inline-block aspect-[5/7] ${foil ? "card-foil-hover" : ""} ${wrapperClassName}`}
     >
       {/* Conic-spin loading overlay */}
       <div
@@ -68,6 +71,7 @@ export function CardImage({
         className={`block transition-opacity duration-[120ms] ${loaded ? "opacity-100" : "opacity-0"} ${className}`}
         loading="lazy"
         onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
       />
     </div>
   );
