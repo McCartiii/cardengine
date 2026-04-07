@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { streamDeckAgent, type AgentEvent, type AgentMode, type ParsedCard, type ParsedSwap } from "@/lib/deckAgentStream";
+import { StatusPills, type ToolState } from "./components/StatusPills";
+import { CardGallery } from "./components/CardGallery";
+import { UpgradeDiff } from "./components/UpgradeDiff";
+import { InputPanel } from "./components/InputPanel";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -113,6 +118,20 @@ export default function DeckEditorPage() {
   const [swaps, setSwaps] = useState<SwapSuggestion[]>([]);
   const [advisorError, setAdvisorError] = useState<string | null>(null);
 
+  // ── AI panel state ──
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMode, setAiMode] = useState<AgentMode>("build");
+  const [toolStates, setToolStates] = useState<ToolState[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [tierGroups, setTierGroups] = useState<Array<{ name: string; cards: ParsedCard[] }>>([]);
+  const [aiSwaps, setAiSwaps] = useState<ParsedSwap[]>([]);
+  const [cardDetails] = useState<Map<string, { priceUsd?: number | null; imageUri?: string | null }>>(new Map());
+  const [addedByAi, setAddedByAi] = useState<Set<string>>(new Set());
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [escalateMessage, setEscalateMessage] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   const mainCards = cards.filter((c) => c.board === "main");
   const sideCards = cards.filter((c) => c.board === "side");
   const commanderCards = cards.filter((c) => c.board === "commander");
@@ -203,6 +222,108 @@ export default function DeckEditorPage() {
     },
     []
   );
+
+  const runAi = useCallback(async (params: {
+    instruction: string;
+    bracket: 1 | 2 | 3 | 4 | 5;
+    budget: number;
+    deckText?: string;
+    deckUrl?: string;
+    deckId?: string;
+  }) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setAiLoading(true);
+    setToolStates([]);
+    setStatusMessage(null);
+    setTierGroups([]);
+    setAiSwaps([]);
+    setEscalateMessage(null);
+
+    let currentTier = "";
+
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? undefined;
+
+      await streamDeckAgent(
+        {
+          instruction: params.instruction,
+          bracket: params.bracket,
+          budget: params.budget,
+          deckText: params.deckText,
+          deckUrl: params.deckUrl,
+          deckId: params.deckId,
+          sessionId: sessionId ?? undefined,
+          token,
+        },
+        (event: AgentEvent) => {
+          switch (event.type) {
+            case "mode":
+              setAiMode(event.mode);
+              break;
+            case "tool_start":
+              setToolStates((prev) => [...prev, { tool: event.tool, status: "running" }]);
+              break;
+            case "tool_done":
+              setToolStates((prev) =>
+                prev.map((t) => t.tool === event.tool && t.status === "running" ? { ...t, status: "done" } : t)
+              );
+              break;
+            case "status":
+              setStatusMessage(event.message);
+              break;
+            case "escalate":
+              setEscalateMessage(event.message);
+              setAiLoading(false);
+              break;
+            case "tier":
+              currentTier = event.name;
+              setTierGroups((prev) => {
+                if (prev.find((g) => g.name === event.name)) return prev;
+                return [...prev, { name: event.name, cards: [] }];
+              });
+              break;
+            case "card":
+              setTierGroups((prev) =>
+                prev.map((g) =>
+                  g.name === (event.tier || currentTier)
+                    ? { ...g, cards: [...g.cards, event.card] }
+                    : g
+                )
+              );
+              break;
+            case "swap":
+              setAiSwaps((prev) => [...prev, event.swap]);
+              break;
+            case "session_id":
+              setSessionId(event.id);
+              break;
+            case "done":
+              setAiLoading(false);
+              setStatusMessage(null);
+              break;
+          }
+        },
+        controller.signal
+      );
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        console.error("[ai panel]", err);
+      }
+      setAiLoading(false);
+    }
+  }, [sessionId]);
+
+  const handleAddFromAi = useCallback((cardName: string) => {
+    setAddedByAi((prev) => new Set(prev).add(cardName));
+    // Find if card exists in search results — if not, add by name only
+    const syntheticResult = { variantId: "", cardId: "", name: cardName };
+    addCard(syntheticResult as SearchResult, "main");
+  }, [addCard]);
 
   const removeCard = useCallback((variantId: string, board: string) => {
     setCards((prev) => {
@@ -1218,6 +1339,58 @@ export default function DeckEditorPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Deck Builder FAB ── */}
+      <button
+        onClick={() => setShowAiPanel((v) => !v)}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm shadow-xl shadow-teal-900/40 transition-all duration-200"
+      >
+        <span>✦</span>
+        {showAiPanel ? "Close AI" : "Deck AI"}
+      </button>
+
+      {/* ── AI Deck Builder Panel ── */}
+      {showAiPanel && (
+        <div className="fixed inset-y-0 right-0 w-[420px] z-40 flex flex-col bg-slate-900 border-l border-slate-700/50 shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+            <h2 className="font-bold text-slate-100 text-sm">✦ Deck AI</h2>
+            <button onClick={() => setShowAiPanel(false)} className="text-slate-400 hover:text-slate-200 text-lg leading-none">✕</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-6">
+            <InputPanel
+              savedDecks={[]}
+              onSubmit={runAi}
+              loading={aiLoading}
+            />
+
+            {escalateMessage && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+                {escalateMessage.replace("ESCALATE — ", "")}
+              </div>
+            )}
+
+            <StatusPills tools={toolStates} statusMessage={statusMessage} />
+
+            {aiMode === "upgrade" && aiSwaps.length > 0 && (
+              <UpgradeDiff
+                swaps={aiSwaps}
+                onAccept={(swap) => handleAddFromAi(swap.add.name)}
+                onReject={() => {}}
+              />
+            )}
+
+            {aiMode !== "upgrade" && tierGroups.length > 0 && (
+              <CardGallery
+                tiers={tierGroups}
+                cardDetails={cardDetails}
+                onAddCard={handleAddFromAi}
+                addedCards={addedByAi}
+              />
+            )}
           </div>
         </div>
       )}
