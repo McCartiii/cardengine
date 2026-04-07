@@ -8,6 +8,7 @@ import pg from "pg";
 const LOCK_IDS = {
   priceRefresh:   100_001,
   watchlistCheck: 100_002,
+  metaSnapshot:   100_003,
 } as const;
 
 export type JobName = keyof typeof LOCK_IDS;

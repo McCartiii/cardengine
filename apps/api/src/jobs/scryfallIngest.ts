@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { prisma } from "../db.js";
+import sharp from "sharp";
 
 const SCRYFALL_BULK_API = "https://api.scryfall.com/bulk-data";
 
@@ -51,6 +52,99 @@ function extractOracleText(card: ScryfallCard): string | null {
   return null;
 }
 
+/** Fetch an image URL and compute dHash + pHash. Returns null on any fetch/decode failure. */
+async function computeHashes(imageUrl: string): Promise<{ dHash: string; pHash: string } | null> {
+  try {
+    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const arrayBuffer = await res.arrayBuffer();
+
+    const { data: dData, info: dInfo } = await sharp(Buffer.from(arrayBuffer))
+      .resize(9, 8, { fit: "fill" })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const dHashVal = computeDHashFromRaw(dData, dInfo.width, dInfo.height, dInfo.channels);
+
+    const { data: pData, info: pInfo } = await sharp(Buffer.from(arrayBuffer))
+      .resize(32, 32, { fit: "fill" })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const pHashVal = computePHashFromRaw(pData, pInfo.width, pInfo.height, pInfo.channels);
+
+    return {
+      dHash: dHashVal.toString(16).padStart(16, "0"),
+      pHash: pHashVal.toString(16).padStart(16, "0"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function computeDHashFromRaw(data: Buffer, width: number, height: number, channels: number): bigint {
+  const luma = (col: number, row: number): number => {
+    const i = (row * width + col) * channels;
+    const r = data[i] ?? 0;
+    const g = data[i + 1] ?? 0;
+    const b = data[i + 2] ?? 0;
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  };
+  let hash = 0n;
+  let bit = 0;
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width - 1; col++) {
+      if (luma(col, row) > luma(col + 1, row)) hash |= 1n << BigInt(bit);
+      bit++;
+    }
+  }
+  return hash;
+}
+
+function computePHashFromRaw(data: Buffer, width: number, height: number, channels: number): bigint {
+  const grid: number[] = [];
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const i = (row * width + col) * channels;
+      const r = data[i] ?? 0;
+      const g = data[i + 1] ?? 0;
+      const b = data[i + 2] ?? 0;
+      grid.push((r * 299 + g * 587 + b * 114) / 1000);
+    }
+  }
+  const cos = (n: number, k: number): number =>
+    Math.cos(((2 * n + 1) * k * Math.PI) / (2 * width));
+  const dct: number[] = [];
+  for (let u = 0; u < 8; u++) {
+    for (let v = 0; v < 8; v++) {
+      let sum = 0;
+      for (let x = 0; x < width; x++) {
+        const cx = cos(x, u);
+        for (let y = 0; y < height; y++) {
+          sum += grid[x * width + y]! * cx * cos(y, v);
+        }
+      }
+      const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+      const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+      dct.push((2 / width) * cu * cv * sum);
+    }
+  }
+  // Skip DC component (index 0) for brightness/foil tolerance — 63 AC coefficients
+  const vals = dct.slice(1);
+  const sorted = [...vals].sort((a, b) => a - b);
+  const median = (sorted[30]! + sorted[31]!) / 2;
+  let hash = 0n;
+  for (let i = 0; i < 63; i++) {
+    if (vals[i]! > median) hash |= 1n << BigInt(i);
+  }
+  return hash;
+}
+
+interface HashData {
+  dHash: string | null;
+  pHash: string | null;
+  foilDHash: string | null;
+  foilPHash: string | null;
+}
+
 const PRICE_FIELDS: Array<{
   field: keyof NonNullable<ScryfallCard["prices"]>;
   market: string;
@@ -66,10 +160,14 @@ const PRICE_FIELDS: Array<{
   { field: "tix",        market: "mtgo",       kind: "market", currency: "TIX" },
 ];
 
-async function processCardBatch(cards: ScryfallCard[]): Promise<{ cards: number; prices: number }> {
+async function processCardBatch(
+  cards: ScryfallCard[],
+  hashResults: Map<string, HashData>
+): Promise<{ cards: number; prices: number }> {
   const cardRows = cards.map((card) => {
     const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
     const variantId = `scryfall:${card.id}${isFoil ? "-foil" : ""}`;
+    const hashes = hashResults.get(variantId) ?? { dHash: null, pHash: null, foilDHash: null, foilPHash: null };
     return {
       variantId,
       game: "mtg",
@@ -86,6 +184,10 @@ async function processCardBatch(cards: ScryfallCard[]): Promise<{ cards: number;
       manaCost: card.mana_cost ?? null,
       rarity: card.rarity ?? null,
       imageUri: extractImageUri(card),
+      dHash: hashes.dHash,
+      pHash: hashes.pHash,
+      foilDHash: hashes.foilDHash,
+      foilPHash: hashes.foilPHash,
     };
   });
 
@@ -115,17 +217,18 @@ async function processCardBatch(cards: ScryfallCard[]): Promise<{ cards: number;
           const colorsJson = row.colors.length > 0 ? JSON.stringify(row.colors) : null;
           const ciJson = row.colorIdentity.length > 0 ? JSON.stringify(row.colorIdentity) : null;
           placeholders.push(
-            `($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++})`
+            `($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++})`
           );
           values.push(
             row.variantId, row.game, row.cardId, row.printingId, row.name,
             row.setId, row.collectorNumber, row.oracleText, row.typeLine,
-            colorsJson, ciJson, row.cmc, row.manaCost, row.rarity, row.imageUri
+            colorsJson, ciJson, row.cmc, row.manaCost, row.rarity, row.imageUri,
+            row.dHash, row.pHash, row.foilDHash, row.foilPHash
           );
         }
 
         await tx.$executeRawUnsafe(
-          `INSERT INTO "CardVariant" ("variantId", "game", "cardId", "printingId", "name", "setId", "collectorNumber", "oracle_text", "type_line", "colors", "color_identity", "cmc", "mana_cost", "rarity", "image_uri", "updatedAt")
+          `INSERT INTO "CardVariant" ("variantId", "game", "cardId", "printingId", "name", "setId", "collectorNumber", "oracle_text", "type_line", "colors", "color_identity", "cmc", "mana_cost", "rarity", "image_uri", "d_hash", "p_hash", "foil_d_hash", "foil_p_hash", "updatedAt")
            VALUES ${placeholders.map((p) => p.replace(/\)$/, ", NOW())"))}
            ON CONFLICT ("variantId") DO UPDATE SET
              "name" = EXCLUDED."name",
@@ -141,6 +244,10 @@ async function processCardBatch(cards: ScryfallCard[]): Promise<{ cards: number;
              "mana_cost" = EXCLUDED."mana_cost",
              "rarity" = EXCLUDED."rarity",
              "image_uri" = EXCLUDED."image_uri",
+             "d_hash" = COALESCE(EXCLUDED."d_hash", "CardVariant"."d_hash"),
+             "p_hash" = COALESCE(EXCLUDED."p_hash", "CardVariant"."p_hash"),
+             "foil_d_hash" = COALESCE(EXCLUDED."foil_d_hash", "CardVariant"."foil_d_hash"),
+             "foil_p_hash" = COALESCE(EXCLUDED."foil_p_hash", "CardVariant"."foil_p_hash"),
              "updatedAt" = NOW()`,
           ...values
         );
@@ -209,6 +316,7 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   const rl = createInterface({ input: nodeStream, crlfDelay: Infinity });
 
   const BATCH_SIZE = 200;
+  const HASH_CONCURRENCY = 10;
   let batch: ScryfallCard[] = [];
   let cardsProcessed = 0;
   let pricesUpdated = 0;
@@ -242,7 +350,32 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
     batch.push(card);
 
     if (batch.length >= BATCH_SIZE) {
-      const result = await processCardBatch(batch);
+      // Compute perceptual hashes for batch (10 concurrent to avoid rate limiting)
+      const hashResults: Map<string, HashData> = new Map();
+      for (let j = 0; j < batch.length; j += HASH_CONCURRENCY) {
+        const chunk = batch.slice(j, j + HASH_CONCURRENCY);
+        await Promise.all(
+          chunk.map(async (c) => {
+            const isFoil = c.finishes?.includes("foil") && !c.finishes?.includes("nonfoil");
+            const variantId = `scryfall:${c.id}${isFoil ? "-foil" : ""}`;
+            const imageUri = extractImageUri(c);
+            const faceImageUri = c.card_faces?.[0]?.image_uris?.normal ?? null;
+            const foilImageUri = faceImageUri && faceImageUri !== imageUri ? faceImageUri : null;
+            const [hashes, foilHashes] = await Promise.all([
+              imageUri ? computeHashes(imageUri) : Promise.resolve(null),
+              foilImageUri ? computeHashes(foilImageUri) : Promise.resolve(null),
+            ]);
+            hashResults.set(variantId, {
+              dHash: hashes?.dHash ?? null,
+              pHash: hashes?.pHash ?? null,
+              foilDHash: foilHashes?.dHash ?? null,
+              foilPHash: foilHashes?.pHash ?? null,
+            });
+          })
+        );
+      }
+
+      const result = await processCardBatch(batch, hashResults);
       cardsProcessed += result.cards;
       pricesUpdated += result.prices;
       batch = [];
@@ -254,7 +387,31 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   }
 
   if (batch.length > 0) {
-    const result = await processCardBatch(batch);
+    const hashResults: Map<string, HashData> = new Map();
+    const HASH_CONCURRENCY = 10;
+    for (let j = 0; j < batch.length; j += HASH_CONCURRENCY) {
+      const chunk = batch.slice(j, j + HASH_CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (c) => {
+          const isFoil = c.finishes?.includes("foil") && !c.finishes?.includes("nonfoil");
+          const variantId = `scryfall:${c.id}${isFoil ? "-foil" : ""}`;
+          const imageUri = extractImageUri(c);
+          const faceImageUri = c.card_faces?.[0]?.image_uris?.normal ?? null;
+          const foilImageUri = faceImageUri && faceImageUri !== imageUri ? faceImageUri : null;
+          const [hashes, foilHashes] = await Promise.all([
+            imageUri ? computeHashes(imageUri) : Promise.resolve(null),
+            foilImageUri ? computeHashes(foilImageUri) : Promise.resolve(null),
+          ]);
+          hashResults.set(variantId, {
+            dHash: hashes?.dHash ?? null,
+            pHash: hashes?.pHash ?? null,
+            foilDHash: foilHashes?.dHash ?? null,
+            foilPHash: foilHashes?.pHash ?? null,
+          });
+        })
+      );
+    }
+    const result = await processCardBatch(batch, hashResults);
     cardsProcessed += result.cards;
     pricesUpdated += result.prices;
   }

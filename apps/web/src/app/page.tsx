@@ -1,225 +1,164 @@
-"use client";
-
-import { useState, useEffect, useRef } from "react";
-import { api, type CardVariant } from "@/lib/api";
-import { HoloCard } from "@/components/HoloCard";
-import Image from "next/image";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { NavBar } from "@/components/ui/NavBar";
 
-function SkeletonCard() {
-  return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "#0d1220", border: "1px solid #1e2d45" }}>
-      <div className="skeleton aspect-[244/340] w-full" />
-      <div className="px-3 py-2.5 flex items-center gap-2">
-        <div className="skeleton w-2 h-2 rounded-full shrink-0" />
-        <div className="skeleton h-2.5 flex-1 rounded" />
-        <div className="skeleton h-2.5 w-10 rounded" />
-      </div>
-    </div>
-  );
-}
+const features = [
+  {
+    title: "Collection Tracking",
+    desc: "Add cards, track condition, organize by binder or box. Offline-first with cloud sync.",
+    iconBg: "bg-[var(--mana-U)]",
+    iconColor: "text-[var(--mana-U-text)]",
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Camera Scanner",
+    desc: "Point your phone at a card to identify it instantly using OCR and machine learning.",
+    iconBg: "bg-[var(--mana-R)]",
+    iconColor: "text-[var(--mana-R-text)]",
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Live Prices",
+    desc: "Prices from TCGplayer and Cardmarket, updated daily. Set alerts via your watchlist.",
+    iconBg: "bg-[var(--mana-W)]",
+    iconColor: "text-[var(--mana-W-text)]",
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Deck Builder",
+    desc: "Build and validate decks for Standard, Modern, Pioneer, Commander, and more.",
+    iconBg: "bg-[var(--mana-B)]",
+    iconColor: "text-[var(--mana-B-text)]",
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-1.243 1.007-2.25 2.25-2.25h13.5" />
+      </svg>
+    ),
+  },
+  {
+    title: "Local Shops",
+    desc: "Find nearby card shops, check in, and connect with local players.",
+    iconBg: "bg-[var(--mana-G)]",
+    iconColor: "text-[var(--mana-G-text)]",
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Rules Engine",
+    desc: "Automatic deck validation against official format rules and up-to-date ban lists.",
+    iconBg: "bg-accent-light",
+    iconColor: "text-accent-text",
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+      </svg>
+    ),
+  },
+];
 
-function CardGrid({ cards }: { cards: CardVariant[] }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {cards.map((card, i) => (
-        <Link
-          key={card.variantId}
-          href={`/cards/${encodeURIComponent(card.variantId)}`}
-          className="group animate-enter"
-          style={{ animationDelay: `${Math.min(i * 30, 500)}ms` }}
-        >
-          <HoloCard rarity={card.rarity ?? "common"} className="rounded-2xl">
-            <div style={{ background: "#0d1220", border: "1px solid #1e2d45", borderRadius: "1rem" }}>
-              {card.imageUri ? (
-                <Image
-                  src={card.imageUri}
-                  alt={card.name}
-                  width={244}
-                  height={340}
-                  className="w-full object-cover rounded-t-2xl"
-                  unoptimized
-                />
-              ) : (
-                <div className="aspect-[244/340] flex flex-col items-center justify-center gap-2 p-3 text-center rounded-t-2xl" style={{ background: "#141b2d" }}>
-                  <span className="text-3xl opacity-20">&#127183;</span>
-                  <span className="text-xs font-medium" style={{ color: "#3d5068" }}>{card.name}</span>
-                </div>
-              )}
-              <div className="px-3 py-2.5 flex items-center gap-2">
-                <RarityDot rarity={card.rarity ?? ""} />
-                <span className="text-xs truncate flex-1" style={{ color: "#8ca0b8" }}>{card.name}</span>
-                {card.priceUsd != null && (
-                  <span className="text-xs font-bold shrink-0" style={{ color: "#00d4ff" }}>${card.priceUsd.toFixed(2)}</span>
-                )}
-              </div>
-            </div>
-          </HoloCard>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function RarityDot({ rarity }: { rarity: string }) {
-  const colors: Record<string, string> = {
-    common:   "#8ca0b8",
-    uncommon: "#50c878",
-    rare:     "#0096ff",
-    mythic:   "#ff5000",
-    special:  "#cc44ff",
-  };
-  return (
-    <span
-      className="w-2 h-2 rounded-full shrink-0"
-      style={{ backgroundColor: colors[rarity] ?? "#3d5068", boxShadow: rarity !== "common" ? `0 0 5px ${colors[rarity] ?? "#3d5068"}` : "none" }}
-    />
-  );
-}
-
-export default function BrowsePage() {
-  const [query, setQuery]       = useState("");
-  const [cards, setCards]       = useState<CardVariant[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (debounce.current) clearTimeout(debounce.current);
-    if (query.trim().length < 2) { setCards([]); setSearched(false); setError(null); return; }
-    debounce.current = setTimeout(async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { cards: results } = await api.search(query.trim(), 60);
-        setCards(results);
-        setSearched(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Search failed — check that the API is reachable.");
-        setCards([]);
-        setSearched(false);
-      } finally {
-        setLoading(false);
-      }
-    }, 350);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
-  }, [query]);
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="flex min-h-screen flex-col bg-bg">
+      <NavBar user={user} />
 
-      {/* Hero */}
-      <div className="mb-10">
-        <h1 className="font-display text-5xl font-extrabold leading-none tracking-tight mb-3">
-          <span className="holo-text">CARD ENGINE</span>
-        </h1>
-        <p className="text-sm font-medium" style={{ color: "#3d5068" }}>
-          Search every Magic card with live TCGplayer & Cardmarket pricing
-        </p>
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-10 max-w-2xl">
-        <div
-          className="flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all duration-200"
-          style={{
-            background: "#0d1220",
-            border: `1px solid ${query ? "rgba(0,212,255,0.4)" : "#1e2d45"}`,
-            boxShadow: query ? "0 0 0 3px rgba(0,212,255,0.08), 0 0 30px rgba(0,212,255,0.05)" : "none",
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3d5068" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search cards by name…"
-            className="flex-1 bg-transparent text-white placeholder:font-medium focus:outline-none text-sm"
-            style={{ caretColor: "#00d4ff" }}
-            autoFocus
-          />
-          {loading && (
-            <span className="text-xs font-medium animate-pulse shrink-0" style={{ color: "#00d4ff" }}>
-              Scanning…
-            </span>
-          )}
-          {query && !loading && (
-            <button
-              onClick={() => { setQuery(""); setCards([]); setSearched(false); setError(null); }}
-              className="shrink-0 opacity-40 hover:opacity-100 transition-opacity text-lg leading-none"
-              style={{ color: "#ff0080" }}
-            >
-              ×
-            </button>
-          )}
+      <main className="mx-auto flex max-w-6xl flex-1 flex-col items-center px-6 py-20 text-center">
+        {/* Hero */}
+        <div className="animate-fade-in">
+          <h1 className="max-w-2xl text-5xl font-bold tracking-tight text-text-primary leading-[1.1]">
+            Manage your MTG collection with{" "}
+            <span style={{ color: "var(--accent)" }}>precision</span>
+          </h1>
+          <p className="mt-6 max-w-lg mx-auto text-lg text-text-secondary leading-relaxed">
+            Track cards, build decks, monitor prices, scan with your camera,
+            and find local game stores. All synced across devices.
+          </p>
         </div>
-      </div>
 
-      {/* Error */}
-      {error && (
-        <div className="mb-6 px-5 py-4 rounded-2xl text-sm animate-enter glass" style={{ borderColor: "rgba(255,0,128,0.3)", color: "#ff6bad" }}>
-          <span className="font-semibold">Error:</span> {error}
-        </div>
-      )}
-
-      {/* Skeletons */}
-      {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
-      )}
-
-      {/* Empty / start state */}
-      {!loading && !searched && !error && (
-        <div className="flex flex-col items-center justify-center py-36 gap-6 text-center animate-enter">
-          <div className="animate-float">
-            <div
-              className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl relative"
+        <div className="mt-10 flex gap-3 animate-slide-up">
+          {user ? (
+            <Link
+              href="/collection"
+              className="rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
               style={{
-                background: "linear-gradient(135deg, #060810 0%, #0d1220 100%)",
-                border: "1px solid rgba(0,212,255,0.2)",
-                boxShadow: "0 0 50px rgba(0,212,255,0.12), 0 0 100px rgba(124,58,237,0.08)",
+                background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
+                boxShadow: "0 2px 10px rgba(13,148,136,0.35)",
               }}
             >
-              <span className="holo-text text-4xl font-display font-extrabold">CE</span>
-            </div>
-          </div>
-          <div>
-            <h2 className="text-2xl font-display font-bold text-white mb-2">Find any card</h2>
-            <p className="text-sm max-w-sm" style={{ color: "#3d5068" }}>
-              Type a name to search the full Scryfall database with real-time prices
-            </p>
-          </div>
+              Go to Collection
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/register"
+                className="rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
+                  boxShadow: "0 2px 10px rgba(13,148,136,0.35)",
+                }}
+              >
+                Create free account
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-xl border px-6 py-3 text-sm font-semibold transition-all hover:shadow-sm active:scale-[0.98]"
+                style={{
+                  borderColor: "var(--border)",
+                  background: "var(--surface-raised)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Sign in
+              </Link>
+            </>
+          )}
         </div>
-      )}
 
-      {/* No results */}
-      {!loading && searched && cards.length === 0 && (
-        <div className="py-24 text-center animate-enter">
-          <p className="text-5xl mb-4 opacity-20">&#128269;</p>
-          <p className="text-white font-bold font-display text-lg mb-1">No results for &ldquo;{query}&rdquo;</p>
-          <p className="text-sm" style={{ color: "#3d5068" }}>Try a different spelling or card name</p>
-        </div>
-      )}
-
-      {/* Results */}
-      {!loading && cards.length > 0 && (
-        <>
-          <div className="flex items-center gap-3 mb-5">
-            <span
-              className="px-2.5 py-1 rounded-lg text-xs font-bold"
-              style={{ background: "rgba(0,212,255,0.1)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.2)" }}
+        {/* Feature cards */}
+        <div className="mt-24 grid w-full max-w-4xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature, i) => (
+            <div
+              key={feature.title}
+              className={`animate-slide-up stagger-${i + 1} card-hover rounded-2xl border border-border bg-surface p-6 text-left shadow-[var(--shadow-card)]`}
             >
-              {cards.length} result{cards.length !== 1 ? "s" : ""}
-            </span>
-            <div style={{ height: 1, flex: 1, background: "rgba(0,212,255,0.06)" }} />
-          </div>
-          <CardGrid cards={cards} />
-        </>
-      )}
+              <div
+                className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${feature.iconBg} ${feature.iconColor}`}
+              >
+                {feature.icon}
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-text-primary">
+                {feature.title}
+              </h3>
+              <p className="mt-2 text-sm text-text-secondary leading-relaxed">
+                {feature.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      <footer className="border-t border-border py-8 text-center text-sm text-text-muted">
+        Card Engine &mdash; Open-source MTG collection platform
+      </footer>
     </div>
   );
 }

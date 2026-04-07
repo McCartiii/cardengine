@@ -159,7 +159,7 @@ export default function ShopsPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-display font-extrabold text-4xl text-white leading-none mb-2">Local Shops</h1>
+        <h1 className="font-extrabold text-4xl text-white leading-none mb-2">Local Shops</h1>
         <p className="text-sm" style={{ color: "#3d5068" }}>Find game stores near you</p>
       </div>
 
@@ -188,7 +188,7 @@ export default function ShopsPage() {
 
       {searched && shops.length === 0 && !loading && (
         <div className="glass rounded-2xl p-12 text-center" style={{ border: "1px solid rgba(0,212,255,0.08)" }}>
-          <p className="font-display font-bold text-lg text-white mb-1">No shops found</p>
+          <p className="font-bold text-lg text-white mb-1">No shops found</p>
           <p className="text-sm" style={{ color: "#3d5068" }}>Try a different city or use your location</p>
         </div>
       )}

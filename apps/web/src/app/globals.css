@@ -1,228 +1,203 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ═══════════════════════════════════════════════════════════════
+   Card Engine — Dark Slate + Teal Design Tokens
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Color scheme ──────────────────────────────────── */
 :root {
-  color-scheme: dark;
+  /* Surfaces */
+  --bg:             #0F1117;
+  --surface:        #161B27;
+  --surface-raised: #1E2535;
+  --surface-sunken: #0A0D13;
+
+  /* Text */
+  --text-primary:   #E2E8F0;
+  --text-secondary: #94A3B8;
+  --text-muted:     #475569;
+  --text-inverse:   #0F1117;
+
+  /* Borders */
+  --border:        #1E2D3D;
+  --border-strong: #2D4059;
+  --border-focus:  #0D9488;
+
+  /* Teal accent */
+  --accent:       #0D9488;
+  --accent-hover: #14B8A6;
+  --accent-light: #0D3330;
+  --accent-text:  #2DD4BF;
+
+  /* Per-tab colors */
+  --tab-collection: #22C55E;  --tab-collection-bg: #0C2018;
+  --tab-scan:       #F43F5E;  --tab-scan-bg:       #2A0A12;
+  --tab-deck:       #818CF8;  --tab-deck-bg:       #1A1B3A;
+  --tab-map:        #38BDF8;  --tab-map-bg:        #082030;
+  --tab-watchlist:  #FB923C;  --tab-watchlist-bg:  #2A1608;
+  --tab-settings:   #94A3B8;  --tab-settings-bg:   #141C28;
+
+  /* Semantic */
+  --success:      #22C55E;
+  --success-light: #0C2018;
+  --success-text:  #86EFAC;
+  --danger:       #F43F5E;
+  --danger-light:  #2A0A12;
+  --danger-text:   #FDA4AF;
+  --warning:      #FB923C;
+  --warning-light: #2A1608;
+  --warning-text:  #FED7AA;
+
+  /* Mana colors */
+  --mana-W: #2A2510; --mana-W-text: #FDE68A;
+  --mana-U: #0F1E35; --mana-U-text: #93C5FD;
+  --mana-B: #1A1225; --mana-B-text: #C4B5D4;
+  --mana-R: #2A0E0E; --mana-R-text: #FCA5A5;
+  --mana-G: #0A1F0E; --mana-G-text: #86EFAC;
+
+  /* Identity tints — card container backgrounds by color identity */
+  --id-W-tint:      #1A1810; --id-W-border:      #4A4020; --id-W-glow:      rgba(253,230,138,0.15);
+  --id-U-tint:      #0D1824; --id-U-border:      #1E3A5F; --id-U-glow:      rgba(147,197,253,0.15);
+  --id-B-tint:      #110E1C; --id-B-border:      #2D1B4E; --id-B-glow:      rgba(196,181,212,0.12);
+  --id-R-tint:      #1C0E0E; --id-R-border:      #5C1A1A; --id-R-glow:      rgba(252,165,165,0.15);
+  --id-G-tint:      #0A160D; --id-G-border:      #14532D; --id-G-glow:      rgba(134,239,172,0.15);
+  --id-multi-tint:  #1A1508; --id-multi-border:  #5C4A1A; --id-multi-glow:  rgba(253,230,138,0.15);
+  --id-C-tint:      #111520; --id-C-border:      #1E2D3D; --id-C-glow:      rgba(148,163,184,0.10);
+
+  /* Market colors */
+  --market-tcg:  #FB923C; --market-tcg-bg:  #2A1608;
+  --market-mkm:  #22C55E; --market-mkm-bg:  #0C2018;
+  --market-ck:   #60A5FA; --market-ck-bg:   #0C1C38;
+  --market-ebay: #F43F5E; --market-ebay-bg: #2A0A12;
+  --market-mtgo: #A78BFA; --market-mtgo-bg: #1A1030;
+
+  /* Rarity */
+  --rarity-mythic:       #FB923C; --rarity-mythic-bg:    #2A1206;
+  --rarity-rare:         #FBBF24; --rarity-rare-bg:      #261E06;
+  --rarity-uncommon:     #94A3B8; --rarity-uncommon-bg:  #141C28;
+  --rarity-common:       #475569; --rarity-common-bg:    #0E1420;
+
+  /* Shadows */
+  --shadow-card:       0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-card-hover: 0 20px 40px rgba(0,0,0,0.7), 0 8px 16px rgba(0,0,0,0.5);
+  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-modal:      0 24px 64px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5);
+
+  /* Surface overlay for frosted glass */
+  --surface-overlay: rgba(22,27,39,0.92);
 }
 
-* {
-  box-sizing: border-box;
+/* ─── Tailwind theme inline ─── */
+@theme inline {
+  --color-bg:              var(--bg);
+  --color-surface:         var(--surface);
+  --color-surface-raised:  var(--surface-raised);
+  --color-surface-sunken:  var(--surface-sunken);
+  --color-text-primary:    var(--text-primary);
+  --color-text-secondary:  var(--text-secondary);
+  --color-text-muted:      var(--text-muted);
+  --color-border:          var(--border);
+  --color-border-strong:   var(--border-strong);
+  --color-accent:          var(--accent);
+  --color-accent-hover:    var(--accent-hover);
+  --color-accent-light:    var(--accent-light);
+  --color-accent-text:     var(--accent-text);
+  --color-success:         var(--success);
+  --color-success-light:   var(--success-light);
+  --color-danger:          var(--danger);
+  --color-danger-light:    var(--danger-light);
+  --color-warning:         var(--warning);
+  --color-warning-light:   var(--warning-light);
+  --color-tab-collection:    var(--tab-collection);
+  --color-tab-collection-bg: var(--tab-collection-bg);
+  --color-tab-scan:          var(--tab-scan);
+  --color-tab-scan-bg:       var(--tab-scan-bg);
+  --color-tab-deck:          var(--tab-deck);
+  --color-tab-deck-bg:       var(--tab-deck-bg);
+  --color-tab-map:           var(--tab-map);
+  --color-tab-map-bg:        var(--tab-map-bg);
+  --color-tab-watchlist:     var(--tab-watchlist);
+  --color-tab-watchlist-bg:  var(--tab-watchlist-bg);
+  --color-tab-settings:      var(--tab-settings);
+  --color-tab-settings-bg:   var(--tab-settings-bg);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
-/* ─── Base ──────────────────────────────────────────── */
+/* ─── Base styles ─── */
 body {
-  background-color: #060810;
-  color: #e2e8f0;
-  font-family: "Space Grotesk", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  position: relative;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Animated holo mesh background ────────────────── */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(0,212,255,0.10) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(255,0,128,0.08) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 35% at 50%  50%, rgba(124,58,237,0.06) 0%, transparent 70%);
-  animation: mesh-shift 12s ease-in-out infinite alternate;
+/* ─── Keyframe Animations ─── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-@keyframes mesh-shift {
-  0%   { opacity: 0.7; transform: scale(1);    }
-  100% { opacity: 1;   transform: scale(1.04); }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── Keyframes ─────────────────────────────────────── */
-@keyframes enter {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 @keyframes shimmer {
-  from { background-position: -200% 0; }
-  to   { background-position:  200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
 
-@keyframes holo-shift {
-  0%   { background-position: 0% 50%;   }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%;   }
-}
-
-@keyframes neon-pulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.3),  0 0 20px rgba(0,212,255,0.1);  }
-  50%      { box-shadow: 0 0 16px rgba(0,212,255,0.6), 0 0 40px rgba(0,212,255,0.2); }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px);   }
-  50%      { transform: translateY(-4px);  }
-}
-
-@keyframes radar-pulse {
-  0%   { transform: scale(0.8); opacity: 1;   }
-  100% { transform: scale(2.2); opacity: 0;   }
-}
-
-/* ─── Utility classes ───────────────────────────────── */
-.animate-enter {
-  animation: enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-float {
-  animation: float 4s ease-in-out infinite;
-}
-
-.animate-neon-pulse {
-  animation: neon-pulse 2.4s ease-in-out infinite;
-}
-
-/* Skeleton shimmer — blue-tinted */
-.skeleton {
-  background: linear-gradient(90deg, #0d1220 25%, #141b2d 50%, #0d1220 75%);
-  background-size: 200%;
-  animation: shimmer 1.8s linear infinite;
-  border-radius: 8px;
-}
-
-/* Holographic rainbow text */
-.holo-text {
-  background: linear-gradient(
-    90deg,
-    #00d4ff 0%,
-    #a855f7 25%,
-    #ff0080 50%,
-    #f59e0b 75%,
-    #00d4ff 100%
-  );
-  background-size: 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: holo-shift 4s linear infinite;
-}
-
-/* Gradient text (static) */
-.gradient-text {
-  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 50%, #ff0080 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Glass panel */
-.glass {
-  background: rgba(13, 18, 32, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 212, 255, 0.12);
-}
-
-/* Neon border */
-.neon-border {
-  border: 1px solid rgba(0, 212, 255, 0.4);
-  box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.1), inset 0 0 20px rgba(0, 212, 255, 0.03);
-}
-
-/* ─── Scrollbar ──────────────────────────────────────── */
-::-webkit-scrollbar          { width: 5px; }
-::-webkit-scrollbar-track    { background: transparent; }
-::-webkit-scrollbar-thumb    { background: #1e2d45; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #00d4ff33; }
-
-/* ─── Life Counter Animations ────────────────────────── */
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  15% { transform: translateX(-4px); }
-  30% { transform: translateX(4px); }
-  45% { transform: translateX(-3px); }
-  60% { transform: translateX(3px); }
-  75% { transform: translateX(-1px); }
-}
-
-@keyframes shake-big {
-  0%, 100% { transform: translateX(0); }
-  15% { transform: translateX(-8px); }
-  30% { transform: translateX(8px); }
-  45% { transform: translateX(-6px); }
-  60% { transform: translateX(6px); }
-  75% { transform: translateX(-2px); }
-}
-
-@keyframes pulse-red {
-  0% { color: #ef4444; transform: scale(1.08); }
-  100% { color: inherit; transform: scale(1); }
-}
-
-@keyframes pulse-green {
-  0% { color: #22c55e; transform: scale(1.15); }
-  100% { color: inherit; transform: scale(1); }
-}
-
-@keyframes pulse-green-big {
-  0% { color: #22c55e; transform: scale(1.3); }
-  40% { color: #4ade80; }
-  100% { color: inherit; transform: scale(1); }
-}
-
-@keyframes pulse-red-big {
-  0% { color: #ef4444; transform: scale(1.12); }
-  40% { color: #f87171; }
-  100% { color: inherit; transform: scale(1); }
-}
-
-@keyframes toxic-drip {
-  0% { text-shadow: 0 0 8px #22c55e, 0 0 4px #22c55e; }
-  50% { text-shadow: 0 0 16px #22c55e, 0 6px 12px #22c55e, 0 12px 20px rgba(34,197,94,0.3); }
-  100% { text-shadow: none; }
-}
-
-@keyframes shatter {
-  0% { transform: scale(1) rotate(0deg); opacity: 1; filter: blur(0); }
-  30% { transform: scale(1.05) rotate(-1deg); opacity: 1; }
-  100% { transform: scale(0) rotate(15deg); opacity: 0; filter: blur(6px); }
-}
-
-@keyframes turn-glow-pulse {
-  0%, 100% { box-shadow: 0 0 12px var(--player-color, #00d4ff), 0 0 24px rgba(0, 212, 255, 0.35); }
-  50% { box-shadow: 0 0 24px var(--player-color, #00d4ff), 0 0 48px rgba(0, 212, 255, 0.45), 0 0 64px rgba(0, 212, 255, 0.2); }
-}
-
-@keyframes time-alert {
+@keyframes pulse-soft {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50%       { opacity: 0.6; }
 }
 
-@keyframes pass-turn-out {
-  0% { transform: scale(1.02); }
-  100% { transform: scale(0.98); opacity: 0.7; }
+@keyframes mythic-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(251,146,60,0.6)); }
+  50%       { filter: drop-shadow(0 0 7px rgba(251,146,60,1)) drop-shadow(0 0 14px rgba(251,146,60,0.5)); }
 }
 
-@keyframes pass-turn-in {
-  0% { transform: scale(0.98); opacity: 0.7; }
-  50% { transform: scale(1.03); }
-  100% { transform: scale(1); opacity: 1; }
+/* ─── Utility animation classes ─── */
+.animate-fade-in   { animation: fadeIn  0.3s ease-out both; }
+.animate-slide-up  { animation: slideUp 0.4s ease-out both; }
+.animate-scale-in  { animation: scaleIn 0.3s ease-out both; }
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--surface) 50%, var(--surface-sunken) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
-.life-shake { animation: shake 0.4s ease-out; }
-.life-shake-big { animation: shake-big 0.5s ease-out; }
-.life-pulse-red { animation: pulse-red 0.6s ease-out; }
-.life-pulse-green { animation: pulse-green 0.6s ease-out; }
-.life-pulse-green-big { animation: pulse-green-big 0.7s ease-out; }
-.life-pulse-red-big { animation: pulse-red-big 0.7s ease-out; }
-.poison-drip { animation: toxic-drip 0.8s ease-out; }
-.player-shatter { animation: shatter 0.8s ease-out forwards; }
-.turn-active { animation: turn-glow-pulse 2s ease-in-out infinite; transform: scale(1.02); }
-.turn-deactivate { animation: pass-turn-out 0.3s ease-out forwards; }
-.turn-activate { animation: pass-turn-in 0.4s ease-out forwards; }
-.time-alert-flash { animation: time-alert 0.5s ease-in-out infinite; }
+.animate-pulse-soft  { animation: pulse-soft   2s ease-in-out infinite; }
+.animate-mythic-pulse { animation: mythic-pulse 2s ease-in-out infinite; }
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.30s; }
+
+/* ─── Card hover lift ─── */
+.card-hover {
+  transition: box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform   0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-card-hover), 0 0 0 1px var(--border-strong);
+  transform: translateY(-3px) scale(1.015);
+}
+
+/* ─── Typography utilities ─── */
+.font-stat {
+  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}

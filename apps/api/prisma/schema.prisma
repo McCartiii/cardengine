@@ -23,6 +23,7 @@ model User {
   notifications    Notification[]
   decks            Deck[]
   pushTokens       PushToken[]
+  agentSessions    AgentSession[]
 }
 
 model CardVariant {
@@ -44,6 +45,10 @@ model CardVariant {
   manaCost        String?  @map("mana_cost")
   rarity          String?
   imageUri        String?  @map("image_uri")
+  dHash           String?  @map("d_hash")
+  pHash           String?  @map("p_hash")
+  foilDHash       String?  @map("foil_d_hash")
+  foilPHash       String?  @map("foil_p_hash")
 
   updatedAt DateTime @updatedAt
 
@@ -247,4 +252,30 @@ model PushToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ── Deck AI ──
+
+model MetaSnapshot {
+  id        String   @id @default(cuid())
+  format    String   // "commander" | "standard" | "modern" | "pioneer" | "legacy"
+  bracket   Int      // 1-5 (commander only; 0 for non-commander formats)
+  data      Json     // scraped tier list / top decks
+  fetchedAt DateTime @default(now())
+
+  @@unique([format, bracket])
+  @@index([format, fetchedAt])
+}
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  userId    String?  // null for unauthenticated
+  messages  Json     // Anthropic.MessageParam[] — full conversation history
+  context   Json     // { bracket, budget, mode, commander, deckCards }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, updatedAt])
 }

@@ -1,0 +1,112 @@
+<h2>Three approaches to a premium, distinctive design</h2>
+<p class="subtitle">All preserve the card-hover lift and shimmer. Pick the direction.</p>
+
+<div class="cards">
+
+  <!-- Approach A: Obsidian TCG -->
+  <div class="card" data-choice="obsidian" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0A0908; padding: 16px; min-height: 200px; position: relative; overflow: hidden;">
+      <!-- subtle noise texture overlay -->
+      <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%2240%22 height=%2240%22 filter=%22url(%23n)%22 opacity=%220.04%22/></svg>') repeat; opacity:0.6;"></div>
+      <!-- nav -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;position:relative;">
+        <div style="width:26px;height:26px;background:linear-gradient(135deg,#FBBF24,#F59E0B);border-radius:7px;box-shadow:0 0 10px rgba(251,191,36,0.5);"></div>
+        <div style="width:70px;height:8px;background:#F5F5F4;border-radius:3px;opacity:0.85;"></div>
+      </div>
+      <!-- cards -->
+      <div style="display:flex;gap:8px;position:relative;">
+        <div style="flex:1;background:#1A1614;border:1px solid #3A3330;border-radius:12px;padding:10px;box-shadow:0 0 16px rgba(251,191,36,0.06);">
+          <div style="width:38px;height:52px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);border-radius:6px;margin-bottom:8px;box-shadow:0 0 12px rgba(59,130,246,0.45);"></div>
+          <div style="width:55px;height:6px;background:#78716C;border-radius:3px;"></div>
+          <div style="margin-top:6px;">
+            <div style="display:inline-block;background:linear-gradient(90deg,#422006,#451A03);color:#FBBF24;font-size:7px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.08em;border:1px solid rgba(251,191,36,0.3);">RARE</div>
+          </div>
+        </div>
+        <div style="flex:1;background:#1A1614;border:1px solid #3A3330;border-radius:12px;padding:10px;box-shadow:0 0 16px rgba(234,88,12,0.08);">
+          <div style="width:38px;height:52px;background:linear-gradient(135deg,#EA580C,#9A3412);border-radius:6px;margin-bottom:8px;box-shadow:0 0 12px rgba(234,88,12,0.5);"></div>
+          <div style="width:45px;height:6px;background:#78716C;border-radius:3px;"></div>
+          <div style="margin-top:6px;">
+            <div style="display:inline-block;background:linear-gradient(90deg,#431407,#4A1202);color:#FB923C;font-size:7px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.08em;border:1px solid rgba(234,88,12,0.3);">MYTHIC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Obsidian TCG</h3>
+      <p>Dark as default. Deep black surfaces, gold glows, rarity color halos on cards. Like a premium card vault — nothing in the market looks like this.</p>
+      <p style="margin-top:6px;font-size:0.8em;opacity:0.7;">Trade-off: dark-first means extra care for light mode.</p>
+    </div>
+  </div>
+
+  <!-- Approach B: Parchment Elevated -->
+  <div class="card" data-choice="parchment" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:linear-gradient(160deg,#F5EDD8,#EDE0C4);padding:16px;min-height:200px;position:relative;overflow:hidden;">
+      <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22/></filter><rect width=%2260%22 height=%2260%22 filter=%22url(%23n)%22 opacity=%220.05%22/></svg>') repeat;opacity:0.8;"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;position:relative;">
+        <div style="width:26px;height:26px;background:linear-gradient(135deg,#CA8A04,#A16207);border-radius:7px;box-shadow:0 2px 6px rgba(161,98,7,0.3);"></div>
+        <div style="width:70px;height:8px;background:#1C1917;border-radius:3px;opacity:0.8;"></div>
+      </div>
+      <div style="display:flex;gap:8px;position:relative;">
+        <div style="flex:1;background:rgba(255,252,245,0.85);border:1.5px solid #C9A84C;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(161,98,7,0.12);">
+          <div style="width:38px;height:52px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);border-radius:6px;margin-bottom:8px;box-shadow:0 3px 8px rgba(0,0,0,0.15);"></div>
+          <div style="width:55px;height:6px;background:#92716C;border-radius:3px;"></div>
+          <div style="margin-top:6px;">
+            <div style="display:inline-block;background:linear-gradient(90deg,#FEF9C3,#FEFCE8);color:#A16207;font-size:7px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.07em;border:1px solid #CA8A04;">RARE</div>
+          </div>
+        </div>
+        <div style="flex:1;background:rgba(255,252,245,0.85);border:1.5px solid #C9A84C;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(161,98,7,0.12);">
+          <div style="width:38px;height:52px;background:linear-gradient(135deg,#EA580C,#9A3412);border-radius:6px;margin-bottom:8px;box-shadow:0 3px 8px rgba(0,0,0,0.15);"></div>
+          <div style="width:45px;height:6px;background:#92716C;border-radius:3px;"></div>
+          <div style="margin-top:6px;">
+            <div style="display:inline-block;background:linear-gradient(90deg,#FFF7ED,#FFEDD5);color:#9A3412;font-size:7px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.07em;border:1px solid #EA580C;">MYTHIC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Parchment Elevated</h3>
+      <p>Warm parchment texture as the actual background, amber-gold borders, metallic rarity badges. Feels like a beautifully designed physical binder app.</p>
+      <p style="margin-top:6px;font-size:0.8em;opacity:0.7;">Trade-off: texture can feel heavy if overdone.</p>
+    </div>
+  </div>
+
+  <!-- Approach C: Adaptive Depth -->
+  <div class="card" data-choice="adaptive" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#F8F6F3;padding:16px;min-height:200px;position:relative;overflow:hidden;">
+      <!-- light mode view with color identity tint -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <div style="width:26px;height:26px;background:linear-gradient(135deg,#CA8A04,#A16207);border-radius:7px;"></div>
+        <div style="width:70px;height:8px;background:#1C1917;border-radius:3px;opacity:0.8;"></div>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#3B82F6;box-shadow:0 0 5px rgba(59,130,246,0.6);"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:#1C1917;box-shadow:0 0 5px rgba(28,25,23,0.3);"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:#EF4444;box-shadow:0 0 5px rgba(239,68,68,0.6);"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <!-- card with blue color identity tint -->
+        <div style="flex:1;background:linear-gradient(160deg,#FFFFFF,#EFF6FF);border:1.5px solid #BFDBFE;border-radius:12px;padding:10px;box-shadow:0 4px 16px rgba(59,130,246,0.1),0 1px 3px rgba(0,0,0,0.06);">
+          <div style="width:38px;height:52px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);border-radius:6px;margin-bottom:8px;box-shadow:0 0 10px rgba(59,130,246,0.35);"></div>
+          <div style="width:55px;height:6px;background:#78716C;border-radius:3px;"></div>
+          <div style="margin-top:6px;">
+            <div style="display:inline-block;background:linear-gradient(90deg,#FEF9C3,#FEFCE8);color:#A16207;font-size:7px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.07em;border:1px solid #CA8A04;">RARE</div>
+          </div>
+        </div>
+        <!-- card with red/black identity tint -->
+        <div style="flex:1;background:linear-gradient(160deg,#FFFFFF,#FFF7ED);border:1.5px solid #FDBA74;border-radius:12px;padding:10px;box-shadow:0 4px 16px rgba(234,88,12,0.1),0 1px 3px rgba(0,0,0,0.06);">
+          <div style="width:38px;height:52px;background:linear-gradient(135deg,#EA580C,#9A3412);border-radius:6px;margin-bottom:8px;box-shadow:0 0 10px rgba(234,88,12,0.4);"></div>
+          <div style="width:45px;height:6px;background:#78716C;border-radius:3px;"></div>
+          <div style="margin-top:6px;">
+            <div style="display:inline-block;background:linear-gradient(90deg,#FFF7ED,#FFEDD5);color:#9A3412;font-size:7px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.07em;border:1px solid #EA580C;">MYTHIC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Adaptive Depth</h3>
+      <p>Light mode gets deep layering and color-identity tints on cards (blue card = blue glow, red/black = warm orange). Dark mode becomes truly premium. Same system, two faces.</p>
+      <p style="margin-top:6px;font-size:0.8em;opacity:0.7;">Trade-off: most complex to implement consistently.</p>
+    </div>
+  </div>
+
+</div>

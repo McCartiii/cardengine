@@ -3,11 +3,13 @@ import Fastify from "fastify";
 import type { FastifyError } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
+import { z } from "zod";
 import { ZodError } from "zod";
 import { prisma, dbReady } from "./db.js";
 import { ingestScryfallBulk } from "./jobs/scryfallIngest.js";
 import { withAdvisoryLock } from "./jobs/leaderLock.js";
 import { checkWatchlistAlerts } from "./jobs/watchlistCheck.js";
+import { runMetaSnapshotJob } from "./jobs/metaSnapshotJob.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerCollectionRoutes } from "./routes/collection.js";
 import { registerDeckAdvisorRoutes } from "./routes/deckAdvisor.js";
@@ -17,6 +19,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerLocalSceneRoutes } from "./routes/localScene.js";
 import { registerTelemetryRoutes } from "./routes/telemetry.js";
 import { registerDeckRoutes } from "./routes/decks.js";
+import { registerDeckAgentRoutes } from "./routes/deckAgent.js";
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
@@ -67,6 +70,64 @@ app.get(
   }
 );
 
+// ── Bundle total count (for progress UI) ──
+app.get("/v1/bundles/:game/count", async (req) => {
+  const params = z.object({ game: z.string() }).parse(req.params);
+  const count = await prisma.cardVariant.count({ where: { game: params.game } });
+  return { game: params.game, count };
+});
+
+// ── Hash bundle (for mobile perceptual-hash index) ──
+app.get("/v1/bundles/:game/hashes", async (req) => {
+  const params = z.object({ game: z.string() }).parse(req.params);
+  const query = z
+    .object({
+      cursor: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(5000).default(2000),
+    })
+    .parse(req.query);
+
+  const where: Record<string, unknown> = {
+    game: params.game,
+    dHash: { not: null },
+  };
+
+  if (query.cursor) {
+    where.variantId = { gt: query.cursor };
+  }
+
+  const cards = await prisma.cardVariant.findMany({
+    where,
+    orderBy: { variantId: "asc" },
+    take: query.limit + 1,
+    select: {
+      variantId: true,
+      dHash: true,
+      pHash: true,
+      foilDHash: true,
+      foilPHash: true,
+    },
+  });
+
+  const hasMore = cards.length > query.limit;
+  const items = hasMore ? cards.slice(0, query.limit) : cards;
+  const nextCursor = hasMore ? items[items.length - 1]!.variantId : null;
+
+  return {
+    game: params.game,
+    count: items.length,
+    hasMore,
+    nextCursor,
+    items: items.map((c) => ({
+      variantId: c.variantId,
+      dHash: c.dHash!,
+      pHash: c.pHash!,
+      foilDHash: c.foilDHash ?? undefined,
+      foilPHash: c.foilPHash ?? undefined,
+    })),
+  };
+});
+
 // ── Route modules ──
 registerCardRoutes(app);
 registerCollectionRoutes(app);
@@ -77,6 +138,7 @@ registerAdminRoutes(app);
 registerLocalSceneRoutes(app);
 registerTelemetryRoutes(app);
 registerDeckRoutes(app);
+registerDeckAgentRoutes(app);
 
 // ── Daily pricing refresh job ──
 const DAILY_MS = 24 * 60 * 60 * 1000;
@@ -109,6 +171,21 @@ if (process.env.ENABLE_WATCHLIST_CHECK !== "false") {
     });
     if (!ran) console.log("[watchlist-check] Another instance is handling this cycle.");
   }, 60 * 60 * 1000);
+}
+
+// ── Meta snapshot job (nightly) ──
+const NIGHTLY_MS = 24 * 60 * 60 * 1000;
+if (process.env.ENABLE_META_SNAPSHOT !== "false") {
+  runMetaSnapshotJob().catch((err) => console.error("[meta-snapshot] Boot run failed:", err));
+  setInterval(async () => {
+    const ran = await withAdvisoryLock("metaSnapshot", async () => {
+      await runMetaSnapshotJob();
+    }).catch((err) => {
+      console.error("[meta-snapshot] Lock error:", err);
+      return false;
+    });
+    if (!ran) console.log("[meta-snapshot] Another instance is handling this cycle.");
+  }, NIGHTLY_MS);
 }
 
 // ── Start server ──

@@ -94,7 +94,7 @@ export default function CardDetailPage({ params }: { params: Promise<{ id: strin
 
         <div className="flex-1 min-w-0 space-y-5">
           <div>
-            <h1 className="font-display font-extrabold text-3xl text-white leading-tight mb-1">{card.name}</h1>
+            <h1 className="font-extrabold text-3xl text-white leading-tight mb-1">{card.name}</h1>
             <div className="flex items-center gap-3 flex-wrap">
               {card.setId && <span className="text-xs font-medium uppercase tracking-wider px-2.5 py-1 rounded-lg" style={{ background: "rgba(0,212,255,0.08)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.15)" }}>{card.setId}</span>}
               {card.collectorNumber && <span className="text-xs" style={{ color: "#3d5068" }}>#{card.collectorNumber}</span>}
@@ -114,7 +114,7 @@ export default function CardDetailPage({ params }: { params: Promise<{ id: strin
           {card.priceUsd != null && (
             <div className="glass rounded-2xl p-5" style={{ border: "1px solid rgba(0,212,255,0.1)" }}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#3d5068" }}>Market Price</p>
-              <p className="font-display font-extrabold text-4xl" style={{ color: "#00d4ff" }}>
+              <p className="font-extrabold text-4xl" style={{ color: "#00d4ff" }}>
                 ${card.priceUsd.toFixed(2)}<span className="text-sm font-normal ml-2" style={{ color: "#3d5068" }}>USD</span>
               </p>
             </div>
