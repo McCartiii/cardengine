@@ -245,10 +245,12 @@ export default function WatchlistPage() {
               <div className="mt-4 space-y-4">
                 <div className="flex items-center gap-3 rounded-xl bg-surface-sunken p-3">
                   {selectedCard.imageUri && (
-                    <img
+                    <CardImage
                       src={selectedCard.imageUri}
                       alt={selectedCard.name}
                       className="h-14 w-auto rounded"
+                      wrapperClassName="rounded"
+                      foil={false}
                     />
                   )}
                   <div>
