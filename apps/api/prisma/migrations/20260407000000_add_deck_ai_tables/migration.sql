@@ -29,3 +29,6 @@ CREATE INDEX "MetaSnapshot_format_fetchedAt_idx" ON "MetaSnapshot"("format", "fe
 
 -- CreateIndex
 CREATE INDEX "AgentSession_userId_updatedAt_idx" ON "AgentSession"("userId", "updatedAt");
+
+-- AddForeignKey
+ALTER TABLE "AgentSession" ADD CONSTRAINT "AgentSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
