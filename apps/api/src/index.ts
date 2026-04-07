@@ -9,6 +9,7 @@ import { prisma, dbReady } from "./db.js";
 import { ingestScryfallBulk } from "./jobs/scryfallIngest.js";
 import { withAdvisoryLock } from "./jobs/leaderLock.js";
 import { checkWatchlistAlerts } from "./jobs/watchlistCheck.js";
+import { runMetaSnapshotJob } from "./jobs/metaSnapshotJob.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerCollectionRoutes } from "./routes/collection.js";
 import { registerDeckAdvisorRoutes } from "./routes/deckAdvisor.js";
@@ -168,6 +169,21 @@ if (process.env.ENABLE_WATCHLIST_CHECK !== "false") {
     });
     if (!ran) console.log("[watchlist-check] Another instance is handling this cycle.");
   }, 60 * 60 * 1000);
+}
+
+// ── Meta snapshot job (nightly) ──
+const NIGHTLY_MS = 24 * 60 * 60 * 1000;
+if (process.env.ENABLE_META_SNAPSHOT !== "false") {
+  runMetaSnapshotJob().catch((err) => console.error("[meta-snapshot] Boot run failed:", err));
+  setInterval(async () => {
+    const ran = await withAdvisoryLock("metaSnapshot", async () => {
+      await runMetaSnapshotJob();
+    }).catch((err) => {
+      console.error("[meta-snapshot] Lock error:", err);
+      return false;
+    });
+    if (!ran) console.log("[meta-snapshot] Another instance is handling this cycle.");
+  }, NIGHTLY_MS);
 }
 
 // ── Start server ──
