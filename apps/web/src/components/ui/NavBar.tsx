@@ -97,12 +97,12 @@ export function NavBar({ user }: { user: { email?: string } | null }) {
             className="w-8 h-8 flex items-center justify-center rounded-[9px] text-[11px] font-black text-white"
             style={{
               background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-text) 100%)",
-              boxShadow: "0 2px 8px var(--accent-light, rgba(201,168,76,0.3)), inset 0 1px 0 rgba(255,255,255,0.2)",
+              boxShadow: "0 2px 8px rgba(13,148,136,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}
           >
             CE
           </span>
-          <span className="font-display">Card Engine</span>
+          <span className="font-semibold tracking-tight">Card Engine</span>
         </Link>
 
         <div className="flex items-center gap-1">
@@ -146,7 +146,7 @@ export function NavBar({ user }: { user: { email?: string } | null }) {
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm"
                 style={{
                   background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
-                  boxShadow: "0 2px 8px rgba(201,168,76,0.3)",
+                  boxShadow: "0 2px 8px rgba(13,148,136,0.3)",
                 }}
               >
                 Get started

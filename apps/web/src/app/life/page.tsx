@@ -285,7 +285,7 @@ function GameSetup({ state, dispatch }: { state: GameState; dispatch: React.Disp
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-10">
-        <h1 className="font-display font-extrabold text-5xl text-white leading-none mb-2">Life Counter</h1>
+        <h1 className="font-extrabold text-5xl text-white leading-none mb-2">Life Counter</h1>
         <p className="text-sm text-muted">Set up your game, then start the clock</p>
       </div>
 
@@ -357,7 +357,7 @@ function GameSetup({ state, dispatch }: { state: GameState; dispatch: React.Disp
       {/* Start */}
       <button
         onClick={() => dispatch({ type: "START_GAME" })}
-        className="w-full py-4 rounded-2xl text-lg font-display font-bold text-white transition-all"
+        className="w-full py-4 rounded-2xl text-lg font-bold text-white transition-all"
         style={{
           background: "linear-gradient(135deg, #f59e0b 0%, #ff0080 100%)",
           boxShadow: "0 0 30px rgba(245,158,11,0.25), 0 0 60px rgba(255,0,128,0.15)",
@@ -591,7 +591,7 @@ export default function LifePage() {
       <div className="p-6 max-w-lg mx-auto text-center">
         <div className="glass rounded-2xl p-12" style={{ border: "1px solid rgba(245,158,11,0.3)", boxShadow: "0 0 60px rgba(245,158,11,0.15)" }}>
           <p className="text-6xl mb-4">🏆</p>
-          <h2 className="font-display font-extrabold text-3xl text-white mb-2">Game Over!</h2>
+          <h2 className="font-extrabold text-3xl text-white mb-2">Game Over!</h2>
           {winner && (
             <p className="text-xl font-bold mb-6" style={{ color: winner.color }}>{winner.name} wins!</p>
           )}

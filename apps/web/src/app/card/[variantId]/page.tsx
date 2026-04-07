@@ -863,7 +863,7 @@ export default function CardDetailPage() {
             {/* Name, mana, type */}
             <div className="animate-slide-up">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-bold text-text-primary font-display">
+                <h1 className="text-3xl font-bold text-text-primary">
                   {card.name}
                 </h1>
                 {card.manaCost && <ManaCost cost={card.manaCost} />}

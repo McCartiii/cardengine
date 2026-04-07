@@ -14,6 +14,13 @@ interface SetSymbolProps {
 // Module-level cache — persists for the page session
 const svgCache = new Map<string, string>();
 
+function sanitizeSvg(svgText: string): string {
+  return svgText
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/\s+on\w+="[^"]*"/gi, "")
+    .replace(/javascript:/gi, "blocked:");
+}
+
 function injectRarityColor(svgText: string, color: string): string {
   // Remove width/height attributes so the SVG scales via CSS
   let result = svgText
@@ -22,9 +29,9 @@ function injectRarityColor(svgText: string, color: string): string {
 
   // Inject fill color — preserve fill="none" for stroke-only paths
   result = result
-    .replace(/fill="(?!none")([^"]*)"/g, `fill="${color}"`)
+    .replace(/fill="(?!none\b)([^"]*)"/g, `fill="${color}"`)
     .replace(/fill:(?!\s*none)\s*[^;"}]*/g, `fill:${color}`)
-    .replace(/stroke="(?!none")([^"]*)"/g, `stroke="${color}"`)
+    .replace(/stroke="(?!none\b)([^"]*)"/g, `stroke="${color}"`)
     .replace(/stroke:(?!\s*none)\s*[^;"}]*/g, `stroke:${color}`);
 
   return result;
@@ -38,10 +45,15 @@ export function SetSymbol({ setCode, rarity, size = 14, className = "" }: SetSym
 
   useEffect(() => {
     const code = setCode.toLowerCase();
+    if (!/^[a-z0-9_-]{1,12}$/.test(code)) return;
     const cacheKey = `${code}:${color}`;
 
+    let mounted = true;
+
     if (svgCache.has(cacheKey)) {
-      setSvgContent(svgCache.get(cacheKey)!);
+      const cached = svgCache.get(cacheKey)!;
+      // Defer to avoid calling setState synchronously inside useEffect
+      Promise.resolve().then(() => { if (mounted) setSvgContent(cached); });
       return;
     }
 
@@ -57,14 +69,16 @@ export function SetSymbol({ setCode, rarity, size = 14, className = "" }: SetSym
       })
       .then((text) => {
         const colored = injectRarityColor(text, color);
-        svgCache.set(cacheKey, colored);
-        setSvgContent(colored);
+        const safe = sanitizeSvg(colored);
+        svgCache.set(cacheKey, safe);
+        if (mounted) setSvgContent(safe);
       })
-      .catch(() => {
-        // Silently fall back to null — caller renders nothing or a fallback
-      });
+      .catch(() => {});
 
-    return () => abortRef.current?.abort();
+    return () => {
+      mounted = false;
+      abortRef.current?.abort();
+    };
   }, [setCode, color]);
 
   if (!svgContent) {

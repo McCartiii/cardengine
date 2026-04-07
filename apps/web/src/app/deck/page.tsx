@@ -606,7 +606,7 @@ export default function DeckEditorPage() {
             type="text"
             value={deckName}
             onChange={(e) => setDeckName(e.target.value)}
-            className="text-2xl font-bold font-display bg-transparent text-text-primary border-none outline-none"
+            className="text-2xl font-bold bg-transparent text-text-primary border-none outline-none"
           />
           <select
             value={format}
@@ -1122,7 +1122,7 @@ export default function DeckEditorPage() {
                     <div className="rounded-lg bg-surface-sunken p-2 font-mono">
                       4 Lightning Bolt<br />
                       2 Counterspell<br />
-                      // Sideboard<br />
+                      {"// Sideboard"}<br />
                       2 Pyroblast
                     </div>
                     <div className="rounded-lg bg-surface-sunken p-2 font-mono">

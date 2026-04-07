@@ -84,7 +84,7 @@ export default async function Home() {
       <main className="mx-auto flex max-w-6xl flex-1 flex-col items-center px-6 py-20 text-center">
         {/* Hero */}
         <div className="animate-fade-in">
-          <h1 className="font-display max-w-2xl text-5xl font-bold tracking-tight text-text-primary leading-[1.1]">
+          <h1 className="max-w-2xl text-5xl font-bold tracking-tight text-text-primary leading-[1.1]">
             Manage your MTG collection with{" "}
             <span style={{ color: "var(--accent)" }}>precision</span>
           </h1>
@@ -101,7 +101,7 @@ export default async function Home() {
               className="rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
               style={{
                 background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
-                boxShadow: "0 2px 10px rgba(201,168,76,0.3)",
+                boxShadow: "0 2px 10px rgba(13,148,136,0.35)",
               }}
             >
               Go to Collection
@@ -113,7 +113,7 @@ export default async function Home() {
                 className="rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
                 style={{
                   background: "linear-gradient(135deg, var(--accent), var(--accent-text))",
-                  boxShadow: "0 2px 10px rgba(201,168,76,0.3)",
+                  boxShadow: "0 2px 10px rgba(13,148,136,0.35)",
                 }}
               >
                 Create free account
@@ -145,7 +145,7 @@ export default async function Home() {
               >
                 {feature.icon}
               </div>
-              <h3 className="font-display mt-4 text-base font-semibold text-text-primary">
+              <h3 className="mt-4 text-base font-semibold text-text-primary">
                 {feature.title}
               </h3>
               <p className="mt-2 text-sm text-text-secondary leading-relaxed">

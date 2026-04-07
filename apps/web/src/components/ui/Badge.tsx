@@ -62,10 +62,10 @@ const rarityConfig = {
     rarity: "mythic" as const,
   },
   rare: {
-    bg: "rgba(201,168,76,0.10)",
-    border: "rgba(201,168,76,0.30)",
+    bg: "rgba(13,148,136,0.10)",
+    border: "rgba(13,148,136,0.30)",
     color: "var(--rarity-rare)",
-    shadow: "0 1px 4px rgba(201,168,76,0.20), inset 0 1px 0 rgba(255,255,255,0.12)",
+    shadow: "0 1px 4px rgba(13,148,136,0.20), inset 0 1px 0 rgba(255,255,255,0.12)",
     rarity: "rare" as const,
   },
   uncommon: {

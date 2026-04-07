@@ -180,7 +180,7 @@ export default function CollectionPage() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="animate-fade-in">
-          <h1 className="text-3xl font-extrabold tracking-tight text-text-primary font-display">
+          <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">
             Collection
           </h1>
           <p className="mt-1 text-text-secondary">Browse, search, and manage your cards</p>
@@ -282,7 +282,7 @@ export default function CollectionPage() {
                 )}
                 <div className="flex flex-1 flex-col justify-between min-w-0">
                   <div>
-                    <h3 className="font-semibold text-text-primary truncate font-display">
+                    <h3 className="font-semibold text-text-primary truncate">
                       {card.name}
                     </h3>
                     <p className="mt-0.5 text-xs text-text-secondary">

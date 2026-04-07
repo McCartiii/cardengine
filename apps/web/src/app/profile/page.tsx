@@ -25,16 +25,16 @@ export default function ProfilePage() {
   return (
     <div className="p-8 max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-display font-extrabold text-4xl text-white leading-none mb-2">Profile</h1>
+        <h1 className="font-extrabold text-4xl text-white leading-none mb-2">Profile</h1>
         <p className="text-sm" style={{ color: "#3d5068" }}>Your account settings</p>
       </div>
       <div className="glass rounded-3xl p-8 mb-6 flex items-center gap-6 animate-enter" style={{ border: "1px solid rgba(0,212,255,0.1)" }}>
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-display font-extrabold text-2xl shrink-0"
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-extrabold text-2xl shrink-0"
           style={{ background: "linear-gradient(135deg, #00d4ff 0%, #7c3aed 50%, #ff0080 100%)", backgroundSize: "200%", animation: "holo-shift 4s linear infinite", boxShadow: "0 0 30px rgba(0,212,255,0.3)", color: "#fff" }}>
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-display font-bold text-xl text-white">{data?.displayName ?? "—"}</p>
+          <p className="font-bold text-xl text-white">{data?.displayName ?? "—"}</p>
           <p className="text-sm mt-1 truncate" style={{ color: "#3d5068" }}>{user?.email}</p>
           <p className="text-xs mt-2" style={{ color: "#3d5068" }}>Joined {data?.createdAt ? new Date(data.createdAt).toLocaleDateString() : "—"}</p>
         </div>

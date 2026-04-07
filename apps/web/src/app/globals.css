@@ -1,196 +1,126 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   Card Engine — Warm TCG Design Tokens
+   Card Engine — Dark Slate + Teal Design Tokens
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
   /* Surfaces */
-  --bg:              #F6F2EC;
-  --surface:         #FDFAF6;
-  --surface-raised:  #FFFFFF;
-  --surface-sunken:  #EDE7DC;
+  --bg:             #0F1117;
+  --surface:        #161B27;
+  --surface-raised: #1E2535;
+  --surface-sunken: #0A0D13;
 
   /* Text */
-  --text-primary:   #18150F;
-  --text-secondary: #6B5D4F;
-  --text-muted:     #A8937C;
-  --text-inverse:   #FFFFFF;
+  --text-primary:   #E2E8F0;
+  --text-secondary: #94A3B8;
+  --text-muted:     #475569;
+  --text-inverse:   #0F1117;
 
   /* Borders */
-  --border:        #DDD5C8;
-  --border-strong: #C4B49A;
-  --border-focus:  #C9A84C;
+  --border:        #1E2D3D;
+  --border-strong: #2D4059;
+  --border-focus:  #0D9488;
 
-  /* Gold accent */
-  --accent:       #C9A84C;
-  --accent-hover: #A87C28;
-  --accent-light: #FFF8E1;
-  --accent-text:  #8B7030;
+  /* Teal accent */
+  --accent:       #0D9488;
+  --accent-hover: #14B8A6;
+  --accent-light: #0D3330;
+  --accent-text:  #2DD4BF;
 
   /* Per-tab colors */
-  --tab-collection: #059669;
-  --tab-collection-bg: #ECFDF5;
-  --tab-scan: #E11D48;
-  --tab-scan-bg: #FFF1F2;
-  --tab-deck: #7C3AED;
-  --tab-deck-bg: #F5F3FF;
-  --tab-map: #0284C7;
-  --tab-map-bg: #E0F2FE;
-  --tab-watchlist: #D97706;
-  --tab-watchlist-bg: #FFFBEB;
-  --tab-settings: #475569;
-  --tab-settings-bg: #F1F5F9;
+  --tab-collection: #22C55E;  --tab-collection-bg: #0C2018;
+  --tab-scan:       #F43F5E;  --tab-scan-bg:       #2A0A12;
+  --tab-deck:       #818CF8;  --tab-deck-bg:       #1A1B3A;
+  --tab-map:        #38BDF8;  --tab-map-bg:        #082030;
+  --tab-watchlist:  #FB923C;  --tab-watchlist-bg:  #2A1608;
+  --tab-settings:   #94A3B8;  --tab-settings-bg:   #141C28;
 
   /* Semantic */
-  --success: #10B981;
-  --success-light: #ECFDF5;
-  --success-text: #065F46;
-  --danger: #EF4444;
-  --danger-light: #FEF2F2;
-  --danger-text: #991B1B;
-  --warning: #F59E0B;
-  --warning-light: #FFFBEB;
-  --warning-text: #92400E;
+  --success:      #22C55E;
+  --success-light: #0C2018;
+  --success-text:  #86EFAC;
+  --danger:       #F43F5E;
+  --danger-light:  #2A0A12;
+  --danger-text:   #FDA4AF;
+  --warning:      #FB923C;
+  --warning-light: #2A1608;
+  --warning-text:  #FED7AA;
 
   /* Mana colors */
-  --mana-W: #F9F3E3; --mana-W-text: #92700C;
-  --mana-U: #DBEAFE; --mana-U-text: #1E40AF;
-  --mana-B: #E5E5E5; --mana-B-text: #374151;
-  --mana-R: #FEE2E2; --mana-R-text: #991B1B;
-  --mana-G: #DCFCE7; --mana-G-text: #166534;
+  --mana-W: #2A2510; --mana-W-text: #FDE68A;
+  --mana-U: #0F1E35; --mana-U-text: #93C5FD;
+  --mana-B: #1A1225; --mana-B-text: #C4B5D4;
+  --mana-R: #2A0E0E; --mana-R-text: #FCA5A5;
+  --mana-G: #0A1F0E; --mana-G-text: #86EFAC;
 
-  /* Identity tints — applied via inline styles on card containers */
-  --id-W-tint:   #FFFDF0; --id-W-border:  #EDD87A; --id-W-glow: rgba(234,179,8,0.18);
-  --id-U-tint:   #EFF6FF; --id-U-border:  #93C5FD; --id-U-glow: rgba(59,130,246,0.18);
-  --id-B-tint:   #F5F3F8; --id-B-border:  #C4B5D4; --id-B-glow: rgba(109,40,217,0.14); /* intentionally softer — dark identity is subtle */
-  --id-R-tint:   #FFF5F2; --id-R-border:  #FCA5A5; --id-R-glow: rgba(239,68,68,0.18);
-  --id-G-tint:   #F0FBF3; --id-G-border:  #86EFAC; --id-G-glow: rgba(34,197,94,0.18);
-  --id-multi-tint:  #FFFBF0; --id-multi-border: #E8D5A0; --id-multi-glow: rgba(201,168,76,0.18);
-  --id-C-tint:   #F8F7F5; --id-C-border:  #D1C9BE; --id-C-glow: rgba(168,147,124,0.12);
+  /* Identity tints — card container backgrounds by color identity */
+  --id-W-tint:      #1A1810; --id-W-border:      #4A4020; --id-W-glow:      rgba(253,230,138,0.15);
+  --id-U-tint:      #0D1824; --id-U-border:      #1E3A5F; --id-U-glow:      rgba(147,197,253,0.15);
+  --id-B-tint:      #110E1C; --id-B-border:      #2D1B4E; --id-B-glow:      rgba(196,181,212,0.12);
+  --id-R-tint:      #1C0E0E; --id-R-border:      #5C1A1A; --id-R-glow:      rgba(252,165,165,0.15);
+  --id-G-tint:      #0A160D; --id-G-border:      #14532D; --id-G-glow:      rgba(134,239,172,0.15);
+  --id-multi-tint:  #1A1508; --id-multi-border:  #5C4A1A; --id-multi-glow:  rgba(253,230,138,0.15);
+  --id-C-tint:      #111520; --id-C-border:      #1E2D3D; --id-C-glow:      rgba(148,163,184,0.10);
 
   /* Market colors */
-  --market-tcg: #C9A84C; --market-tcg-bg: #FFF8E1;
-  --market-mkm: #10B981; --market-mkm-bg: #ECFDF5;
-  --market-ck:  #3B82F6; --market-ck-bg:  #EFF6FF;
-  --market-ebay: #EF4444; --market-ebay-bg: #FEF2F2;
-  --market-mtgo: #F59E0B; --market-mtgo-bg: #FFFBEB;
+  --market-tcg:  #FB923C; --market-tcg-bg:  #2A1608;
+  --market-mkm:  #22C55E; --market-mkm-bg:  #0C2018;
+  --market-ck:   #60A5FA; --market-ck-bg:   #0C1C38;
+  --market-ebay: #F43F5E; --market-ebay-bg: #2A0A12;
+  --market-mtgo: #A78BFA; --market-mtgo-bg: #1A1030;
 
   /* Rarity */
-  --rarity-mythic: #FB923C; --rarity-mythic-bg: #FFF4E6;
-  --rarity-rare:   #C9A84C; --rarity-rare-bg:   #FFFBEB;
-  --rarity-uncommon: #94A3B8; --rarity-uncommon-bg: #F1F5F9;
-  --rarity-common:   #6B7280; --rarity-common-bg:   #F3F4F6;
-
-  /* Radius */
-  --radius-sm: 6px; --radius-md: 10px;
-  --radius-lg: 14px; --radius-xl: 20px; --radius-full: 9999px;
+  --rarity-mythic:       #FB923C; --rarity-mythic-bg:    #2A1206;
+  --rarity-rare:         #FBBF24; --rarity-rare-bg:      #261E06;
+  --rarity-uncommon:     #94A3B8; --rarity-uncommon-bg:  #141C28;
+  --rarity-common:       #475569; --rarity-common-bg:    #0E1420;
 
   /* Shadows */
-  --shadow-card:       0 2px 8px rgba(24,21,15,0.07), 0 1px 2px rgba(24,21,15,0.04);
-  --shadow-card-hover: 0 14px 36px rgba(24,21,15,0.14), 0 4px 10px rgba(24,21,15,0.07);
-  --shadow-elevated:   0 8px 24px rgba(24,21,15,0.12), 0 2px 8px rgba(24,21,15,0.06);
-  --shadow-modal:      0 16px 48px rgba(24,21,15,0.16), 0 4px 16px rgba(24,21,15,0.08);
-}
+  --shadow-card:       0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-card-hover: 0 20px 40px rgba(0,0,0,0.7), 0 8px 16px rgba(0,0,0,0.5);
+  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-modal:      0 24px 64px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5);
 
-.dark {
-  --bg:              #0D0B09;
-  --surface:         #161310;
-  --surface-raised:  #1E1A16;
-  --surface-sunken:  #0A0807;
-
-  --text-primary:   #F2ECE4;
-  --text-secondary: #A89880;
-  --text-muted:     #665A4A;
-  --text-inverse:   #0D0B09;
-
-  --border:        #2A2420;
-  --border-strong: #3D352C;
-  --border-focus:  #C9A84C;
-
-  --accent:       #C9A84C;
-  --accent-hover: #E8C96C;
-  --accent-light: #2A1F06;
-  --accent-text:  #E8C96C;
-
-  --tab-collection: #34D399; --tab-collection-bg: #064E3B;
-  --tab-scan:       #FB7185; --tab-scan-bg:       #4C0519;
-  --tab-deck:       #A78BFA; --tab-deck-bg:       #2E1065;
-  --tab-map:        #38BDF8; --tab-map-bg:        #0C4A6E;
-  --tab-watchlist:  #C9A84C; --tab-watchlist-bg:  #2A1F06;
-  --tab-settings:   #94A3B8; --tab-settings-bg:   #1E293B;
-
-  --success: #34D399; --success-light: #064E3B; --success-text: #6EE7B7;
-  --danger:  #F87171; --danger-light:  #450A0A; --danger-text:  #FCA5A5;
-  --warning: #FBBF24; --warning-light: #451A03; --warning-text: #FDE68A;
-
-  --mana-W: #422006; --mana-W-text: #FDE68A;
-  --mana-U: #1E3A5F; --mana-U-text: #93C5FD;
-  --mana-B: #374151; --mana-B-text: #D1D5DB;
-  --mana-R: #450A0A; --mana-R-text: #FCA5A5;
-  --mana-G: #052E16; --mana-G-text: #86EFAC;
-
-  --id-W-tint:   #1A1708; --id-W-border:  #5C4E10; --id-W-glow: rgba(234,179,8,0.20);
-  --id-U-tint:   #091524; --id-U-border:  #1E3A5F; --id-U-glow: rgba(59,130,246,0.20);
-  --id-B-tint:   #100D18; --id-B-border:  #2D1B4E; --id-B-glow: rgba(109,40,217,0.20);
-  --id-R-tint:   #1A0A07; --id-R-border:  #5C1A1A; --id-R-glow: rgba(239,68,68,0.20);
-  --id-G-tint:   #081409; --id-G-border:  #14532D; --id-G-glow: rgba(34,197,94,0.20);
-  --id-multi-tint:  #1A1608; --id-multi-border: #5C4A1A; --id-multi-glow: rgba(201,168,76,0.20);
-  --id-C-tint:   #111009; --id-C-border:  #2A2420; --id-C-glow: rgba(168,147,124,0.14);
-
-  --market-tcg: #C9A84C; --market-tcg-bg: #2A1F06;
-  --market-mkm: #34D399; --market-mkm-bg: #064E3B;
-  --market-ck:  #60A5FA; --market-ck-bg:  #1E3A5F;
-  --market-ebay: #F87171; --market-ebay-bg: #450A0A;
-  --market-mtgo: #C9A84C; --market-mtgo-bg: #2A1F06;
-
-  --rarity-mythic: #FB923C; --rarity-mythic-bg: #431407;
-  --rarity-rare:   #C9A84C; --rarity-rare-bg:   #2A1F06;
-  --rarity-uncommon: #94A3B8; --rarity-uncommon-bg: #374151;
-  --rarity-common:   #6B7280; --rarity-common-bg:   #1F2937;
-
-  --shadow-card:       0 2px 8px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.18);
-  --shadow-card-hover: 0 14px 36px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.32);
-  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.28);
-  --shadow-modal:      0 16px 48px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.32);
+  /* Surface overlay for frosted glass */
+  --surface-overlay: rgba(22,27,39,0.92);
 }
 
 /* ─── Tailwind theme inline ─── */
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-surface-sunken: var(--surface-sunken);
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-light: var(--accent-light);
-  --color-accent-text: var(--accent-text);
-  --color-success: var(--success);
-  --color-success-light: var(--success-light);
-  --color-danger: var(--danger);
-  --color-danger-light: var(--danger-light);
-  --color-warning: var(--warning);
-  --color-warning-light: var(--warning-light);
-  --color-tab-collection: var(--tab-collection);
+  --color-bg:              var(--bg);
+  --color-surface:         var(--surface);
+  --color-surface-raised:  var(--surface-raised);
+  --color-surface-sunken:  var(--surface-sunken);
+  --color-text-primary:    var(--text-primary);
+  --color-text-secondary:  var(--text-secondary);
+  --color-text-muted:      var(--text-muted);
+  --color-border:          var(--border);
+  --color-border-strong:   var(--border-strong);
+  --color-accent:          var(--accent);
+  --color-accent-hover:    var(--accent-hover);
+  --color-accent-light:    var(--accent-light);
+  --color-accent-text:     var(--accent-text);
+  --color-success:         var(--success);
+  --color-success-light:   var(--success-light);
+  --color-danger:          var(--danger);
+  --color-danger-light:    var(--danger-light);
+  --color-warning:         var(--warning);
+  --color-warning-light:   var(--warning-light);
+  --color-tab-collection:    var(--tab-collection);
   --color-tab-collection-bg: var(--tab-collection-bg);
-  --color-tab-scan: var(--tab-scan);
-  --color-tab-scan-bg: var(--tab-scan-bg);
-  --color-tab-deck: var(--tab-deck);
-  --color-tab-deck-bg: var(--tab-deck-bg);
-  --color-tab-map: var(--tab-map);
-  --color-tab-map-bg: var(--tab-map-bg);
-  --color-tab-watchlist: var(--tab-watchlist);
-  --color-tab-watchlist-bg: var(--tab-watchlist-bg);
-  --color-tab-settings: var(--tab-settings);
-  --color-tab-settings-bg: var(--tab-settings-bg);
+  --color-tab-scan:          var(--tab-scan);
+  --color-tab-scan-bg:       var(--tab-scan-bg);
+  --color-tab-deck:          var(--tab-deck);
+  --color-tab-deck-bg:       var(--tab-deck-bg);
+  --color-tab-map:           var(--tab-map);
+  --color-tab-map-bg:        var(--tab-map-bg);
+  --color-tab-watchlist:     var(--tab-watchlist);
+  --color-tab-watchlist-bg:  var(--tab-watchlist-bg);
+  --color-tab-settings:      var(--tab-settings);
+  --color-tab-settings-bg:   var(--tab-settings-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-cinzel);
 }
 
 /* ─── Base styles ─── */
@@ -205,27 +135,27 @@ body {
 /* ─── Keyframe Animations ─── */
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
 
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50%       { opacity: 0.6; }
 }
 
 @keyframes mythic-pulse {
@@ -234,17 +164,9 @@ body {
 }
 
 /* ─── Utility animation classes ─── */
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out both;
-}
-
-.animate-slide-up {
-  animation: slideUp 0.4s ease-out both;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.3s ease-out both;
-}
+.animate-fade-in   { animation: fadeIn  0.3s ease-out both; }
+.animate-slide-up  { animation: slideUp 0.4s ease-out both; }
+.animate-scale-in  { animation: scaleIn 0.3s ease-out both; }
 
 .animate-shimmer {
   background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--surface) 50%, var(--surface-sunken) 75%);
@@ -252,37 +174,28 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-.animate-pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
-}
+.animate-pulse-soft  { animation: pulse-soft   2s ease-in-out infinite; }
+.animate-mythic-pulse { animation: mythic-pulse 2s ease-in-out infinite; }
 
-.animate-mythic-pulse {
-  animation: mythic-pulse 2s ease-in-out infinite;
-}
-
-/* Staggered animation delays for lists */
+/* Staggered animation delays */
 .stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.10s; }
 .stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.2s; }
+.stagger-4 { animation-delay: 0.20s; }
 .stagger-5 { animation-delay: 0.25s; }
-.stagger-6 { animation-delay: 0.3s; }
+.stagger-6 { animation-delay: 0.30s; }
 
 /* ─── Card hover lift ─── */
 .card-hover {
   transition: box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-              transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+              transform   0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .card-hover:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-5px) scale(1.02);
+  box-shadow: var(--shadow-card-hover), 0 0 0 1px var(--border-strong);
+  transform: translateY(-3px) scale(1.015);
 }
 
 /* ─── Typography utilities ─── */
-.font-display {
-  font-family: var(--font-display), 'Cinzel', serif;
-  letter-spacing: -0.01em;
-}
 .font-stat {
   font-family: var(--font-geist-mono), 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;

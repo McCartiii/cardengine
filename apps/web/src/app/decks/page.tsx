@@ -34,7 +34,7 @@ export default function DecksPage() {
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-end justify-between mb-8">
         <div>
-          <h1 className="font-display font-extrabold text-4xl text-white leading-none mb-2">Decks</h1>
+          <h1 className="font-extrabold text-4xl text-white leading-none mb-2">Decks</h1>
           <p className="text-sm" style={{ color: "#3d5068" }}>Build and manage your decks</p>
         </div>
         <button onClick={() => setShowModal(true)} className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
@@ -47,7 +47,7 @@ export default function DecksPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[1,2,3,4,5,6].map(i => <div key={i} className="skeleton h-36 rounded-2xl" />)}</div>
       ) : decks.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center" style={{ border: "1px solid rgba(0,212,255,0.08)" }}>
-          <p className="font-display font-bold text-lg text-white mb-1">No decks yet</p>
+          <p className="font-bold text-lg text-white mb-1">No decks yet</p>
           <p className="text-sm mb-6" style={{ color: "#3d5068" }}>Create your first deck to get started</p>
           <button onClick={() => setShowModal(true)} className="inline-flex px-5 py-2.5 rounded-xl text-sm font-bold"
             style={{ background: "rgba(0,212,255,0.1)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.2)" }}>Create Deck</button>
@@ -86,7 +86,7 @@ export default function DecksPage() {
           style={{ background: "rgba(6,8,16,0.85)", backdropFilter: "blur(8px)" }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
           <div className="glass rounded-3xl p-7 w-full max-w-sm animate-enter" style={{ border: "1px solid rgba(0,212,255,0.15)" }}>
-            <h2 className="font-display font-bold text-xl text-white mb-5">New Deck</h2>
+            <h2 className="font-bold text-xl text-white mb-5">New Deck</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3d5068" }}>NAME</label>
