@@ -24,16 +24,21 @@ export function parseDecklistText(text: string): ParsedDeckEntry[] {
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();
     if (!line || line.startsWith("//")) {
-      if (line.toLowerCase().includes("sideboard")) currentSection = "sideboard";
-      if (line.toLowerCase().includes("commander")) currentSection = "commander";
+      const stripped = line.replace(/^\/\/\s*/, "").toLowerCase().trim();
+      if (stripped === "sideboard") currentSection = "sideboard";
+      else if (stripped === "commander") currentSection = "commander";
       continue;
     }
 
-    const sectionMarker = line.replace(":", "").toLowerCase();
-    if (sectionMarker === "commander") { currentSection = "commander"; continue; }
-    if (sectionMarker === "deck" || sectionMarker === "mainboard") { currentSection = "mainboard"; continue; }
-    if (sectionMarker === "sideboard") { currentSection = "sideboard"; continue; }
-    if (sectionMarker === "companion") { currentSection = "companion"; continue; }
+    const sectionMatch = /^(COMMANDER|DECK|MAINBOARD|SIDEBOARD|COMPANION):$/i.exec(line.trim());
+    if (sectionMatch) {
+      const key = sectionMatch[1].toLowerCase();
+      if (key === "commander") currentSection = "commander";
+      else if (key === "deck" || key === "mainboard") currentSection = "mainboard";
+      else if (key === "sideboard") currentSection = "sideboard";
+      else if (key === "companion") currentSection = "companion";
+      continue;
+    }
 
     const match = line.match(/^(\d+)x?\s+(.+)$/);
     if (!match) continue;
@@ -104,15 +109,15 @@ async function importArchidekt(url: string): Promise<ParsedDeckEntry[]> {
     let section: ParsedDeckEntry["section"] = "mainboard";
     if (categories.some((cat) => cat.toLowerCase() === "commander")) section = "commander";
     else if (categories.some((cat) => cat.toLowerCase() === "sideboard")) section = "sideboard";
+    else if (categories.some((cat) => cat.toLowerCase() === "companion")) section = "companion";
 
-    const card = c.card as Record<string, unknown>;
-    const oracleCard = card.oracleCard as Record<string, unknown>;
-    return {
-      name: oracleCard.name as string,
-      quantity: c.quantity as number,
-      section,
-    };
-  });
+    const card = c.card as Record<string, unknown> | undefined;
+    const oracleCard = card?.oracleCard as Record<string, unknown> | undefined;
+    const name = oracleCard?.name as string | undefined;
+    const qty = c.quantity as number | undefined;
+    if (!name || !qty) return null;
+    return { name, quantity: qty, section };
+  }).filter((e): e is ParsedDeckEntry => e !== null);
 }
 
 async function importMtgGoldfish(url: string): Promise<ParsedDeckEntry[]> {
