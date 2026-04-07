@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SetSymbol } from "@/components/ui/SetSymbol";
+import { CardImage } from "@/components/ui/CardImage";
 import { getIdentityStyle } from "@/lib/identity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -822,10 +823,11 @@ export default function CardDetailPage() {
                 className="rounded-xl overflow-hidden"
                 style={getIdentityStyle(card.colorIdentity ?? [])}
               >
-                <img
+                <CardImage
                   src={card.imageUri}
                   alt={card.name}
                   className="w-full max-w-[320px] rounded-2xl shadow-[var(--shadow-elevated)]"
+                  wrapperClassName="rounded-2xl max-w-[320px] w-full"
                 />
               </div>
             ) : (
@@ -1176,11 +1178,11 @@ export default function CardDetailPage() {
                       className="group overflow-hidden rounded-xl border border-border transition-all hover:border-accent hover:shadow-[var(--shadow-card-hover)] card-hover"
                     >
                       {p.imageUri ? (
-                        <img
+                        <CardImage
                           src={p.imageUri}
                           alt={`${p.name} (${p.setId?.toUpperCase()})`}
                           className="w-full"
-                          loading="lazy"
+                          wrapperClassName="w-full rounded-xl"
                         />
                       ) : (
                         <div className="flex h-24 items-center justify-center bg-surface-sunken">

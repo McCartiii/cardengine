@@ -42,6 +42,7 @@ interface HoloCardProps {
 export function HoloCard({ rarity = "common", children, className = "" }: HoloCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const foilRef = useRef<HTMLDivElement>(null);
+  const foilOverlayRef = useRef<HTMLDivElement>(null);
   const foil = FOIL[rarity.toLowerCase()] ?? DEFAULT_FOIL;
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -62,6 +63,8 @@ export function HoloCard({ rarity = "common", children, className = "" }: HoloCa
     // Move foil highlight with cursor
     foilEl.style.backgroundPosition = `${x * 100}% ${y * 100}%`;
     foilEl.style.opacity = "1";
+
+    foilOverlayRef.current?.classList.add('foil-visible');
   }, [foil]);
 
   const handleMouseLeave = useCallback(() => {
@@ -71,6 +74,8 @@ export function HoloCard({ rarity = "common", children, className = "" }: HoloCa
     el.style.transform = "perspective(900px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)";
     el.style.boxShadow = "0 4px 20px rgba(0,0,0,0.5)";
     foilEl.style.opacity = "0";
+
+    foilOverlayRef.current?.classList.remove('foil-visible');
   }, []);
 
   return (
@@ -85,7 +90,13 @@ export function HoloCard({ rarity = "common", children, className = "" }: HoloCa
       onMouseLeave={handleMouseLeave}
     >
       {children}
-      {/* Foil overlay */}
+      {/* Rainbow conic foil — activates via foil-visible class toggled by JS */}
+      <div
+        ref={foilOverlayRef}
+        className="pointer-events-none absolute inset-0 card-foil-overlay"
+        style={{ borderRadius: "inherit", zIndex: 9 }}
+      />
+      {/* Rarity-tinted shimmer — moves with cursor position */}
       <div
         ref={foilRef}
         className="pointer-events-none absolute inset-0 transition-opacity duration-300"

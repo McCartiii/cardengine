@@ -15,13 +15,13 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm active:scale-[0.98]",
+    "btn-shimmer text-white active:scale-[0.98] hover:-translate-y-px",
   secondary:
-    "bg-surface-raised text-text-primary border border-border hover:border-border-strong hover:shadow-sm active:scale-[0.98]",
+    "bg-surface-raised text-text-primary border border-border hover:border-border-strong hover:-translate-y-px hover:shadow-sm active:scale-[0.98]",
   ghost:
     "bg-transparent text-text-secondary border border-border hover:bg-surface-sunken hover:text-text-primary active:scale-[0.98]",
   danger:
-    "bg-danger text-white hover:opacity-90 shadow-sm active:scale-[0.98]",
+    "btn-shimmer text-white active:scale-[0.98] hover:-translate-y-px",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -41,13 +41,26 @@ export function Button({
   style,
   ...props
 }: ButtonProps) {
+  const gradientStyle =
+    variant === "primary"
+      ? {
+          background: "linear-gradient(135deg, #0D9488, #14B8A6)",
+          boxShadow: "0 2px 12px rgba(13,148,136,0.45), inset 0 1px 0 rgba(255,255,255,0.12)",
+        }
+      : variant === "danger"
+      ? {
+          background: "linear-gradient(135deg, #F43F5E, #FB7185)",
+          boxShadow: "0 2px 12px rgba(244,63,94,0.35)",
+        }
+      : undefined;
+
   return (
     <button
       className={`inline-flex items-center justify-center font-semibold transition-all duration-150 cursor-pointer
         ${variantClasses[variant]} ${sizeClasses[size]}
         ${disabled || loading ? "opacity-50 pointer-events-none" : ""}
         ${className}`}
-      style={style}
+      style={{ ...gradientStyle, ...style }}
       disabled={disabled || loading}
       {...props}
     >

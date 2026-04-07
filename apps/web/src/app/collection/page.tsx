@@ -9,6 +9,7 @@ import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 import { getIdentityStyle } from "@/lib/identity";
+import { CardImage } from "@/components/ui/CardImage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -273,11 +274,11 @@ export default function CollectionPage() {
                 }}
               >
                 {card.imageUri && (
-                  <img
+                  <CardImage
                     src={card.imageUri}
                     alt={card.name}
                     className="h-32 w-auto rounded-lg shadow-sm"
-                    loading="lazy"
+                    wrapperClassName="rounded-lg"
                   />
                 )}
                 <div className="flex flex-1 flex-col justify-between min-w-0">
