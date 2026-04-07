@@ -33,7 +33,7 @@ export function CardImage({
 
   return (
     <div
-      className={`relative inline-block aspect-[5/7] ${foil ? "card-foil-hover" : ""} ${wrapperClassName}`}
+      className={`relative inline-block ${foil ? "card-foil-hover" : ""} ${wrapperClassName}`}
     >
       {/* Conic-spin loading overlay */}
       <div
