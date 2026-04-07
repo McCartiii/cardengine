@@ -85,7 +85,12 @@ export function HoloCard({ rarity = "common", children, className = "" }: HoloCa
       onMouseLeave={handleMouseLeave}
     >
       {children}
-      {/* Foil overlay */}
+      {/* Rainbow conic foil — activates via .card-foil-hover CSS class on hover */}
+      <div
+        className="pointer-events-none absolute inset-0 card-foil-hover"
+        style={{ borderRadius: "inherit", zIndex: 9 }}
+      />
+      {/* Rarity-tinted shimmer — moves with cursor position */}
       <div
         ref={foilRef}
         className="pointer-events-none absolute inset-0 transition-opacity duration-300"
