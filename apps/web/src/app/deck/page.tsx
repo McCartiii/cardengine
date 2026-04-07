@@ -12,6 +12,7 @@ import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DeckStatStrip } from "@/components/ui/DeckStatStrip";
+import { CardImage } from "@/components/ui/CardImage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -900,10 +901,12 @@ export default function DeckEditorPage() {
             {/* Card preview on hover */}
             {hoveredCard && (
               <div className="mt-3 animate-fade-in">
-                <img
+                <CardImage
                   src={hoveredCard}
                   alt="Card preview"
                   className="w-full rounded-xl shadow-[var(--shadow-card)]"
+                  wrapperClassName="w-full rounded-xl"
+                  foil={false}
                 />
               </div>
             )}
@@ -920,11 +923,12 @@ export default function DeckEditorPage() {
                     className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2 shadow-[var(--shadow-card)] card-hover"
                   >
                     {r.imageUri && (
-                      <img
+                      <CardImage
                         src={r.imageUri}
                         alt={r.name}
                         className="h-10 w-auto rounded"
-                        loading="lazy"
+                        wrapperClassName="rounded"
+                        foil={false}
                       />
                     )}
                     <div className="flex-1 min-w-0">
