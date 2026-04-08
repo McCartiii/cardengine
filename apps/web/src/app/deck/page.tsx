@@ -11,7 +11,6 @@ import { InputPanel } from "./components/InputPanel";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { DeckStatStrip } from "@/components/ui/DeckStatStrip";
 import { CardImage } from "@/components/ui/CardImage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -87,6 +86,34 @@ function parseCmc(manaCost: string): number {
   return total;
 }
 
+const FORMATS = ["standard", "modern", "pioneer", "legacy", "vintage", "commander", "pauper"] as const;
+
+function getTypeGroup(typeLine?: string): string {
+  if (!typeLine) return "Other";
+  const t = typeLine.toLowerCase();
+  if (t.includes("land")) return "Lands";
+  if (t.includes("creature")) return "Creatures";
+  if (t.includes("planeswalker")) return "Planeswalkers";
+  if (t.includes("instant")) return "Instants";
+  if (t.includes("sorcery")) return "Sorceries";
+  if (t.includes("artifact")) return "Artifacts";
+  if (t.includes("enchantment")) return "Enchantments";
+  return "Other";
+}
+
+const TYPE_ORDER = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Lands", "Other"];
+
+function SectionHeader({ label, count }: { label: string; count?: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
+        {label}{count != null ? ` (${count})` : ""}
+      </span>
+      <div className="flex-1 h-px bg-border/60" />
+    </div>
+  );
+}
+
 export default function DeckEditorPage() {
   const [user, setUser] = useState<{ email?: string } | null>(null);
   const [deckName, setDeckName] = useState("Untitled Deck");
@@ -156,6 +183,20 @@ export default function DeckEditorPage() {
     const mythics = mainDeckCards.filter((c) => c.rarity === "mythic").reduce((s, c) => s + c.quantity, 0);
     return { total, avgCmc, rares, mythics };
   }, [cards]);
+
+  const groupedMainCards = useMemo(() => {
+    const groups = new Map<string, DeckCard[]>();
+    for (const card of mainCards) {
+      const group = getTypeGroup(card.typeLine);
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group)!.push(card);
+    }
+    return TYPE_ORDER.filter((t) => groups.has(t)).map((t) => ({
+      name: t,
+      cards: groups.get(t)!,
+      count: groups.get(t)!.reduce((sum, c) => sum + c.quantity, 0),
+    }));
+  }, [mainCards]);
 
   // Load user for NavBar
   useEffect(() => {
@@ -683,41 +724,43 @@ export default function DeckEditorPage() {
     board: string;
   }) => (
     <div
-      className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2 shadow-[var(--shadow-card)] card-hover"
+      className="group flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface-raised transition-colors"
       onMouseEnter={() => setHoveredCard(card.imageUri ?? null)}
       onMouseLeave={() => setHoveredCard(null)}
     >
-      <button
-        onClick={() => removeCard(card.variantId, board)}
-        className="w-5 text-center text-xs text-text-muted opacity-0 transition hover:text-danger group-hover:opacity-100"
-      >
-        -
-      </button>
-      <span className="w-6 text-center text-sm font-mono font-bold text-text-primary">
+      <span className="w-5 text-center text-xs font-bold text-text-muted tabular-nums shrink-0 select-none">
         {card.quantity}
       </span>
       <Link
         href={`/card/${encodeURIComponent(card.variantId)}`}
-        className="flex-1 text-sm font-medium text-text-primary hover:text-tab-deck transition-colors"
+        className="flex-1 text-sm text-text-primary hover:text-tab-deck transition-colors truncate min-w-0"
       >
         {card.name}
       </Link>
       {card.manaCost && (
-        <span className="text-xs text-text-muted font-mono">
+        <span className="text-[11px] text-text-muted/50 font-mono shrink-0 group-hover:text-text-muted transition-colors">
           {formatMana(card.manaCost)}
         </span>
       )}
       {card.priceUsd != null && (
-        <span className="text-xs text-tab-deck tabular-nums">
+        <span className="text-xs text-text-muted/50 tabular-nums shrink-0 group-hover:text-text-muted transition-colors w-14 text-right">
           ${(card.priceUsd * card.quantity).toFixed(2)}
         </span>
       )}
-      <button
-        onClick={() => addCard(card as unknown as SearchResult)}
-        className="w-5 text-center text-xs text-text-muted opacity-0 transition hover:text-success group-hover:opacity-100"
-      >
-        +
-      </button>
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <button
+          onClick={(e) => { e.preventDefault(); removeCard(card.variantId, board); }}
+          className="w-5 h-5 flex items-center justify-center text-sm rounded text-text-muted hover:text-white hover:bg-red-500/50 transition-colors leading-none"
+        >
+          −
+        </button>
+        <button
+          onClick={(e) => { e.preventDefault(); addCard(card as unknown as SearchResult); }}
+          className="w-5 h-5 flex items-center justify-center text-sm rounded text-text-muted hover:text-white hover:bg-teal-500/50 transition-colors leading-none"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 
@@ -725,108 +768,65 @@ export default function DeckEditorPage() {
     <div className="min-h-screen bg-bg">
       <NavBar user={user} />
 
-      <main className="mx-auto max-w-6xl px-6 py-8 animate-fade-in">
-        <div className="flex items-center gap-4">
+      {/* ─── Sticky header ─────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-30 border-b border-border bg-bg/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-6xl px-6 py-3 flex items-center gap-3">
           <input
             type="text"
             value={deckName}
             onChange={(e) => setDeckName(e.target.value)}
-            className="text-2xl font-bold bg-transparent text-text-primary border-none outline-none"
+            className="text-lg font-bold bg-transparent text-text-primary outline-none hover:bg-surface-sunken focus:bg-surface-sunken rounded-lg px-2 py-1 transition-colors max-w-[220px]"
           />
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-1 text-sm text-text-primary"
+            className="rounded-lg border border-border bg-surface-sunken px-2.5 py-1 text-xs font-semibold text-text-secondary focus:outline-none focus:border-tab-deck"
           >
-            <option value="standard">Standard</option>
-            <option value="modern">Modern</option>
-            <option value="pioneer">Pioneer</option>
-            <option value="legacy">Legacy</option>
-            <option value="vintage">Vintage</option>
-            <option value="commander">Commander</option>
-            <option value="pauper">Pauper</option>
+            {FORMATS.map((f) => (
+              <option key={f} value={f}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </option>
+            ))}
           </select>
-        </div>
-
-        <DeckStatStrip
-          cardCount={deckStats.total}
-          avgCmc={deckStats.avgCmc}
-          rareCount={deckStats.rares}
-          mythicCount={deckStats.mythics}
-          className="mt-3 max-w-xs"
-        />
-
-        {/* Stats panel */}
-        <div className="mt-4 flex flex-wrap gap-6 rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow-card)] animate-slide-up">
-          <div>
-            <span className="text-xs text-text-muted">Main</span>
-            <p className="text-lg font-bold text-text-primary">
-              {mainCount}
-            </p>
+          <div className="hidden sm:flex items-center gap-4 ml-2 text-sm text-text-muted">
+            <span>
+              <span className="font-bold tabular-nums text-text-primary">{deckStats.total}</span>
+              {" "}cards
+            </span>
+            {deckStats.avgCmc != null && (
+              <span>
+                avg CMC{" "}
+                <span className="font-bold tabular-nums text-text-primary">{deckStats.avgCmc.toFixed(2)}</span>
+              </span>
+            )}
+            <span className="font-bold tabular-nums text-tab-deck">${totalValue.toFixed(2)}</span>
           </div>
-          <div>
-            <span className="text-xs text-text-muted">Side</span>
-            <p className="text-lg font-bold text-text-primary">
-              {sideCount}
-            </p>
-          </div>
-          {commanderCards.length > 0 && (
-            <div>
-              <span className="text-xs text-text-muted">Commander</span>
-              <p className="text-lg font-bold text-text-primary">
-                {commanderCards.length}
-              </p>
-            </div>
-          )}
-          <div>
-            <span className="text-xs text-text-muted">Unique</span>
-            <p className="text-lg font-bold text-text-primary">
-              {new Set(cards.map((c) => c.cardId)).size}
-            </p>
-          </div>
-          <div>
-            <span className="text-xs text-text-muted">Value</span>
-            <p className="text-lg font-bold text-tab-deck">
-              ${totalValue.toFixed(2)}
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => setShowImportModal(true)}
-            >
-              Import Deck
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button size="sm" onClick={() => setShowImportModal(true)}>Import</Button>
+            <button
               onClick={handleExportText}
-              title="Copy as plain text"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary border border-border hover:border-slate-500 hover:text-text-primary transition-colors bg-surface-sunken"
             >
               Copy List
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
+            </button>
+            <button
               onClick={handleExportMTGA}
-              title="Copy in Arena/MTGO format"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary border border-border hover:border-slate-500 hover:text-text-primary transition-colors bg-surface-sunken"
             >
-              Copy MTGA
-            </Button>
+              MTGA
+            </button>
             {canUseAdvisor && (
               <>
-                <div className="mx-1 h-6 w-px bg-border" />
+                <div className="w-px h-4 bg-border mx-0.5" />
                 <button
                   onClick={() => handleOpenAdvisor("recs")}
-                  className="rounded-lg bg-success px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-                  title="Get card suggestions from EDHREC"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--success-text)] border border-success/40 hover:bg-success-light transition-colors"
                 >
                   Suggest Cards
                 </button>
                 <button
                   onClick={() => handleOpenAdvisor("swaps")}
-                  className="rounded-lg border border-success px-4 py-1.5 text-sm font-semibold text-[var(--success-text)] hover:bg-success-light transition-colors"
-                  title="Find cards to swap in/out"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--success-text)] border border-success/40 hover:bg-success-light transition-colors"
                 >
                   Find Swaps
                 </button>
@@ -834,80 +834,90 @@ export default function DeckEditorPage() {
             )}
           </div>
         </div>
+      </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Card list */}
-          <div className="lg:col-span-2 animate-slide-up stagger-2">
-            {/* Commander section */}
+      {/* ─── Main content ─────────────────────────────────────────────────── */}
+      <main className="mx-auto max-w-6xl px-6 py-6 animate-fade-in">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+
+          {/* ── Card list ── */}
+          <div className="min-w-0">
             {commanderCards.length > 0 && (
-              <>
-                <h2 className="mb-3 text-lg font-semibold text-text-primary">
-                  Commander
-                </h2>
-                <div className="mb-4 space-y-1">
+              <div className="mb-5">
+                <SectionHeader label="Commander" />
+                <div className="space-y-0.5">
                   {commanderCards.map((card) => (
                     <CardRow key={`cmd-${card.variantId}`} card={card} board="commander" />
                   ))}
                 </div>
-              </>
+              </div>
             )}
 
-            <h2 className="mb-3 text-lg font-semibold text-text-primary">
-              Main Deck ({mainCount})
-            </h2>
             {mainCards.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-                <p className="text-text-muted">Search and add cards, or import a decklist</p>
-                <Button
-                  size="sm"
-                  onClick={() => setShowImportModal(true)}
-                  className="mt-3"
-                >
-                  Import Deck
-                </Button>
+              <div className="flex flex-col items-center justify-center py-20 gap-5 animate-slide-up">
+                <p className="text-sm text-text-muted">Your deck is empty — add cards to get started.</p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="flex flex-col items-center gap-2 px-7 py-5 rounded-2xl border-2 border-dashed border-border hover:border-tab-deck hover:bg-surface-raised transition-all duration-200 group"
+                  >
+                    <span className="text-3xl opacity-40 group-hover:opacity-100 transition-opacity">↑</span>
+                    <span className="text-sm font-semibold text-text-secondary group-hover:text-tab-deck transition-colors">Import Deck</span>
+                    <span className="text-[10px] text-text-muted">Moxfield · Archidekt · paste list</span>
+                  </button>
+                  <button
+                    onClick={() => setShowAiPanel(true)}
+                    className="flex flex-col items-center gap-2 px-7 py-5 rounded-2xl border-2 border-dashed border-teal-600/30 hover:border-teal-500 hover:bg-teal-600/5 transition-all duration-200 group"
+                  >
+                    <span className="text-3xl opacity-40 group-hover:opacity-100 transition-opacity">✦</span>
+                    <span className="text-sm font-semibold text-text-secondary group-hover:text-teal-400 transition-colors">Build with AI</span>
+                    <span className="text-[10px] text-text-muted">Describe your deck concept</span>
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-1">
-                {mainCards.map((card) => (
-                  <CardRow key={card.variantId} card={card} board="main" />
+              <div className="space-y-5">
+                {groupedMainCards.map((group) => (
+                  <div key={group.name}>
+                    <SectionHeader label={group.name} count={group.count} />
+                    <div className="space-y-0.5">
+                      {group.cards.map((card) => (
+                        <CardRow key={card.variantId} card={card} board="main" />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
 
             {sideCards.length > 0 && (
-              <>
-                <h2 className="mb-3 mt-6 text-lg font-semibold text-text-primary">
-                  Sideboard ({sideCount})
-                </h2>
-                <div className="space-y-1">
+              <div className="mt-6">
+                <SectionHeader label="Sideboard" count={sideCount} />
+                <div className="space-y-0.5">
                   {sideCards.map((card) => (
                     <CardRow key={`side-${card.variantId}`} card={card} board="side" />
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
-          {/* Search + add panel */}
-          <div className="animate-slide-up stagger-3">
-            <h2 className="mb-3 text-lg font-semibold text-text-primary">
-              Add Cards
-            </h2>
+          {/* ── Search sidebar ── */}
+          <div className="space-y-3 lg:sticky lg:top-[57px] lg:self-start">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search for a card..."
-              className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-tab-deck focus:outline-none transition-colors"
+              placeholder="Search for a card…"
+              className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-tab-deck focus:outline-none transition-colors"
             />
 
-            {/* Card preview on hover */}
             {hoveredCard && (
-              <div className="mt-3 animate-fade-in">
+              <div className="animate-fade-in">
                 <CardImage
                   src={hoveredCard}
                   alt="Card preview"
-                  className="w-full rounded-xl shadow-[var(--shadow-card)]"
+                  className="w-full rounded-xl"
                   wrapperClassName="w-full rounded-xl"
                   foil={false}
                 />
@@ -915,60 +925,77 @@ export default function DeckEditorPage() {
             )}
 
             {searching && (
-              <p className="mt-3 text-xs text-text-muted">Searching...</p>
+              <p className="text-xs text-text-muted px-1">Searching…</p>
             )}
 
             {searchResults.length > 0 && (
-              <div className="mt-3 max-h-96 space-y-1 overflow-y-auto">
+              <div className="space-y-1">
                 {searchResults.map((r) => (
                   <div
                     key={r.variantId}
-                    className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2 shadow-[var(--shadow-card)] card-hover"
+                    className="flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 hover:border-slate-600 transition-colors"
+                    onMouseEnter={() => setHoveredCard(r.imageUri ?? null)}
+                    onMouseLeave={() => setHoveredCard(null)}
                   >
                     {r.imageUri && (
                       <CardImage
                         src={r.imageUri}
                         alt={r.name}
-                        className="h-10 w-auto rounded"
-                        wrapperClassName="rounded"
+                        className="h-9 w-auto rounded"
+                        wrapperClassName="rounded shrink-0"
                         foil={false}
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-text-primary truncate">
-                        {r.name}
-                      </p>
+                      <p className="text-xs font-medium text-text-primary truncate">{r.name}</p>
                       <p className="text-[10px] text-text-muted">
-                        {r.setId?.toUpperCase()}{" "}
-                        {r.priceUsd != null && r.priceUsd > 0
-                          ? `• $${r.priceUsd.toFixed(2)}`
-                          : ""}
+                        {r.setId?.toUpperCase()}
+                        {r.priceUsd != null && r.priceUsd > 0 && ` · $${r.priceUsd.toFixed(2)}`}
                       </p>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 shrink-0">
                       <button
                         onClick={() => addCard(r, "main")}
-                        className="rounded bg-tab-deck px-2 py-1 text-[10px] font-medium text-white hover:opacity-90 transition-colors"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-tab-deck text-sm font-bold text-white hover:opacity-90 transition-opacity"
                       >
-                        Main
-                      </button>
-                      <button
-                        onClick={() => addCard(r, "side")}
-                        className="rounded border border-border px-2 py-1 text-[10px] font-medium text-text-secondary hover:bg-surface-sunken transition-colors"
-                      >
-                        Side
+                        +
                       </button>
                       {format === "commander" && (
                         <button
                           onClick={() => addCard(r, "commander")}
-                          className="rounded border border-warning px-2 py-1 text-[10px] font-medium text-[var(--warning-text)] hover:bg-warning-light transition-colors"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg border border-amber-500/50 text-xs text-amber-400 hover:bg-amber-500/10 transition-colors"
+                          title="Add as Commander"
                         >
-                          Cmdr
+                          ⚜
                         </button>
                       )}
+                      <button
+                        onClick={() => addCard(r, "side")}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-xs text-text-muted hover:text-text-secondary hover:border-slate-500 transition-colors"
+                        title="Add to sideboard"
+                      >
+                        S
+                      </button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {!searchQuery && searchResults.length === 0 && !searching && (
+              <div className="rounded-xl border border-border/60 bg-surface-sunken/40 p-4 text-center">
+                <p className="text-xs text-text-muted mb-2.5">Quick search</p>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {["Sol Ring", "Lightning Bolt", "Brainstorm"].map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => setSearchQuery(name)}
+                      className="text-[10px] px-2.5 py-1 rounded-lg bg-surface border border-border text-text-muted hover:text-text-primary hover:border-slate-500 transition-colors"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
