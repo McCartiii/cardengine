@@ -131,6 +131,7 @@ export default function DeckEditorPage() {
   const [addedByAi, setAddedByAi] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [escalateMessage, setEscalateMessage] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const mainCards = cards.filter((c) => c.board === "main");
@@ -242,6 +243,7 @@ export default function DeckEditorPage() {
     setTierGroups([]);
     setAiSwaps([]);
     setEscalateMessage(null);
+    setAiError(null);
 
     let currentTier = "";
 
@@ -314,6 +316,7 @@ export default function DeckEditorPage() {
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         console.error("[ai panel]", err);
+        setAiError((err as Error).message ?? "Something went wrong. Check that the API is deployed.");
       }
       setAiLoading(false);
     }
@@ -1374,6 +1377,12 @@ export default function DeckEditorPage() {
             {escalateMessage && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
                 {escalateMessage.replace("ESCALATE — ", "")}
+              </div>
+            )}
+
+            {aiError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {aiError}
               </div>
             )}
 
