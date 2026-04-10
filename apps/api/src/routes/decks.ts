@@ -430,8 +430,8 @@ export function registerDeckRoutes(app: FastifyInstance) {
 
     const commanderName =
       commanderOverride?.trim() ||
-      deck.commander ??
-      deck.cards.find((c) => c.section === "commander")?.cardName;
+      (deck.commander ??
+      deck.cards.find((c) => c.section === "commander")?.cardName);
 
     if (!commanderName) {
       return reply.code(400).send({ error: "No commander set on this deck" });
