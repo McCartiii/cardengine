@@ -93,6 +93,7 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
   const [cmdResults, setCmdResults]   = useState<ScryfallCard[]>([]);
   const [selectedCmd, setSelectedCmd] = useState<ScryfallCard | null>(null);
   const [creating, setCreating]       = useState(false);
+  const [error, setError]             = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { nameRef.current?.focus(); }, []);
@@ -133,6 +134,7 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
   async function handleCreate() {
     if (!name.trim() || creating) return;
     setCreating(true);
+    setError(null);
     try {
       const res = await api.decks.create({
         name: name.trim(),
@@ -140,7 +142,8 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
         ...(format.needsCommander && selectedCmd ? { commander: selectedCmd.name } : {}),
       });
       onCreated(res.deck);
-    } finally {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create deck. Please try again.");
       setCreating(false);
     }
   }
@@ -165,21 +168,36 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
           boxShadow: "0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(13,148,136,0.08)",
         }}
       >
-        {/* Progress dots */}
-        <div className="flex items-center gap-2 flex-shrink-0" style={{ padding: "20px 28px 0" }}>
-          {([1, 2] as const).map((n) => (
-            <div
-              key={n}
-              style={{
-                height: 6,
-                borderRadius: step === n ? 3 : "50%",
-                width: step === n ? 24 : 6,
-                background: n <= step ? "#0D9488" : "#1E2535",
-                opacity: n < step ? 0.4 : 1,
-                transition: "all 0.25s",
-              }}
-            />
-          ))}
+        {/* Progress dots + close button */}
+        <div className="flex items-center flex-shrink-0" style={{ padding: "20px 28px 0" }}>
+          <div className="flex items-center gap-2 flex-1">
+            {([1, 2] as const).map((n) => (
+              <div
+                key={n}
+                style={{
+                  height: 6,
+                  borderRadius: step === n ? 3 : "50%",
+                  width: step === n ? 24 : 6,
+                  background: n <= step ? "#0D9488" : "#1E2535",
+                  opacity: n < step ? 0.4 : 1,
+                  transition: "all 0.25s",
+                }}
+              />
+            ))}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 8, border: "none",
+              background: "transparent", color: "#475569", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18, lineHeight: 1,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1E2535"; (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "#475569"; }}
+          >
+            ×
+          </button>
         </div>
 
         {/* ── STEP 1: Name ── */}
@@ -416,10 +434,15 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
             </div>
 
             {/* Footer */}
+            <div style={{ flexShrink: 0, borderTop: "1px solid #1E2535", background: "#111827" }}>
+              {error && (
+                <div style={{ padding: "10px 28px 0", fontSize: 12, color: "#f87171" }}>
+                  {error}
+                </div>
+              )}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
-              padding: "14px 28px 22px", borderTop: "1px solid #1E2535",
-              background: "#111827", flexShrink: 0,
+              padding: "14px 28px 22px",
             }}>
               <button
                 onClick={() => setStep(1)}
@@ -460,6 +483,7 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
               >
                 {creating ? "Creating…" : "Create Deck →"}
               </button>
+            </div>
             </div>
           </>
         )}
