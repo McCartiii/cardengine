@@ -115,7 +115,12 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
         );
         if (!res.ok) { setCmdResults([]); return; }
         const data = await res.json() as { data: ScryfallCard[] };
-        setCmdResults(data.data.slice(0, 6));
+        const results = data.data.slice(0, 6);
+        setCmdResults(results);
+        // Auto-select the first result
+        if (results.length > 0 && !selectedCmd) {
+          setSelectedCmd(results[0]);
+        }
       } catch {
         setCmdResults([]);
       }
@@ -370,50 +375,69 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
                       onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "#16a34a"; }}
                       onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "#1E2535"; }}
                     />
+                    {/* Selected commander indicator */}
+                    {selectedCmd && (
+                      <div style={{
+                        marginTop: 8, padding: "8px 12px", borderRadius: 8,
+                        background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.25)",
+                        display: "flex", alignItems: "center", gap: 8,
+                        fontSize: 12, color: "#22c55e", fontWeight: 600,
+                      }}>
+                        <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#22c55e", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>✓</span>
+                        {selectedCmd.name}
+                      </div>
+                    )}
                     {cmdResults.length > 0 && (
                       <div style={{ marginTop: 6, background: "#0F1117", border: "1px solid #1E2535", borderRadius: 10, overflow: "hidden" }}>
-                        {cmdResults.map((card, i) => (
-                          <div
-                            key={card.name}
-                            onClick={() => setSelectedCmd(card)}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 10,
-                              padding: "9px 12px", cursor: "pointer",
-                              background: selectedCmd?.name === card.name ? "rgba(22,163,74,0.09)" : "transparent",
-                              borderBottom: i < cmdResults.length - 1 ? "1px solid #1E2535" : "none",
-                              transition: "background 0.1s",
-                            }}
-                          >
-                            <div style={{ width: 30, height: 22, borderRadius: 3, overflow: "hidden", background: "#1E2535", flexShrink: 0 }}>
-                              {cardArt(card) && (
-                                <img src={cardArt(card)!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        {cmdResults.map((card, i) => {
+                          const isSelected = selectedCmd?.name === card.name;
+                          return (
+                            <div
+                              key={card.name}
+                              onClick={() => setSelectedCmd(card)}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "9px 12px", cursor: "pointer",
+                                background: isSelected ? "rgba(22,163,74,0.09)" : "transparent",
+                                borderLeft: isSelected ? "3px solid #22c55e" : "3px solid transparent",
+                                borderBottom: i < cmdResults.length - 1 ? "1px solid #1E2535" : "none",
+                                transition: "all 0.1s",
+                              }}
+                            >
+                              <div style={{ width: 30, height: 22, borderRadius: 3, overflow: "hidden", background: "#1E2535", flexShrink: 0 }}>
+                                {cardArt(card) && (
+                                  <img src={cardArt(card)!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                )}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: isSelected ? 600 : 500, color: isSelected ? "#F8FAFC" : "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {card.name}
+                                </div>
+                                <div style={{ fontSize: 10, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {card.type_line}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                                {card.color_identity.map((c) => {
+                                  const pip = PIP_COLOR[c];
+                                  return pip ? (
+                                    <div key={c} style={{
+                                      width: 11, height: 11, borderRadius: "50%",
+                                      fontSize: 7, fontWeight: 900,
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                      background: pip.bg, color: pip.fg,
+                                    }}>
+                                      {c}
+                                    </div>
+                                  ) : null;
+                                })}
+                              </div>
+                              {isSelected && (
+                                <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, flexShrink: 0 }}>Selected</span>
                               )}
                             </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {card.name}
-                              </div>
-                              <div style={{ fontSize: 10, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {card.type_line}
-                              </div>
-                            </div>
-                            <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                              {card.color_identity.map((c) => {
-                                const pip = PIP_COLOR[c];
-                                return pip ? (
-                                  <div key={c} style={{
-                                    width: 11, height: 11, borderRadius: "50%",
-                                    fontSize: 7, fontWeight: 900,
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    background: pip.bg, color: pip.fg,
-                                  }}>
-                                    {c}
-                                  </div>
-                                ) : null;
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
