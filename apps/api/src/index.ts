@@ -70,13 +70,6 @@ app.get(
   }
 );
 
-// ── Bundle total count (for progress UI) ──
-app.get("/v1/bundles/:game/count", async (req) => {
-  const params = z.object({ game: z.string() }).parse(req.params);
-  const count = await prisma.cardVariant.count({ where: { game: params.game } });
-  return { game: params.game, count };
-});
-
 // ── Hash bundle (for mobile perceptual-hash index) ──
 app.get("/v1/bundles/:game/hashes", async (req) => {
   const params = z.object({ game: z.string() }).parse(req.params);
