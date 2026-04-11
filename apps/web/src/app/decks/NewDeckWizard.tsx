@@ -141,10 +141,14 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
     setCreating(true);
     setError(null);
     try {
+      const hasCommander = format.needsCommander && selectedCmd;
       const res = await api.decks.create({
         name: name.trim(),
         format: format.id,
-        ...(format.needsCommander && selectedCmd ? { commander: selectedCmd.name } : {}),
+        ...(hasCommander ? {
+          commander: selectedCmd.name,
+          cards: [{ cardName: selectedCmd.name, quantity: 1, section: "commander" as const }],
+        } : {}),
       });
       onCreated(res.deck);
     } catch (e) {
