@@ -1,0 +1,522 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { api } from "@/lib/api";
+import {
+  type RichCard,
+  type DeckStats,
+  type DeckIssue,
+  computeStats,
+  analyzeDeckHealth,
+  computeHealthGrade,
+} from "./deck-helpers";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface DeckData {
+  id: string;
+  name: string;
+  format: string;
+  commander: string | null;
+  cards: RichCard[];
+}
+
+type AiMessage = { role: "user" | "assistant"; content: string };
+type CollectionMode = "collection" | "mix" | "new";
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const BRACKET_LABELS = ["", "Jank / Precon", "Upgraded Precon", "Optimized", "High Power", "cEDH"];
+const BRACKET_COLORS = ["", "#3d5068", "#22c55e", "#0D9488", "#f59e0b", "#ef4444"];
+const GOALS = [
+  "Ramp", "Card Draw", "Removal", "Combo", "Aggro", "Control",
+  "Tokens", "Voltron", "Stax", "Tribal", "Graveyard", "Pillowfort",
+];
+
+const PIP: Record<string, { bg: string; fg: string; letter: string }> = {
+  W: { bg: "#f9fafb", fg: "#1a1a1a", letter: "W" },
+  U: { bg: "#60a5fa", fg: "#1a1a1a", letter: "U" },
+  B: { bg: "#7e22ce", fg: "#e9d5ff", letter: "B" },
+  R: { bg: "#ef4444", fg: "#ffffff", letter: "R" },
+  G: { bg: "#16a34a", fg: "#ffffff", letter: "G" },
+  C: { bg: "#94a3b8", fg: "#1a1a1a", letter: "C" },
+};
+
+function parseCards(text: string): { name: string; qty: number }[] {
+  const match = text.match(/CARDS:\n([\s\S]*?)END_CARDS/);
+  if (!match) return [];
+  return match[1]
+    .split("\n")
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(line => {
+      const m = line.match(/^(\d+)\s+(.+)$/);
+      return m ? { qty: parseInt(m[1]), name: m[2] } : null;
+    })
+    .filter(Boolean) as { name: string; qty: number }[];
+}
+
+// ── Scryfall recommended cards ───────────────────────────────────────────────
+
+interface RecCard {
+  name: string;
+  type_line: string;
+  prices?: { usd?: string };
+  image_uris?: { art_crop: string };
+  card_faces?: Array<{ image_uris?: { art_crop: string } }>;
+}
+
+function recArt(c: RecCard): string | null {
+  return c.image_uris?.art_crop ?? c.card_faces?.[0]?.image_uris?.art_crop ?? null;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValue: number }) {
+  // Settings
+  const [bracket, setBracket] = useState(3);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [collectionMode, setCollectionMode] = useState<CollectionMode>("mix");
+
+  // Chat
+  const [messages, setMessages] = useState<AiMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [suggestedCards, setSuggestedCards] = useState<{ name: string; qty: number }[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Recommendations
+  const [recCards, setRecCards] = useState<RecCard[]>([]);
+
+  const chatMode = messages.length > 0;
+
+  // Compute stats & health
+  const stats = useMemo(() => computeStats(deck.cards, totalValue), [deck.cards, totalValue]);
+  const issues = useMemo(() => analyzeDeckHealth(deck.cards, deck.format), [deck.cards, deck.format]);
+  const grade = useMemo(() => computeHealthGrade(issues), [issues]);
+  const landCount = useMemo(() => deck.cards.filter(c => c.variant?.typeLine?.includes("Land")).reduce((n, c) => n + c.quantity, 0), [deck.cards]);
+
+  // Fetch recommendations from Scryfall based on commander
+  useEffect(() => {
+    if (!deck.commander) return;
+    const q = `f:${deck.format} -is:land name:/${encodeURIComponent(deck.commander.split(",")[0])}/`;
+    // Just get popular cards for the format as a starting point
+    fetch(`https://api.scryfall.com/cards/search?q=f:${encodeURIComponent(deck.format)}+is:commander+-is:land&order=edhrec&dir=auto`, { headers: { Accept: "application/json" } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.data) setRecCards(data.data.slice(0, 10)); })
+      .catch(() => {});
+  }, [deck.commander, deck.format]);
+
+  const toggleGoal = (g: string) =>
+    setSelectedGoals(prev => (prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]));
+
+  const deckContext = [
+    `Deck: ${deck.name}`,
+    `Format: ${deck.format}`,
+    `Commander: ${deck.commander ?? "none"}`,
+    `Power bracket: ${bracket} — ${BRACKET_LABELS[bracket]}`,
+    selectedGoals.length > 0 ? `Strategy goals: ${selectedGoals.join(", ")}` : "",
+    `Collection preference: ${{ collection: "Only suggest cards the user already owns.", mix: "Prefer owned cards, but suggest new where upgrades exist.", new: "Suggest best cards regardless of collection." }[collectionMode]}`,
+    `Cards (${stats.totalCards} total):`,
+    deck.cards.slice(0, 50).map(c => `${c.quantity}x ${c.cardName}`).join("\n"),
+  ].filter(Boolean).join("\n");
+
+  const send = useCallback(async (msg?: string) => {
+    const text = msg ?? input;
+    if (!text.trim() || streaming) return;
+    const userMsg: AiMessage = { role: "user", content: text };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setInput("");
+    setStreaming(true);
+    setSuggestedCards([]);
+    setImportResult(null);
+    setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+    try {
+      const res = await fetch("/api/architect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next, deckContext }),
+      });
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value).split("\n")) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") break;
+            try { full += JSON.parse(data).text; setMessages(prev => [...prev.slice(0, -1), { role: "assistant", content: full }]); } catch {}
+          }
+        }
+      }
+      setSuggestedCards(parseCards(full));
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch (err) {
+      setMessages(prev => [...prev.slice(0, -1), { role: "assistant", content: `Error: ${(err as Error).message}` }]);
+    } finally {
+      setStreaming(false);
+    }
+  }, [input, messages, streaming, deckContext]);
+
+  async function importToAPI() {
+    if (!suggestedCards.length) return;
+    setImporting(true);
+    try {
+      const lines = suggestedCards.map(c => `${c.qty} ${c.name}`).join("\n");
+      const res = await api.decks.importText(deck.id, lines, false);
+      setImportResult(`Imported ${res.imported} cards`);
+    } catch (e: unknown) {
+      setImportResult(`Error: ${(e as Error).message}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  // Color totals for bar
+  const colorTotal = stats.colorCounts.reduce((s, c) => s + c.count, 0);
+  const curveMax = Math.max(...stats.manaCurve.map(c => c.count), 1);
+
+  return (
+    <div className="flex flex-col" style={{ minHeight: chatMode ? 600 : "auto" }}>
+      {/* Settings bar */}
+      <div
+        className="flex items-center gap-1.5 flex-wrap mb-3 p-2 rounded-xl"
+        style={{ background: "#111827", border: "1px solid #1E2535" }}
+      >
+        <button
+          className="flex items-center gap-1.5 rounded-2xl text-xs font-bold cursor-pointer"
+          style={{
+            padding: "4px 10px",
+            background: `${BRACKET_COLORS[bracket]}12`,
+            border: `1px solid ${BRACKET_COLORS[bracket]}40`,
+            color: BRACKET_COLORS[bracket],
+            whiteSpace: "nowrap",
+          }}
+          onClick={() => setBracket(b => b >= 5 ? 1 : b + 1)}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: BRACKET_COLORS[bracket], display: "inline-block" }} />
+          Bracket {bracket}
+        </button>
+        <div style={{ width: 1, height: 20, background: "#1E2535", margin: "0 2px" }} />
+        {GOALS.slice(0, 8).map(g => (
+          <button
+            key={g}
+            onClick={() => toggleGoal(g)}
+            className="rounded-2xl text-xs font-semibold transition-all"
+            style={{
+              padding: "4px 10px",
+              whiteSpace: "nowrap",
+              background: selectedGoals.includes(g) ? "rgba(13,148,136,0.1)" : "#161B27",
+              border: `1px solid ${selectedGoals.includes(g) ? "rgba(13,148,136,0.3)" : "#1E2535"}`,
+              color: selectedGoals.includes(g) ? "#0D9488" : "#64748b",
+            }}
+          >
+            {g}
+          </button>
+        ))}
+        <div style={{ width: 1, height: 20, background: "#1E2535", margin: "0 2px" }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", textTransform: "uppercase", padding: "0 4px", letterSpacing: "0.06em" }}>Pool</span>
+        {(["Mix", "Owned", "All"] as const).map(label => {
+          const val = label === "Owned" ? "collection" : label === "All" ? "new" : "mix";
+          return (
+            <button
+              key={val}
+              onClick={() => setCollectionMode(val as CollectionMode)}
+              className="rounded-2xl text-xs font-semibold transition-all"
+              style={{
+                padding: "4px 10px",
+                whiteSpace: "nowrap",
+                background: collectionMode === val ? "rgba(13,148,136,0.1)" : "#161B27",
+                border: `1px solid ${collectionMode === val ? "rgba(13,148,136,0.3)" : "#1E2535"}`,
+                color: collectionMode === val ? "#0D9488" : "#64748b",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Dashboard (hidden during chat) ── */}
+      {!chatMode && (
+        <>
+          {/* Command input */}
+          <div className="rounded-xl overflow-hidden mb-3" style={{ background: "#111827", border: "1px solid #1E2535" }}>
+            <div className="flex items-center gap-2" style={{ padding: "12px 16px" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && send()}
+                placeholder="What do you want to build?"
+                className="flex-1 bg-transparent border-none outline-none text-sm"
+                style={{ color: "#F8FAFC", fontSize: 14 }}
+              />
+            </div>
+            <div className="flex gap-1 flex-wrap" style={{ padding: "0 8px 8px" }}>
+              {[
+                "Build remaining deck",
+                "Suggest upgrades",
+                "Find synergies",
+                "Budget swaps",
+                "How to pilot",
+              ].map(label => (
+                <button
+                  key={label}
+                  onClick={() => send(label)}
+                  className="flex items-center gap-1.5 rounded-lg text-xs transition-all"
+                  style={{
+                    padding: "5px 12px", fontWeight: 500,
+                    background: "#161B27", border: "1px solid #1E2535", color: "#64748b",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget).style.borderColor = "rgba(13,148,136,0.3)"; (e.currentTarget).style.color = "#94a3b8"; }}
+                  onMouseLeave={e => { (e.currentTarget).style.borderColor = "#1E2535"; (e.currentTarget).style.color = "#64748b"; }}
+                >
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#334155", display: "inline-block" }} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Health strip */}
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            {[
+              { val: String(stats.totalCards), label: "Cards" },
+              { val: stats.avgCmc.toFixed(1), label: "Avg CMC" },
+              { val: String(landCount), label: "Lands" },
+              { val: `$${Math.round(totalValue)}`, label: "Value" },
+              { val: grade, label: "Health", color: grade.startsWith("A") ? "#22c55e" : grade.startsWith("B") ? "#f59e0b" : "#ef4444" },
+            ].map(({ val, label, color }) => (
+              <div key={label} className="flex flex-col items-center rounded-lg" style={{ background: "#111827", border: "1px solid #1E2535", padding: "10px 12px" }}>
+                <span className="text-lg font-extrabold leading-none" style={{ color: color ?? "#F8FAFC" }}>{val}</span>
+                <span style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", marginTop: 3, letterSpacing: "0.04em" }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Curve + Color */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="rounded-lg" style={{ background: "#111827", border: "1px solid #1E2535", padding: "10px 12px" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Mana Curve</div>
+              <div className="flex items-end gap-1" style={{ height: 40 }}>
+                {stats.manaCurve.map(({ cmc, count }) => (
+                  <div key={cmc} className="flex-1 relative" style={{ height: `${(count / curveMax) * 100}%`, minHeight: count > 0 ? 3 : 0, background: count === curveMax ? "#0D9488" : `rgba(13,148,136,${0.2 + (count / curveMax) * 0.4})`, borderRadius: "2px 2px 0 0" }}>
+                    <span style={{ position: "absolute", bottom: -12, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: "#334155" }}>{cmc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg" style={{ background: "#111827", border: "1px solid #1E2535", padding: "10px 12px" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Color Balance</div>
+              <div className="flex gap-0.5 rounded overflow-hidden" style={{ height: 8 }}>
+                {stats.colorCounts.map(({ color, hex, count }) => (
+                  <div key={color} style={{ width: `${(count / colorTotal) * 100}%`, background: PIP[color]?.bg ?? hex, borderRadius: 3 }} />
+                ))}
+              </div>
+              <div className="flex gap-2 flex-wrap mt-1.5">
+                {stats.colorCounts.map(({ color, label, count }) => {
+                  const pip = PIP[color];
+                  return (
+                    <div key={color} className="flex items-center gap-1" style={{ fontSize: 9, color: "#64748b" }}>
+                      <span style={{
+                        width: 14, height: 14, borderRadius: "50%", display: "inline-flex",
+                        alignItems: "center", justifyContent: "center",
+                        fontSize: 8, fontWeight: 800,
+                        background: pip?.bg ?? "#94a3b8", color: pip?.fg ?? "#1a1a1a",
+                      }}>{pip?.letter ?? color}</span>
+                      {label} {Math.round((count / colorTotal) * 100)}%
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Issues */}
+          {issues.length > 0 && (
+            <div className="rounded-lg overflow-hidden mb-3" style={{ background: "#111827", border: "1px solid #1E2535" }}>
+              <div className="flex items-center justify-between" style={{ padding: "8px 12px", borderBottom: "1px solid #1E2535" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Issues</span>
+                <span style={{ fontSize: 9, color: "#334155" }}>
+                  {issues.filter(i => i.severity === "warning").length} warnings · {issues.filter(i => i.severity === "critical").length} critical
+                </span>
+              </div>
+              {issues.map((issue, i) => (
+                <div key={i} className="flex items-center gap-2" style={{ padding: "7px 12px", borderBottom: i < issues.length - 1 ? "1px solid rgba(30,37,53,0.5)" : "none" }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                    background: issue.severity === "critical" ? "#ef4444" : issue.severity === "warning" ? "#f59e0b" : "#22c55e",
+                  }} />
+                  <span className="flex-1" style={{ fontSize: 11, color: "#94a3b8" }}>{issue.text}</span>
+                  <span className="rounded" style={{
+                    fontSize: 8, fontWeight: 700, padding: "2px 5px", textTransform: "uppercase", flexShrink: 0,
+                    background: issue.severity === "critical" ? "rgba(239,68,68,0.1)" : issue.severity === "warning" ? "rgba(245,158,11,0.1)" : "rgba(34,197,94,0.1)",
+                    color: issue.severity === "critical" ? "#ef4444" : issue.severity === "warning" ? "#f59e0b" : "#22c55e",
+                  }}>
+                    {issue.severity === "critical" ? "Critical" : issue.severity === "warning" ? "Low" : "Good"}
+                  </span>
+                  {issue.action && (
+                    <button
+                      onClick={() => send(`${issue.action} — ${issue.text}`)}
+                      className="rounded-xl transition-all"
+                      style={{
+                        padding: "3px 10px", fontSize: 9, fontWeight: 600, flexShrink: 0,
+                        background: "rgba(13,148,136,0.08)", border: "1px solid rgba(13,148,136,0.2)", color: "#0D9488",
+                      }}
+                    >
+                      {issue.action}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Card feed */}
+          {recCards.length > 0 && (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  Recommended for {deck.commander ?? deck.name}
+                </span>
+                <button style={{ fontSize: 10, color: "#334155", cursor: "pointer", background: "none", border: "none" }}>See all →</button>
+              </div>
+              <div className="grid gap-1.5 mb-3" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+                {recCards.map((card) => (
+                  <div
+                    key={card.name}
+                    className="rounded-lg overflow-hidden transition-all"
+                    style={{ background: "#111827", border: "1px solid #1E2535", cursor: "pointer" }}
+                    onMouseEnter={e => { (e.currentTarget).style.borderColor = "rgba(13,148,136,0.3)"; (e.currentTarget).style.transform = "translateY(-1px)"; }}
+                    onMouseLeave={e => { (e.currentTarget).style.borderColor = "#1E2535"; (e.currentTarget).style.transform = "none"; }}
+                  >
+                    <div style={{ width: "100%", height: 56, overflow: "hidden" }}>
+                      {recArt(card) ? (
+                        <img src={recArt(card)!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #1a2030, #141824)" }} />
+                      )}
+                    </div>
+                    <div style={{ padding: "6px 8px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {card.name}
+                      </div>
+                      <div className="flex items-center justify-between" style={{ marginTop: 3 }}>
+                        <span style={{ fontSize: 9, color: "#475569" }}>${card.prices?.usd ?? "—"}</span>
+                        <button
+                          style={{
+                            width: 16, height: 16, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
+                            background: "rgba(13,148,136,0.08)", border: "1px solid rgba(13,148,136,0.2)", color: "#0D9488",
+                            fontSize: 10, fontWeight: 700, cursor: "pointer",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── Chat mode ── */}
+      {chatMode && (
+        <div className="flex-1 overflow-y-auto pr-1 mb-3 space-y-3">
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className="max-w-[88%] text-sm whitespace-pre-wrap"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
+                  background: msg.role === "user" ? "rgba(13,148,136,0.08)" : "#111827",
+                  border: `1px solid ${msg.role === "user" ? "rgba(13,148,136,0.15)" : "#1E2535"}`,
+                  color: msg.role === "user" ? "#e2e8f0" : "#cbd5e1",
+                  fontSize: 12.5, lineHeight: 1.6,
+                }}
+              >
+                {msg.content}
+                {i === messages.length - 1 && streaming && (
+                  <span className="inline-block w-1 h-4 ml-0.5 bg-accent animate-pulse" />
+                )}
+              </div>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      {/* Suggested cards panel */}
+      {suggestedCards.length > 0 && !streaming && (
+        <div className="rounded-lg overflow-hidden mb-3" style={{ background: "#111827", border: "1px solid #1E2535" }}>
+          <div className="flex items-center justify-between" style={{ padding: "8px 12px", borderBottom: "1px solid #1E2535" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>Suggested Cards</span>
+            <span style={{ fontSize: 10, color: "#334155" }}>{suggestedCards.length} cards</span>
+          </div>
+          <div style={{ maxHeight: 180, overflowY: "auto" }}>
+            {suggestedCards.map((card, i) => (
+              <div key={card.name} className="flex items-center gap-2" style={{ padding: "5px 12px", borderBottom: i < suggestedCards.length - 1 ? "1px solid rgba(30,37,53,0.5)" : "none" }}>
+                <span style={{ width: 18, fontSize: 10, fontWeight: 700, color: "#475569", textAlign: "right", flexShrink: 0 }}>{card.qty}×</span>
+                <span className="flex-1" style={{ fontSize: 11.5, fontWeight: 500, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{card.name}</span>
+              </div>
+            ))}
+          </div>
+          {importResult ? (
+            <div style={{ padding: "8px 12px", borderTop: "1px solid #1E2535", fontSize: 11, fontWeight: 600, color: importResult.startsWith("Error") ? "#f87171" : "#4ade80" }}>
+              {importResult}
+            </div>
+          ) : (
+            <button
+              onClick={importToAPI}
+              disabled={importing}
+              style={{
+                display: "block", width: "100%", padding: 8, border: "none",
+                borderTop: "1px solid #1E2535", background: "rgba(13,148,136,0.06)",
+                color: "#0D9488", fontSize: 11, fontWeight: 600, cursor: importing ? "not-allowed" : "pointer",
+              }}
+            >
+              {importing ? "Importing…" : `+ Add All ${suggestedCards.length} Cards to Deck`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Bottom input (shown in chat mode) */}
+      {chatMode && (
+        <div className="flex gap-1.5 flex-shrink-0">
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && send()}
+            disabled={streaming}
+            placeholder="Ask a follow-up…"
+            className="flex-1 rounded-lg text-sm disabled:opacity-60"
+            style={{ background: "#111827", border: "1px solid #1E2535", padding: "7px 12px", color: "#F8FAFC", outline: "none", fontSize: 12.5 }}
+          />
+          <button
+            onClick={() => send()}
+            disabled={streaming || !input.trim()}
+            className="rounded-lg text-xs font-semibold disabled:opacity-40"
+            style={{ background: "#0D9488", color: "#fff", padding: "7px 16px", border: "none", cursor: "pointer" }}
+          >
+            Send
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

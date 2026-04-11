@@ -8,12 +8,11 @@ import { HeroBanner } from "./HeroBanner";
 import { DeckSidebar } from "./DeckSidebar";
 import { CardListPanel } from "./CardListPanel";
 import { computeStats, RichCard } from "./deck-helpers";
+import { AIArchitectTab } from "./AIArchitectTab";
 import type { User } from "@supabase/supabase-js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = "cards" | "advisor" | "ai";
-type AiMessage = { role: "user" | "assistant"; content: string };
-type CollectionMode = "collection" | "mix" | "new";
 
 interface DeckDetailData {
   deck: {
@@ -28,35 +27,6 @@ interface DeckDetailData {
   legality: { valid: boolean; issues: string[] };
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const BRACKET_LABELS = ["", "Jank / Precon", "Upgraded Precon", "Optimized", "High Power", "cEDH"];
-const BRACKET_COLORS = ["", "#3d5068", "#22c55e", "#0D9488", "#f59e0b", "#ef4444"];
-const BRACKET_DESC = [
-  "",
-  "Casual, fun, no combos",
-  "Slight upgrades, friendly power",
-  "Focused strategy, synergy-driven",
-  "Near-competitive, strong synergies",
-  "Full competitive, fast wins",
-];
-const GOALS = [
-  "Aggro", "Control", "Combo", "Midrange", "Ramp", "Tokens", "Voltron",
-  "Stax", "Aristocrats", "Spellslinger", "Reanimator", "Tribal", "Pillowfort", "Mill", "Infect",
-];
-
-function parseCards(text: string): { name: string; qty: number }[] {
-  const match = text.match(/CARDS:\n([\s\S]*?)END_CARDS/);
-  if (!match) return [];
-  return match[1]
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean)
-    .map(line => {
-      const m = line.match(/^(\d+)\s+(.+)$/);
-      return m ? { qty: parseInt(m[1]), name: m[2] } : null;
-    })
-    .filter(Boolean) as { name: string; qty: number }[];
-}
 
 // ── Import Modal ──────────────────────────────────────────────────────────────
 function ImportModal({
@@ -309,274 +279,6 @@ function AdvisorTab({ deck }: { deck: DeckDetailData["deck"] }) {
   );
 }
 
-// ── AI Architect Tab ──────────────────────────────────────────────────────────
-function AIArchitectTab({ deck }: { deck: DeckDetailData["deck"] }) {
-  const [messages, setMessages] = useState<AiMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [suggestedCards, setSuggestedCards] = useState<{ name: string; qty: number }[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const [bracket, setBracket] = useState(3);
-  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
-  const [collectionMode, setCollectionMode] = useState<CollectionMode>("mix");
-  const [showSettings, setShowSettings] = useState(true);
-
-  const toggleGoal = (g: string) =>
-    setSelectedGoals(prev => (prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]));
-
-  const collectionContext = {
-    collection: "Only suggest cards the user already owns from their collection.",
-    mix: "Prefer cards the user already owns, but suggest new cards where significant upgrades exist.",
-    new: "Suggest the best possible cards regardless of collection.",
-  }[collectionMode];
-
-  const deckContext = [
-    `Deck: ${deck.name}`,
-    `Format: ${deck.format}`,
-    `Commander: ${deck.commander ?? "none"}`,
-    `Power bracket: ${bracket} — ${BRACKET_LABELS[bracket]} (${BRACKET_DESC[bracket]})`,
-    selectedGoals.length > 0 ? `Strategy goals: ${selectedGoals.join(", ")}` : "",
-    `Collection preference: ${collectionContext}`,
-    `Cards (${deck.cards.reduce((s, c) => s + c.quantity, 0)} total):`,
-    deck.cards.slice(0, 50).map(c => `${c.quantity}x ${c.cardName}`).join("\n"),
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const send = useCallback(
-    async (msg?: string) => {
-      const text = msg ?? input;
-      if (!text.trim() || streaming) return;
-      const userMsg: AiMessage = { role: "user", content: text };
-      const next = [...messages, userMsg];
-      setMessages(next);
-      setInput("");
-      setStreaming(true);
-      setSuggestedCards([]);
-      setImportResult(null);
-      setShowSettings(false);
-      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-      try {
-        const res = await fetch("/api/architect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: next, deckContext }),
-        });
-        if (!res.body) throw new Error("No response body");
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let full = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          for (const line of decoder.decode(value).split("\n")) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") break;
-              try {
-                full += JSON.parse(data).text;
-                setMessages(prev => [...prev.slice(0, -1), { role: "assistant", content: full }]);
-              } catch {
-                /* skip */
-              }
-            }
-          }
-        }
-        setSuggestedCards(parseCards(full));
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-      } catch (err) {
-        setMessages(prev => [
-          ...prev.slice(0, -1),
-          { role: "assistant", content: `Error: ${(err as Error).message}` },
-        ]);
-      } finally {
-        setStreaming(false);
-      }
-    },
-    [input, messages, streaming, deckContext],
-  );
-
-  async function importToAPI() {
-    if (!suggestedCards.length) return;
-    setImporting(true);
-    try {
-      const lines = suggestedCards.map(c => `${c.qty} ${c.name}`).join("\n");
-      const res = await api.decks.importText(deck.id, lines, false);
-      setImportResult(`✓ Imported ${res.imported} cards (appended)`);
-    } catch (e: unknown) {
-      setImportResult(`Error: ${(e as Error).message}`);
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col h-[680px]">
-      {showSettings && messages.length === 0 && (
-        <div className="rounded-2xl p-5 mb-4 space-y-5 border border-border" style={{ background: "#161B27" }}>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Power Bracket</p>
-              <span className="text-sm font-bold" style={{ color: BRACKET_COLORS[bracket] }}>
-                {bracket} — {BRACKET_LABELS[bracket]}
-              </span>
-            </div>
-            <input
-              type="range" min={1} max={5} value={bracket}
-              onChange={e => setBracket(Number(e.target.value))}
-              className="w-full"
-              style={{ accentColor: BRACKET_COLORS[bracket] }}
-            />
-            <p className="text-xs text-text-muted mt-1">{BRACKET_DESC[bracket]}</p>
-          </div>
-
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-text-muted mb-2">Deck Goals</p>
-            <div className="flex flex-wrap gap-2">
-              {GOALS.map(g => (
-                <button
-                  key={g}
-                  onClick={() => toggleGoal(g)}
-                  className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
-                  style={
-                    selectedGoals.includes(g)
-                      ? { background: "rgba(13,148,136,0.15)", border: "1px solid rgba(13,148,136,0.4)", color: "#0D9488" }
-                      : { background: "rgba(30,41,59,0.4)", border: "1px solid #1E2535", color: "#475569" }
-                  }
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-text-muted mb-2">Card Pool</p>
-            <div className="flex gap-2">
-              {(
-                [
-                  { value: "collection" as const, label: "My Collection", desc: "Only cards I own" },
-                  { value: "mix" as const,        label: "Mix",            desc: "Prefer owned, add new" },
-                  { value: "new" as const,        label: "All New",        desc: "Best cards regardless" },
-                ] as const
-              ).map(({ value, label, desc }) => (
-                <button
-                  key={value}
-                  onClick={() => setCollectionMode(value)}
-                  className="flex-1 py-2.5 px-3 rounded-xl text-left transition-all border"
-                  style={
-                    collectionMode === value
-                      ? { background: "rgba(13,148,136,0.1)", borderColor: "rgba(13,148,136,0.4)", color: "#0D9488" }
-                      : { background: "rgba(30,41,59,0.3)", borderColor: "#1E2535", color: "#475569" }
-                  }
-                >
-                  <p className="text-xs font-bold">{label}</p>
-                  <p className="text-[10px] opacity-70">{desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {messages.length > 0 && (
-        <button
-          onClick={() => setShowSettings(v => !v)}
-          className="text-xs text-text-muted hover:text-white transition-colors mb-2 flex items-center gap-1"
-        >
-          ⚙ {showSettings ? "Hide" : "Show"} settings · Bracket {bracket} · {BRACKET_LABELS[bracket]}
-        </button>
-      )}
-
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
-        {messages.length === 0 && (
-          <div className="py-8 text-center">
-            <p className="text-3xl mb-3">🧙</p>
-            <p className="text-text-muted text-sm mb-4">
-              Configure your settings above, then ask Claude to help with your deck.
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {[
-                "Build me a deck based on these goals",
-                "What are the top 5 improvements?",
-                "What are my main weaknesses?",
-                "How do I pilot this deck?",
-              ].map(q => (
-                <button
-                  key={q}
-                  onClick={() => send(q)}
-                  className="px-3 py-1.5 text-xs rounded-lg transition-colors"
-                  style={{ background: "rgba(13,148,136,0.08)", border: "1px solid rgba(13,148,136,0.2)", color: "#0D9488" }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-accent/10 border border-accent/20 text-white"
-                  : "bg-surface border border-border text-white/90"
-              }`}
-            >
-              {msg.content}
-              {i === messages.length - 1 && streaming && (
-                <span className="inline-block w-1 h-4 ml-0.5 bg-accent animate-pulse" />
-              )}
-            </div>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-
-      {suggestedCards.length > 0 && !streaming && (
-        <div className="mb-3">
-          {importResult ? (
-            <p className="text-sm font-semibold" style={{ color: importResult.startsWith("✓") ? "#4ade80" : "#f87171" }}>
-              {importResult}
-            </p>
-          ) : (
-            <button
-              onClick={importToAPI}
-              disabled={importing}
-              className="w-full py-2 rounded-lg text-sm font-medium transition-all"
-              style={{ background: "rgba(13,148,136,0.08)", border: "1px solid rgba(13,148,136,0.2)", color: "#0D9488" }}
-            >
-              {importing ? "Importing…" : `+ Append ${suggestedCards.length} card types to deck`}
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Ask about your deck…"
-          disabled={streaming}
-          className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm placeholder:text-text-muted focus:outline-none focus:border-accent transition-all disabled:opacity-60"
-        />
-        <button
-          onClick={() => send()}
-          disabled={streaming || !input.trim()}
-          className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
-          style={{ background: "#0D9488" }}
-        >
-          {streaming ? "…" : "Ask"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function DeckDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -730,7 +432,7 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
         )}
         {tab === "ai" && (
           <div className="max-w-3xl">
-            <AIArchitectTab deck={deck} />
+            <AIArchitectTab deck={deck} totalValue={totalValue} />
           </div>
         )}
       </div>

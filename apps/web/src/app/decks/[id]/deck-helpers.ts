@@ -201,14 +201,21 @@ export function computeStats(cards: RichCard[], totalValue: number): DeckStats {
   }
   const manaCurve = ["0", "1", "2", "3", "4", "5", "6", "7+"].map(cmc => ({ cmc, count: cmcBuckets[cmc] ?? 0 }));
 
-  // Color distribution
-  const colorBuckets: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  // Color distribution (including colorless)
+  const colorBuckets: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   for (const card of cards) {
-    for (const c of card.variant?.colors ?? []) {
+    if (card.variant?.typeLine?.includes("Land")) continue;
+    const colors = card.variant?.colors ?? [];
+    if (colors.length === 0) { colorBuckets.C += card.quantity; continue; }
+    for (const c of colors) {
       if (c in colorBuckets) colorBuckets[c] += card.quantity;
     }
   }
-  const colorCounts = MTG_COLORS
+  const ALL_COLORS = [
+    ...MTG_COLORS,
+    { color: "C", label: "Colorless", hex: "#94a3b8" },
+  ];
+  const colorCounts = ALL_COLORS
     .map(({ color, label, hex }) => ({ color, label, hex, count: colorBuckets[color] }))
     .filter(c => c.count > 0);
 
@@ -233,4 +240,100 @@ export function computeStats(cards: RichCard[], totalValue: number): DeckStats {
     .map(r => ({ rarity: r, color: RARITY_COLORS[r] ?? "#94a3b8", count: rarityBuckets[r] }));
 
   return { totalCards, uniqueCards, totalValue, avgCmc, manaCurve, colorCounts, typeCounts, rarityCounts };
+}
+
+// ── Deck Health Analysis ──────────────────────────────────────────────────────
+
+export interface DeckIssue {
+  severity: "critical" | "warning" | "good";
+  text: string;
+  action?: string; // label for the "Fix" button
+}
+
+export function analyzeDeckHealth(cards: RichCard[], format: string): DeckIssue[] {
+  const issues: DeckIssue[] = [];
+  const total = cards.reduce((n, c) => n + c.quantity, 0);
+  const isCommander = format.toLowerCase() === "commander" || format.toLowerCase() === "historic-brawl";
+  const targetSize = isCommander ? 100 : format.toLowerCase() === "brawl" || format.toLowerCase() === "oathbreaker" ? 60 : 60;
+
+  // Card count
+  if (total < targetSize) {
+    const missing = targetSize - total;
+    issues.push({ severity: "warning", text: `${missing} cards short of ${targetSize}`, action: "Fill" });
+  }
+
+  // Count types
+  const typeSet = (typeLine: string | null | undefined) => typeLine?.toLowerCase() ?? "";
+  let boardWipes = 0;
+  let removal = 0;
+  let rampCount = 0;
+  let drawCount = 0;
+  let landCount = 0;
+
+  for (const card of cards) {
+    const tl = typeSet(card.variant?.typeLine);
+    if (tl.includes("land")) { landCount += card.quantity; continue; }
+    // Rough heuristics based on type
+    if (tl.includes("instant") || tl.includes("sorcery")) {
+      removal += card.quantity; // rough proxy
+    }
+  }
+
+  // Lands check
+  const expectedLands = isCommander ? 36 : 24;
+  if (landCount < expectedLands - 4 && total > 20) {
+    issues.push({ severity: "warning", text: `Only ${landCount} lands — consider ${expectedLands}`, action: "Fix" });
+  }
+
+  // Check for interaction (very rough — look for instant/sorcery count)
+  const instantsSorceries = cards.filter(c => {
+    const tl = typeSet(c.variant?.typeLine);
+    return tl.includes("instant") || tl.includes("sorcery");
+  }).reduce((n, c) => n + c.quantity, 0);
+  if (instantsSorceries < 5 && total > 30) {
+    issues.push({ severity: "critical", text: "Very few instants/sorceries — low interaction", action: "Fix" });
+  }
+
+  // Ramp check (artifacts + mana dorks)
+  const rampCards = cards.filter(c => {
+    const tl = typeSet(c.variant?.typeLine);
+    const cmc = c.variant?.cmc ?? 99;
+    return (tl.includes("artifact") && cmc <= 3) || (tl.includes("creature") && cmc <= 2 && !tl.includes("land"));
+  }).reduce((n, c) => n + c.quantity, 0);
+  if (rampCards >= 8) {
+    issues.push({ severity: "good", text: `Ramp looks solid — ${rampCards} sources detected` });
+  } else if (rampCards < 5 && total > 30) {
+    issues.push({ severity: "warning", text: `Only ${rampCards} ramp sources detected`, action: "Fix" });
+  }
+
+  // Card draw check
+  const drawCards = cards.filter(c => {
+    const tl = typeSet(c.variant?.typeLine);
+    return tl.includes("enchantment") || (tl.includes("instant") && (c.variant?.cmc ?? 0) <= 3);
+  }).reduce((n, c) => n + c.quantity, 0);
+  if (drawCards >= 8) {
+    issues.push({ severity: "good", text: `Card advantage looks healthy` });
+  }
+
+  // Avg CMC check
+  const nonLands = cards.filter(c => !typeSet(c.variant?.typeLine).includes("land"));
+  const avgCmc = nonLands.length > 0
+    ? nonLands.reduce((s, c) => s + (c.variant?.cmc ?? 0) * c.quantity, 0) / nonLands.reduce((n, c) => n + c.quantity, 0)
+    : 0;
+  if (avgCmc > 3.8 && total > 30) {
+    issues.push({ severity: "warning", text: `High average CMC (${avgCmc.toFixed(1)}) — may be slow`, action: "Fix" });
+  }
+
+  return issues;
+}
+
+export function computeHealthGrade(issues: DeckIssue[]): string {
+  const crits = issues.filter(i => i.severity === "critical").length;
+  const warns = issues.filter(i => i.severity === "warning").length;
+  if (crits >= 2) return "D";
+  if (crits === 1) return "C-";
+  if (warns >= 3) return "C";
+  if (warns === 2) return "B-";
+  if (warns === 1) return "B+";
+  return "A";
 }
