@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
 import {
   type RichCard,
@@ -31,6 +31,12 @@ const BRACKET_COLORS = ["", "#3d5068", "#22c55e", "#0D9488", "#f59e0b", "#ef4444
 const GOALS = [
   "Ramp", "Card Draw", "Removal", "Combo", "Aggro", "Control",
   "Tokens", "Voltron", "Stax", "Tribal", "Graveyard", "Pillowfort",
+];
+
+const THEMES = [
+  "Superfriends", "Voltron", "Tribal", "Aristocrats", "Spellslinger",
+  "Reanimator", "Landfall", "Enchantress", "Artifacts", "Mill",
+  "Infect", "Group Hug", "Chaos", "Stompy", "Flicker",
 ];
 
 const PIP: Record<string, { bg: string; fg: string; letter: string }> = {
@@ -70,12 +76,92 @@ function recArt(c: RecCard): string | null {
   return c.image_uris?.art_crop ?? c.card_faces?.[0]?.image_uris?.art_crop ?? null;
 }
 
+// ── Markdown renderer ────────────────────────────────────────────────────────
+
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let listOrdered = false;
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    const items = listItems.map((item, i) => <li key={i}>{renderInline(item)}</li>);
+    elements.push(
+      listOrdered
+        ? <ol key={elements.length} style={{ paddingLeft: 18, margin: "6px 0", fontSize: 12.5, color: "#cbd5e1", lineHeight: 1.7 }}>{items}</ol>
+        : <ul key={elements.length} style={{ paddingLeft: 18, margin: "6px 0", fontSize: 12.5, color: "#cbd5e1", lineHeight: 1.7, listStyleType: "disc" }}>{items}</ul>
+    );
+    listItems = [];
+  }
+
+  function renderInline(s: string): React.ReactNode {
+    // Bold: **text**
+    const parts = s.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={i} style={{ color: "#F8FAFC", fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Numbered list: 1. item
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+    if (numMatch) {
+      if (!listOrdered && listItems.length > 0) flushList();
+      listOrdered = true;
+      listItems.push(numMatch[2]);
+      continue;
+    }
+
+    // Bullet list: - item or * item
+    const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      if (listOrdered && listItems.length > 0) flushList();
+      listOrdered = false;
+      listItems.push(bulletMatch[1]);
+      continue;
+    }
+
+    flushList();
+
+    if (!trimmed) {
+      elements.push(<div key={elements.length} style={{ height: 6 }} />);
+      continue;
+    }
+
+    // Heading-like: lines ending with : on their own
+    if (trimmed.endsWith(":") && trimmed.length < 60) {
+      elements.push(
+        <div key={elements.length} style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginTop: 10, marginBottom: 4, letterSpacing: "0.03em" }}>
+          {renderInline(trimmed)}
+        </div>
+      );
+      continue;
+    }
+
+    elements.push(
+      <p key={elements.length} style={{ margin: "3px 0", fontSize: 12.5, lineHeight: 1.65, color: "#cbd5e1" }}>
+        {renderInline(trimmed)}
+      </p>
+    );
+  }
+  flushList();
+  return elements;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValue: number }) {
   // Settings
   const [bracket, setBracket] = useState(3);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
   const [collectionMode, setCollectionMode] = useState<CollectionMode>("mix");
 
   // Chat
@@ -112,11 +198,13 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
   const toggleGoal = (g: string) =>
     setSelectedGoals(prev => (prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]));
 
+  const commanderName = deck.commander ?? null;
   const deckContext = [
     `Deck: ${deck.name}`,
     `Format: ${deck.format}`,
-    `Commander: ${deck.commander ?? "none"}`,
+    commanderName ? `Commander: ${commanderName}` : `Commander: not yet selected (deck name "${deck.name}" may hint at the intended commander — search Scryfall if unsure)`,
     `Power bracket: ${bracket} — ${BRACKET_LABELS[bracket]}`,
+    selectedTheme ? `Deck theme/archetype: ${selectedTheme}` : "",
     selectedGoals.length > 0 ? `Strategy goals: ${selectedGoals.join(", ")}` : "",
     `Collection preference: ${{ collection: "Only suggest cards the user already owns.", mix: "Prefer owned cards, but suggest new where upgrades exist.", new: "Suggest best cards regardless of collection." }[collectionMode]}`,
     `Cards (${stats.totalCards} total):`,
@@ -241,6 +329,30 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
             </button>
           );
         })}
+      </div>
+
+      {/* Theme selector */}
+      <div
+        className="flex items-center gap-1.5 flex-wrap mb-3 p-2 rounded-xl"
+        style={{ background: "#111827", border: "1px solid #1E2535" }}
+      >
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", textTransform: "uppercase", padding: "0 4px", letterSpacing: "0.06em" }}>Theme</span>
+        {THEMES.map(t => (
+          <button
+            key={t}
+            onClick={() => setSelectedTheme(prev => prev === t ? null : t)}
+            className="rounded-2xl text-xs font-semibold transition-all"
+            style={{
+              padding: "4px 10px",
+              whiteSpace: "nowrap",
+              background: selectedTheme === t ? "rgba(99,102,241,0.1)" : "#161B27",
+              border: `1px solid ${selectedTheme === t ? "rgba(99,102,241,0.3)" : "#1E2535"}`,
+              color: selectedTheme === t ? "#818cf8" : "#64748b",
+            }}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
       {/* ── Dashboard (hidden during chat) ── */}
@@ -438,19 +550,21 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className="max-w-[88%] text-sm whitespace-pre-wrap"
+                className="max-w-[88%]"
                 style={{
-                  padding: "10px 14px",
+                  padding: msg.role === "user" ? "10px 14px" : "12px 16px",
                   borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
                   background: msg.role === "user" ? "rgba(13,148,136,0.08)" : "#111827",
                   border: `1px solid ${msg.role === "user" ? "rgba(13,148,136,0.15)" : "#1E2535"}`,
-                  color: msg.role === "user" ? "#e2e8f0" : "#cbd5e1",
-                  fontSize: 12.5, lineHeight: 1.6,
                 }}
               >
-                {msg.content}
+                {msg.role === "user" ? (
+                  <span style={{ fontSize: 12.5, lineHeight: 1.6, color: "#e2e8f0" }}>{msg.content}</span>
+                ) : (
+                  <div>{renderMarkdown(msg.content)}</div>
+                )}
                 {i === messages.length - 1 && streaming && (
-                  <span className="inline-block w-1 h-4 ml-0.5 bg-accent animate-pulse" />
+                  <span className="inline-block w-1 h-4 ml-0.5 animate-pulse" style={{ background: "#0D9488" }} />
                 )}
               </div>
             </div>
