@@ -66,7 +66,7 @@ function SettingsIcon() {
 
 const navItems: NavItem[] = [
   { href: "/collection", label: "Collection", icon: <CollectionIcon />, tabColor: "var(--tab-collection)", tabBg: "var(--tab-collection-bg)" },
-  { href: "/deck", label: "Decks", icon: <DeckIcon />, tabColor: "var(--tab-deck)", tabBg: "var(--tab-deck-bg)" },
+  { href: "/decks", label: "Decks", icon: <DeckIcon />, tabColor: "var(--tab-deck)", tabBg: "var(--tab-deck-bg)" },
   { href: "/scan", label: "Scan", icon: <ScanIcon />, tabColor: "var(--tab-scan)", tabBg: "var(--tab-scan-bg)" },
   { href: "/map", label: "Map", icon: <MapIcon />, tabColor: "var(--tab-map)", tabBg: "var(--tab-map-bg)" },
   { href: "/watchlist", label: "Watchlist", icon: <WatchlistIcon />, tabColor: "var(--tab-watchlist)", tabBg: "var(--tab-watchlist-bg)" },
