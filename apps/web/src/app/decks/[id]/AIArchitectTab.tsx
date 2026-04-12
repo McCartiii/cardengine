@@ -167,11 +167,14 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
   // Chat
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [input, setInput] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
+  const [showInstructions, setShowInstructions] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [suggestedCards, setSuggestedCards] = useState<{ name: string; qty: number }[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Recommendations
   const [recCards, setRecCards] = useState<RecCard[]>([]);
@@ -207,6 +210,7 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
     selectedTheme ? `Deck theme/archetype: ${selectedTheme}` : "",
     selectedGoals.length > 0 ? `Strategy goals: ${selectedGoals.join(", ")}` : "",
     `Collection preference: ${{ collection: "Only suggest cards the user already owns.", mix: "Prefer owned cards, but suggest new where upgrades exist.", new: "Suggest best cards regardless of collection." }[collectionMode]}`,
+    customInstructions.trim() ? `\nUser instructions: ${customInstructions.trim()}` : "",
     `Cards (${stats.totalCards} total):`,
     deck.cards.slice(0, 50).map(c => `${c.quantity}x ${c.cardName}`).join("\n"),
   ].filter(Boolean).join("\n");
@@ -360,21 +364,71 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
         <>
           {/* Command input */}
           <div className="rounded-xl overflow-hidden mb-3" style={{ background: "#111827", border: "1px solid #1E2535" }}>
-            <div className="flex items-center gap-2" style={{ padding: "12px 16px" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="flex items-center gap-3" style={{ padding: "14px 16px" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
               </svg>
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && send()}
                 placeholder="What do you want to build?"
-                className="flex-1 bg-transparent border-none outline-none text-sm"
-                style={{ color: "#F8FAFC", fontSize: 14 }}
+                className="flex-1 bg-transparent border-none outline-none"
+                style={{ color: "#F8FAFC", fontSize: 15, fontWeight: 500 }}
               />
+              <button
+                onClick={() => send()}
+                disabled={!input.trim()}
+                style={{
+                  padding: "8px 20px", borderRadius: 8, border: "none",
+                  background: input.trim() ? "#0D9488" : "#1E2535",
+                  color: input.trim() ? "#fff" : "#334155",
+                  fontSize: 12, fontWeight: 600, cursor: input.trim() ? "pointer" : "default",
+                  transition: "all 0.15s", flexShrink: 0,
+                }}
+              >
+                Send
+              </button>
             </div>
-            <div className="flex gap-1 flex-wrap" style={{ padding: "0 8px 8px" }}>
+
+            {/* Custom instructions toggle + textarea */}
+            <div style={{ padding: "0 16px 10px" }}>
+              <button
+                onClick={() => setShowInstructions(!showInstructions)}
+                style={{
+                  fontSize: 10, fontWeight: 600, color: customInstructions.trim() ? "#0D9488" : "#334155",
+                  background: "none", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 4, marginBottom: showInstructions ? 8 : 0,
+                  transition: "color 0.15s",
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838.838-2.872a2 2 0 0 1 .506-.855z"/>
+                </svg>
+                {showInstructions ? "Hide instructions" : customInstructions.trim() ? "Edit instructions" : "Add custom instructions"}
+              </button>
+              {showInstructions && (
+                <textarea
+                  value={customInstructions}
+                  onChange={e => setCustomInstructions(e.target.value)}
+                  placeholder="e.g. Keep budget under $200, avoid infinite combos, include at least 5 board wipes, focus on ETB triggers..."
+                  rows={3}
+                  style={{
+                    width: "100%", background: "#0F1117", border: "1px solid #1E2535",
+                    borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.6,
+                    color: "#e2e8f0", outline: "none", resize: "vertical",
+                    transition: "border-color 0.15s",
+                  }}
+                  onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(13,148,136,0.4)"; }}
+                  onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = "#1E2535"; }}
+                />
+              )}
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex gap-1 flex-wrap" style={{ padding: "0 10px 10px" }}>
               {[
                 "Build remaining deck",
                 "Suggest upgrades",
@@ -387,10 +441,10 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
                   onClick={() => send(label)}
                   className="flex items-center gap-1.5 rounded-lg text-xs transition-all"
                   style={{
-                    padding: "5px 12px", fontWeight: 500,
+                    padding: "6px 14px", fontWeight: 500,
                     background: "#161B27", border: "1px solid #1E2535", color: "#64748b",
                   }}
-                  onMouseEnter={e => { (e.currentTarget).style.borderColor = "rgba(13,148,136,0.3)"; (e.currentTarget).style.color = "#94a3b8"; }}
+                  onMouseEnter={e => { (e.currentTarget).style.borderColor = "rgba(13,148,136,0.3)"; (e.currentTarget).style.color = "#0D9488"; }}
                   onMouseLeave={e => { (e.currentTarget).style.borderColor = "#1E2535"; (e.currentTarget).style.color = "#64748b"; }}
                 >
                   <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#334155", display: "inline-block" }} />
@@ -610,25 +664,76 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
 
       {/* Bottom input (shown in chat mode) */}
       {chatMode && (
-        <div className="flex gap-1.5 flex-shrink-0">
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && send()}
-            disabled={streaming}
-            placeholder="Ask a follow-up…"
-            className="flex-1 rounded-lg text-sm disabled:opacity-60"
-            style={{ background: "#111827", border: "1px solid #1E2535", padding: "7px 12px", color: "#F8FAFC", outline: "none", fontSize: 12.5 }}
-          />
-          <button
-            onClick={() => send()}
-            disabled={streaming || !input.trim()}
-            className="rounded-lg text-xs font-semibold disabled:opacity-40"
-            style={{ background: "#0D9488", color: "#fff", padding: "7px 16px", border: "none", cursor: "pointer" }}
-          >
-            Send
-          </button>
+        <div className="flex-shrink-0 rounded-xl overflow-hidden" style={{ background: "#111827", border: "1px solid #1E2535" }}>
+          {/* Instructions indicator */}
+          {customInstructions.trim() && (
+            <div
+              className="flex items-center gap-2 cursor-pointer"
+              style={{ padding: "6px 14px", borderBottom: "1px solid #1E2535", fontSize: 10, color: "#0D9488" }}
+              onClick={() => setShowInstructions(!showInstructions)}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838.838-2.872a2 2 0 0 1 .506-.855z"/>
+              </svg>
+              <span style={{ fontWeight: 600 }}>Instructions active</span>
+              <span style={{ color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                — {customInstructions.trim().slice(0, 60)}{customInstructions.trim().length > 60 ? "…" : ""}
+              </span>
+            </div>
+          )}
+          {showInstructions && chatMode && (
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #1E2535" }}>
+              <textarea
+                value={customInstructions}
+                onChange={e => setCustomInstructions(e.target.value)}
+                placeholder="Add custom instructions…"
+                rows={2}
+                style={{
+                  width: "100%", background: "#0F1117", border: "1px solid #1E2535",
+                  borderRadius: 6, padding: "8px 10px", fontSize: 11, lineHeight: 1.5,
+                  color: "#e2e8f0", outline: "none", resize: "vertical",
+                }}
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2" style={{ padding: "10px 12px" }}>
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && send()}
+              disabled={streaming}
+              placeholder={streaming ? "Thinking…" : "Ask a follow-up…"}
+              style={{
+                flex: 1, background: "transparent", border: "none", outline: "none",
+                fontSize: 13, fontWeight: 500, color: "#F8FAFC",
+                opacity: streaming ? 0.5 : 1,
+              }}
+            />
+            <button
+              onClick={() => send()}
+              disabled={streaming || !input.trim()}
+              style={{
+                padding: "8px 20px", borderRadius: 8, border: "none",
+                background: streaming ? "#1E2535" : (!input.trim() ? "#1E2535" : "#0D9488"),
+                color: streaming ? "#475569" : (!input.trim() ? "#334155" : "#fff"),
+                fontSize: 12, fontWeight: 600,
+                cursor: streaming || !input.trim() ? "default" : "pointer",
+                transition: "all 0.15s", flexShrink: 0,
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              {streaming && (
+                <span style={{
+                  width: 12, height: 12, borderRadius: "50%",
+                  border: "2px solid #334155", borderTopColor: "#475569",
+                  animation: "spin 0.8s linear infinite",
+                  display: "inline-block",
+                }} />
+              )}
+              {streaming ? "Working" : "Send"}
+            </button>
+          </div>
         </div>
       )}
     </div>
