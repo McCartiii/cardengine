@@ -103,6 +103,8 @@ CRITICAL RULES:
 - If the user's commander or deck name references a card you don't recognize, look it up on Scryfall FIRST before making assumptions.
 - When suggesting cards, verify each one exists and is legal in the format.
 - Use real, current data from Scryfall, not memory.
+- Keep responses concise and well-structured. Use bold for card names and section headers.
+- Do NOT narrate your tool use process to the user. Don't say "Let me look up..." or "Let me search...". Just do it and present the results naturally.
 
 When asked to improve or analyze a deck, you:
 1. Look up the commander on Scryfall to understand its abilities and color identity
@@ -128,6 +130,12 @@ Always use real MTG card names verified through Scryfall. Quantities must be 1-4
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
+async function executeToolCall(name: string, input: Record<string, string>): Promise<string> {
+  if (name === "scryfall_search") return scryfallSearch(input.query);
+  if (name === "scryfall_get_card") return scryfallGetCard(input.name);
+  return JSON.stringify({ error: "Unknown tool" });
+}
+
 export async function POST(req: NextRequest) {
   const { messages, deckContext } = await req.json();
 
@@ -138,80 +146,73 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
-      try {
-        // Run an agentic loop with tool use
-        let currentMessages = [...messages];
-        let keepGoing = true;
+      const send = (text: string) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+      };
 
-        while (keepGoing) {
-          const response = await client.messages.create({
+      try {
+        let currentMessages = [...messages];
+        let rounds = 0;
+        const MAX_ROUNDS = 8;
+
+        while (rounds < MAX_ROUNDS) {
+          rounds++;
+
+          // Stream this round
+          const stream = client.messages.stream({
             model: "claude-sonnet-4-6",
             max_tokens: 4096,
             system: systemWithContext,
             messages: currentMessages,
             tools: TOOLS,
-            stream: false,
           });
 
-          // Process the response blocks
-          let hasToolUse = false;
+          // Collect the full response for tool use handling
+          const contentBlocks: Anthropic.ContentBlock[] = [];
+          let currentText = "";
+
+          stream.on("text", (text) => {
+            send(text);
+            currentText += text;
+          });
+
+          // Wait for the stream to finish
+          const finalMessage = await stream.finalMessage();
+          contentBlocks.push(...finalMessage.content);
+
+          // Check for tool use
+          const toolUseBlocks = finalMessage.content.filter(
+            (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+          );
+
+          if (toolUseBlocks.length === 0) {
+            // No tool use — we're done
+            break;
+          }
+
+          // Execute all tool calls
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-          for (const block of response.content) {
-            if (block.type === "text") {
-              // Stream text chunks to the client
-              const chunks = block.text.match(/.{1,50}/g) ?? [block.text];
-              for (const chunk of chunks) {
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`)
-                );
-              }
-            } else if (block.type === "tool_use") {
-              hasToolUse = true;
-              // Execute the tool
-              let result: string;
-              const input = block.input as Record<string, string>;
-              if (block.name === "scryfall_search") {
-                result = await scryfallSearch(input.query);
-              } else if (block.name === "scryfall_get_card") {
-                result = await scryfallGetCard(input.name);
-              } else {
-                result = JSON.stringify({ error: "Unknown tool" });
-              }
-
-              // Send a small indicator to the client
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ text: "" })}\n\n`)
-              );
-
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: block.id,
-                content: result,
-              });
-            }
+          for (const toolBlock of toolUseBlocks) {
+            const result = await executeToolCall(
+              toolBlock.name,
+              toolBlock.input as Record<string, string>
+            );
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: toolBlock.id,
+              content: result,
+            });
           }
 
-          if (hasToolUse) {
-            // Continue the conversation with tool results
-            currentMessages = [
-              ...currentMessages,
-              { role: "assistant" as const, content: response.content },
-              { role: "user" as const, content: toolResults },
-            ];
-          } else {
-            keepGoing = false;
-          }
-
-          // Safety: stop after too many tool rounds
-          if (currentMessages.length > messages.length + 20) {
-            keepGoing = false;
-          }
+          // Continue conversation with tool results
+          currentMessages = [
+            ...currentMessages,
+            { role: "assistant" as const, content: finalMessage.content },
+            { role: "user" as const, content: toolResults },
+          ];
         }
       } catch (err) {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ text: `\n\nError: ${(err as Error).message}` })}\n\n`)
-        );
+        send(`\n\nError: ${(err as Error).message}`);
       }
 
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
