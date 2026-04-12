@@ -64,14 +64,11 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "scryfall_search",
     description:
-      "Search the Scryfall MTG card database. Use Scryfall search syntax. Examples: 'is:commander color:wubg', 'type:instant cmc<=2 color:blue', 'set:sld name:jin'. Returns up to 8 results with full card data. ALWAYS use this to verify card names and find cards — never rely on memory alone.",
+      "Search the Scryfall MTG card database. Use Scryfall search syntax. Examples: 'is:commander color:wubg', 'type:instant cmc<=2 color:blue', 'set:sld name:jin'. Returns up to 8 results.",
     input_schema: {
       type: "object" as const,
       properties: {
-        query: {
-          type: "string",
-          description: "Scryfall search query (supports full Scryfall syntax)",
-        },
+        query: { type: "string", description: "Scryfall search query" },
       },
       required: ["query"],
     },
@@ -79,14 +76,11 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "scryfall_get_card",
     description:
-      "Look up a specific card by name using fuzzy matching. Returns full card details including oracle text, color identity, legality, price, and EDHREC rank. Use this to verify a card exists or get its exact stats.",
+      "Look up a specific card by name (fuzzy matched). Returns full card details. Use to verify a card exists or get exact stats.",
     input_schema: {
       type: "object" as const,
       properties: {
-        name: {
-          type: "string",
-          description: "Card name (fuzzy matched)",
-        },
+        name: { type: "string", description: "Card name (fuzzy matched)" },
       },
       required: ["name"],
     },
@@ -95,38 +89,58 @@ const TOOLS: Anthropic.Tool[] = [
 
 // ── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM = `You are an expert Magic: The Gathering deck architect with access to the complete Scryfall card database via tools.
+const SYSTEM = `You are an elite Magic: The Gathering deck architect. You have access to the complete Scryfall card database via tools.
 
-CRITICAL RULES:
-- ALWAYS use scryfall_get_card to verify any card you mention. Never guess card names or abilities from memory.
-- ALWAYS use scryfall_search to find cards for recommendations. Your training data may be missing recent sets, Secret Lair drops, Universes Beyond, and errata.
-- If the user's commander or deck name references a card you don't recognize, look it up on Scryfall FIRST before making assumptions.
-- When suggesting cards, verify each one exists and is legal in the format.
-- Use real, current data from Scryfall, not memory.
-- Keep responses concise and well-structured. Use bold for card names and section headers.
-- Do NOT narrate your tool use process to the user. Don't say "Let me look up..." or "Let me search...". Just do it and present the results naturally.
+TOOL USE RULES:
+- On the FIRST message, look up the commander with scryfall_get_card to get its exact abilities and color identity.
+- On follow-up messages, only use tools when the user asks about NEW cards you haven't discussed yet. Do NOT re-look-up cards you already know about.
+- Use scryfall_search to find cards by criteria (type, color, cmc, keywords).
+- Never narrate tool use. Don't say "Let me search" or "Let me look up." Just present results.
+- Limit to 2-3 tool calls per message. Be targeted, not exhaustive.
 
-When asked to improve or analyze a deck, you:
-1. Look up the commander on Scryfall to understand its abilities and color identity
-2. Search for synergistic cards using targeted Scryfall queries
-3. Suggest concrete card swaps with quantities and explanations
-4. Recommend budget alternatives where possible
+DECK BUILDING EXPERTISE:
 
-When asked to build a deck from scratch, you:
-1. Look up the commander on Scryfall first
-2. Search for key staples and synergy pieces
-3. Provide a complete card list with quantities
-4. Explain the mana base and curve
-5. Describe how to pilot the deck
+Commander (100-card singleton):
+- Lands: 35-38 (more for 3+ colors, fewer for low-curve aggro)
+- Ramp: 10-12 sources (Sol Ring, Arcane Signet, signets, talismans, land ramp)
+- Card draw: 8-10 sources
+- Removal: 8-10 (mix of targeted + board wipes)
+- Board wipes: 3-5
+- Win conditions: 2-4 distinct paths to victory
+- Average CMC target: 2.5-3.2 for optimized, 3.0-3.8 for casual
 
-Format card suggestions EXACTLY like this so they can be parsed and imported:
+60-card constructed:
+- Lands: 22-26 depending on curve
+- 4-of staples, 2-3 of situational cards
+- Tight mana curve, ideally peaking at 2 CMC
+
+Key principles:
+- Every card should synergize with the commander or strategy
+- Include answers to common threats (artifacts, enchantments, graveyards)
+- Mana base needs fixing for 3+ color decks (shocks, fetches, checks, pain lands)
+- Include protection for commander (boots, greaves, counterspells)
+- Balance proactive threats with reactive answers
+
+COLOR IDENTITY:
+- W: Removal, board wipes, lifegain, tokens, enchantments
+- U: Counterspells, card draw, bounce, control, combo
+- B: Tutors, reanimation, removal, sacrifice, card advantage
+- R: Burn, haste, impulse draw, artifact destruction, combat tricks
+- G: Ramp, big creatures, fight removal, enchantment removal, land tutors
+- Colorless: Artifact ramp, equipment, utility lands
+
+FORMAT RESPONSE:
+- Use **bold** for card names and section headers
+- Use bullet lists for card suggestions
+- Keep responses focused and actionable
+- When suggesting cards, explain WHY each card fits
+
+Format card suggestions for import like this:
 CARDS:
-4 Lightning Bolt
-4 Monastery Swiftspear
-2 Goblin Guide
-END_CARDS
-
-Always use real MTG card names verified through Scryfall. Quantities must be 1-4 for non-commander (100 card singleton for commander).`;
+1 Sol Ring
+1 Arcane Signet
+1 Swords to Plowshares
+END_CARDS`;
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
@@ -136,12 +150,28 @@ async function executeToolCall(name: string, input: Record<string, string>): Pro
   return JSON.stringify({ error: "Unknown tool" });
 }
 
+// Trim conversation history to prevent context bloat
+function trimMessages(messages: Array<{ role: string; content: unknown }>): Array<{ role: string; content: unknown }> {
+  // Only keep the last 6 user/assistant text exchanges
+  const textMessages = messages.filter(m =>
+    typeof m.content === "string" || (Array.isArray(m.content) && m.content.every((b: { type: string }) => b.type === "text"))
+  );
+
+  if (textMessages.length <= 8) return messages;
+
+  // Keep first message (has initial context) + last 6 messages
+  return [textMessages[0], ...textMessages.slice(-6)];
+}
+
 export async function POST(req: NextRequest) {
   const { messages, deckContext } = await req.json();
 
   const systemWithContext = deckContext
     ? `${SYSTEM}\n\nCurrent deck context:\n${deckContext}`
     : SYSTEM;
+
+  // Trim history to keep things fast
+  const trimmedMessages = trimMessages(messages) as Anthropic.MessageParam[];
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
@@ -151,14 +181,13 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        let currentMessages = [...messages];
+        let currentMessages: Anthropic.MessageParam[] = [...trimmedMessages];
         let rounds = 0;
-        const MAX_ROUNDS = 8;
+        const MAX_ROUNDS = 4; // Reduced from 8 for speed
 
         while (rounds < MAX_ROUNDS) {
           rounds++;
 
-          // Stream this round
           const stream = client.messages.stream({
             model: "claude-haiku-4-5-20251001",
             max_tokens: 4096,
@@ -167,44 +196,25 @@ export async function POST(req: NextRequest) {
             tools: TOOLS,
           });
 
-          // Collect the full response for tool use handling
-          const contentBlocks: Anthropic.ContentBlock[] = [];
-          let currentText = "";
+          stream.on("text", (text) => send(text));
 
-          stream.on("text", (text) => {
-            send(text);
-            currentText += text;
-          });
-
-          // Wait for the stream to finish
           const finalMessage = await stream.finalMessage();
-          contentBlocks.push(...finalMessage.content);
 
-          // Check for tool use
           const toolUseBlocks = finalMessage.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
           );
 
-          if (toolUseBlocks.length === 0) {
-            // No tool use — we're done
-            break;
-          }
+          if (toolUseBlocks.length === 0) break;
 
-          // Execute all tool calls
-          const toolResults: Anthropic.ToolResultBlockParam[] = [];
-          for (const toolBlock of toolUseBlocks) {
-            const result = await executeToolCall(
-              toolBlock.name,
-              toolBlock.input as Record<string, string>
-            );
-            toolResults.push({
-              type: "tool_result",
+          // Execute tool calls in parallel for speed
+          const toolResults = await Promise.all(
+            toolUseBlocks.map(async (toolBlock) => ({
+              type: "tool_result" as const,
               tool_use_id: toolBlock.id,
-              content: result,
-            });
-          }
+              content: await executeToolCall(toolBlock.name, toolBlock.input as Record<string, string>),
+            }))
+          );
 
-          // Continue conversation with tool results
           currentMessages = [
             ...currentMessages,
             { role: "assistant" as const, content: finalMessage.content },
