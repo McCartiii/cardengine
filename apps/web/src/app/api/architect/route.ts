@@ -58,6 +58,35 @@ async function scryfallGetCard(name: string): Promise<string> {
   }
 }
 
+// ── EDHREC helper ────────────────────────────────────────────────────────────
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+async function edhrecRecommendations(commanderName: string, currentCards: string[]): Promise<string> {
+  try {
+    const res = await fetch(`${API_BASE}/v1/deck/recs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commanderName, currentCards }),
+    });
+    if (!res.ok) return JSON.stringify({ error: "EDHREC data not available for this commander" });
+    const data = await res.json();
+    const recs = (data.recommendations as Array<Record<string, unknown>>).slice(0, 20).map(r => ({
+      name: r.name,
+      synergy: r.synergy,
+      inclusionRate: r.inclusionRate,
+      category: r.category,
+      reason: r.reason,
+      priceUsd: r.priceUsd,
+      typeLine: r.typeLine,
+      manaCost: r.manaCost,
+    }));
+    return JSON.stringify({ commander: commanderName, count: recs.length, recommendations: recs });
+  } catch {
+    return JSON.stringify({ error: "Failed to fetch EDHREC data" });
+  }
+}
+
 // ── Tool definitions ─────────────────────────────────────────────────────────
 
 const TOOLS: Anthropic.Tool[] = [
@@ -85,6 +114,23 @@ const TOOLS: Anthropic.Tool[] = [
       required: ["name"],
     },
   },
+  {
+    name: "edhrec_recommendations",
+    description:
+      "Get EDHREC popularity data and card recommendations for a commander. Returns the most-played cards in decks with this commander, with synergy scores, inclusion rates, categories, and prices. Use this on the FIRST message to get data-driven recommendations based on what thousands of real players use. This is your most powerful tool for deck building.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        commander_name: { type: "string", description: "Commander card name (e.g. 'Atraxa, Praetors\\' Voice')" },
+        current_cards: {
+          type: "array",
+          items: { type: "string" },
+          description: "Card names already in the deck (to avoid re-suggesting)",
+        },
+      },
+      required: ["commander_name"],
+    },
+  },
 ];
 
 // ── System prompt ────────────────────────────────────────────────────────────
@@ -92,9 +138,10 @@ const TOOLS: Anthropic.Tool[] = [
 const SYSTEM = `You are an elite Magic: The Gathering deck architect. You have access to the complete Scryfall card database via tools.
 
 TOOL USE RULES:
-- On the FIRST message, look up the commander with scryfall_get_card to get its exact abilities and color identity.
+- On the FIRST message, use edhrec_recommendations to get data-driven card suggestions AND scryfall_get_card to look up the commander. EDHREC data shows what thousands of real players use — this is your primary source for recommendations.
 - On follow-up messages, only use tools when the user asks about NEW cards you haven't discussed yet. Do NOT re-look-up cards you already know about.
-- Use scryfall_search to find cards by criteria (type, color, cmc, keywords).
+- Use scryfall_search to find specific cards by criteria (type, color, cmc, keywords).
+- When EDHREC data is available, prioritize cards with high synergy scores and inclusion rates.
 - Never narrate tool use. Don't say "Let me search" or "Let me look up." Just present results.
 - Limit to 2-3 tool calls per message. Be targeted, not exhaustive.
 
@@ -144,9 +191,13 @@ END_CARDS`;
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
-async function executeToolCall(name: string, input: Record<string, string>): Promise<string> {
-  if (name === "scryfall_search") return scryfallSearch(input.query);
-  if (name === "scryfall_get_card") return scryfallGetCard(input.name);
+async function executeToolCall(name: string, input: Record<string, unknown>): Promise<string> {
+  if (name === "scryfall_search") return scryfallSearch(input.query as string);
+  if (name === "scryfall_get_card") return scryfallGetCard(input.name as string);
+  if (name === "edhrec_recommendations") return edhrecRecommendations(
+    input.commander_name as string,
+    (input.current_cards as string[]) ?? []
+  );
   return JSON.stringify({ error: "Unknown tool" });
 }
 
@@ -211,7 +262,7 @@ export async function POST(req: NextRequest) {
             toolUseBlocks.map(async (toolBlock) => ({
               type: "tool_result" as const,
               tool_use_id: toolBlock.id,
-              content: await executeToolCall(toolBlock.name, toolBlock.input as Record<string, string>),
+              content: await executeToolCall(toolBlock.name, toolBlock.input as Record<string, unknown>),
             }))
           );
 
