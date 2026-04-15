@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Loading — More Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1117;
+    color: #E2E8F0;
+    font-family: -apple-system, system-ui, sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 40px; }
+
+  .options-grid { display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; }
+
+  .option-row {
+    background: #161B27; border: 1.5px solid #1E2D3D; border-radius: 14px;
+    padding: 20px 24px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .option-row:hover { border-color: #2D4059; background: #1a2030; }
+  .option-row.selected { border-color: #0D9488; background: #0d2020; }
+  .option-letter {
+    width: 28px; height: 28px; border-radius: 7px; background: #1E2535;
+    border: 1px solid #2D4059; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #94A3B8; flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .option-row.selected .option-letter { background: #0D9488; border-color: #0D9488; color: white; }
+  .option-content { flex: 1; }
+  .option-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .option-desc { font-size: 12px; color: #475569; line-height: 1.5; margin-bottom: 16px; }
+  .preview { display: flex; gap: 14px; align-items: flex-end; }
+  .card-col { display: flex; flex-direction: column; gap: 4px; }
+  .preview-label { font-size: 10px; color: #475569; text-align: center; }
+  .demo-btn {
+    font-size: 10px; color: #0D9488; background: none; border: none;
+    cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; margin-bottom: 2px;
+  }
+
+  /* ────────────────────────────────────────
+     CARD SLOT base
+  ──────────────────────────────────────── */
+  .card-slot {
+    width: 72px; height: 100px; border-radius: 6px; overflow: hidden;
+    position: relative; flex-shrink: 0; background: #0d1420;
+  }
+  .card-face {
+    width: 100%; height: 100%;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+
+  /* ────────────────────────────────────────
+     A: 3D CARD FLIP (back → front)
+  ──────────────────────────────────────── */
+  .flip-wrap {
+    width: 72px; height: 100px;
+    perspective: 400px;
+  }
+  .flip-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.55s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .flip-inner.flipped { transform: rotateY(180deg); }
+  .flip-front, .flip-back {
+    position: absolute; inset: 0; border-radius: 6px;
+    backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .flip-back {
+    background: repeating-linear-gradient(
+      45deg,
+      #1a1f2e 0px, #1a1f2e 3px,
+      #141824 3px, #141824 6px
+    );
+    border: 1px solid #2D4059;
+  }
+  .flip-back::after {
+    content: '';
+    position: absolute; inset: 4px;
+    border: 1px solid #2D4059;
+    border-radius: 4px;
+  }
+  .flip-back .back-icon {
+    font-size: 22px; opacity: 0.6;
+    z-index: 1;
+  }
+  .flip-front {
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    transform: rotateY(180deg);
+    font-size: 26px;
+  }
+
+  /* ────────────────────────────────────────
+     B: SCAN LINE SWEEP
+  ──────────────────────────────────────── */
+  .scan-wrap {
+    width: 72px; height: 100px; border-radius: 6px; position: relative; overflow: hidden;
+  }
+  .scan-bg {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    clip-path: inset(0 0 100% 0);
+    transition: clip-path 0s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+  .scan-bg.scanning {
+    clip-path: inset(0 0 0% 0);
+    transition: clip-path 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .scan-placeholder {
+    position: absolute; inset: 0;
+    background: #0d1117;
+    border-radius: 5px;
+  }
+  .scan-line {
+    position: absolute; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #0D9488, #2DD4BF, #0D9488, transparent);
+    box-shadow: 0 0 8px rgba(13,148,136,0.8), 0 0 16px rgba(13,148,136,0.4);
+    top: 0;
+    opacity: 0;
+    transition: top 0s, opacity 0s;
+  }
+  .scan-line.scanning {
+    opacity: 1;
+    top: 100%;
+    transition: top 0.65s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.1s;
+  }
+
+  /* ────────────────────────────────────────
+     C: DIAGONAL WIPE (corner reveal)
+  ──────────────────────────────────────── */
+  .wipe-wrap {
+    width: 72px; height: 100px; border-radius: 6px; position: relative; overflow: hidden;
+    background: #0d1117;
+  }
+  .wipe-face {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+    transition: clip-path 0s;
+  }
+  .wipe-face.wiping {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    transition: clip-path 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .wipe-shine {
+    position: absolute; top: 0; bottom: 0;
+    width: 8px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    left: -8px;
+    opacity: 0;
+    transition: left 0s, opacity 0s;
+  }
+  .wipe-shine.wiping {
+    left: 100%;
+    opacity: 1;
+    transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+  }
+
+  /* ────────────────────────────────────────
+     D: FOIL DISSOLVE (rarity shimmer → image)
+  ──────────────────────────────────────── */
+  .dissolve-wrap {
+    width: 72px; height: 100px; border-radius: 6px; position: relative; overflow: hidden;
+  }
+  .dissolve-face {
+    position: absolute; inset: 0;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    border-radius: 5px;
+  }
+  .dissolve-face.revealed { opacity: 1; }
+  .dissolve-foil {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      rgba(255,0,128,0.7), rgba(255,180,0,0.7),
+      rgba(0,255,128,0.7), rgba(0,200,255,0.7),
+      rgba(180,0,255,0.7), rgba(255,0,128,0.7)
+    );
+    opacity: 1;
+    transition: opacity 0.5s ease;
+    animation: spin-foil 1.5s linear infinite;
+  }
+  .dissolve-foil.done { opacity: 0; }
+  .dissolve-base {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: #1E2535;
+  }
+  @keyframes spin-foil {
+    from { filter: hue-rotate(0deg); }
+    to { filter: hue-rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+<h2>Card loading — more options</h2>
+<p class="subtitle">Click "replay" to re-watch each animation. Click a row to choose.</p>
+
+<div class="options-grid">
+
+  <!-- A: Card flip -->
+  <div class="option-row" id="opt-a" onclick="sel('a')">
+    <div class="option-letter">A</div>
+    <div class="option-content">
+      <div class="option-name">Card flip (back → front)</div>
+      <div class="option-desc">Cards appear face-down (with a subtle card-back texture) then flip to reveal. Very thematic for a card game — like drawing from a pack.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="flip-wrap">
+            <div class="flip-inner" id="flip-a">
+              <div class="flip-back"><span class="back-icon">⚜</span></div>
+              <div class="flip-front">🌊</div>
+            </div>
+          </div>
+          <div class="preview-label">Loading → loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoFlip()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: Scan line -->
+  <div class="option-row" id="opt-b" onclick="sel('b')">
+    <div class="option-letter">B</div>
+    <div class="option-content">
+      <div class="option-name">Teal scan line</div>
+      <div class="option-desc">A glowing teal scan line sweeps down, revealing the card beneath it. Fast, techy feel — like the card is being "read" by the app.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="scan-wrap" id="scan-b">
+            <div class="scan-placeholder"></div>
+            <div class="scan-bg" id="scan-bg">🌊</div>
+            <div class="scan-line" id="scan-ln"></div>
+          </div>
+          <div class="preview-label">Loading → loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoScan()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Diagonal wipe -->
+  <div class="option-row" id="opt-c" onclick="sel('c')">
+    <div class="option-letter">C</div>
+    <div class="option-content">
+      <div class="option-name">Left wipe with shine</div>
+      <div class="option-desc">Card image wipes in from left to right with a soft leading shine. Clean, directional. Works great when a row of cards loads left-to-right in sequence.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="wipe-wrap" id="wipe-c">
+            <div class="wipe-face" id="wipe-face">🌊</div>
+            <div class="wipe-shine" id="wipe-shine"></div>
+          </div>
+          <div class="preview-label">Loading → loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoWipe()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Foil dissolve -->
+  <div class="option-row" id="opt-d" onclick="sel('d')">
+    <div class="option-letter">D</div>
+    <div class="option-content">
+      <div class="option-name">Foil dissolve</div>
+      <div class="option-desc">Placeholder spins as a rainbow foil burst, then dissolves to reveal the card image. Ties the loading state directly to the holographic hover effect — same visual language.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="dissolve-wrap" id="diss-d">
+            <div class="dissolve-base"></div>
+            <div class="dissolve-foil" id="diss-foil"></div>
+            <div class="dissolve-face" id="diss-face">🌊</div>
+          </div>
+          <div class="preview-label">Loading → loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoDissolve()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(c) {
+  document.querySelectorAll('.option-row').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + c).classList.add('selected');
+  if (window.recordChoice) window.recordChoice(c, document.getElementById('opt-' + c).querySelector('.option-name').textContent);
+}
+
+function demoFlip() {
+  const el = document.getElementById('flip-a');
+  el.classList.remove('flipped');
+  setTimeout(() => el.classList.add('flipped'), 400);
+}
+
+function demoScan() {
+  const bg = document.getElementById('scan-bg');
+  const ln = document.getElementById('scan-ln');
+  bg.classList.remove('scanning');
+  ln.classList.remove('scanning');
+  void bg.offsetWidth;
+  setTimeout(() => {
+    bg.classList.add('scanning');
+    ln.classList.add('scanning');
+  }, 200);
+}
+
+function demoWipe() {
+  const face = document.getElementById('wipe-face');
+  const shine = document.getElementById('wipe-shine');
+  face.classList.remove('wiping');
+  shine.classList.remove('wiping');
+  void face.offsetWidth;
+  setTimeout(() => {
+    face.classList.add('wiping');
+    shine.classList.add('wiping');
+  }, 100);
+}
+
+function demoDissolve() {
+  const foil = document.getElementById('diss-foil');
+  const face = document.getElementById('diss-face');
+  foil.classList.remove('done');
+  face.classList.remove('revealed');
+  setTimeout(() => {
+    foil.classList.add('done');
+    face.classList.add('revealed');
+  }, 900);
+}
+
+// auto-demo all on load
+setTimeout(demoFlip, 600);
+setTimeout(demoScan, 900);
+setTimeout(demoWipe, 700);
+setTimeout(demoDissolve, 500);
+</script>
+</body>
+</html>

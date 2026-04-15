@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Loading Style</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1117;
+    color: #E2E8F0;
+    font-family: -apple-system, system-ui, sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 40px; }
+
+  .options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .option-row {
+    background: #161B27;
+    border: 1.5px solid #1E2D3D;
+    border-radius: 14px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .option-row:hover { border-color: #2D4059; background: #1a2030; }
+  .option-row.selected { border-color: #0D9488; background: #0d2020; }
+
+  .option-letter {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: #1E2535;
+    border: 1px solid #2D4059;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #94A3B8;
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .option-row.selected .option-letter { background: #0D9488; border-color: #0D9488; color: white; }
+
+  .option-content { flex: 1; }
+  .option-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .option-desc { font-size: 12px; color: #475569; line-height: 1.5; margin-bottom: 16px; }
+
+  /* ── Preview area ── */
+  .preview { display: flex; gap: 10px; align-items: flex-end; }
+
+  .card-slot {
+    width: 72px; height: 100px;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* ── A: Blur-up ── */
+  .blur-card {
+    width: 100%; height: 100%;
+    background: linear-gradient(160deg, #1a2535, #0d1420);
+    position: relative;
+    overflow: hidden;
+    border-radius: 5px;
+  }
+  .blur-card img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+    border-radius: 5px;
+  }
+  .blur-card .placeholder {
+    position: absolute; inset: 0;
+    background: linear-gradient(160deg, #1E3A5F 0%, #0D2040 100%);
+    border-radius: 5px;
+    transition: opacity 0.6s ease;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .blur-a { filter: blur(8px); transform: scale(1.05); transition: filter 0.5s ease, transform 0.5s ease; }
+  .blur-a.loaded { filter: blur(0); transform: scale(1); }
+
+  /* ── B: Skeleton shimmer ── */
+  .skeleton {
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, #1E2535 25%, #2D3748 50%, #1E2535 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 5px;
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton-ready {
+    position: absolute; inset: 0;
+    background: linear-gradient(160deg, #1a2535, #0d1420);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    opacity: 0;
+    border-radius: 5px;
+    transition: opacity 0.4s ease;
+  }
+  .skeleton.pop .skeleton-ready { opacity: 1; }
+
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to   { background-position: 200% 0; }
+  }
+
+  /* ── C: Tinted color-matched ── */
+  .color-slot {
+    width: 100%; height: 100%;
+    border-radius: 5px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s ease;
+  }
+  .color-slot-inner {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    border-radius: 5px;
+  }
+  .slot-w { background: #1A1810; }
+  .slot-u { background: #0D1824; border: 1px solid #1E3A5F; }
+  .slot-r { background: #1C0E0E; border: 1px solid #5C1A1A; }
+
+  .preview-label {
+    font-size: 10px;
+    color: #475569;
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .card-col { display: flex; flex-direction: column; gap: 4px; }
+
+  /* play buttons */
+  .demo-btn {
+    margin-top: 4px;
+    font-size: 10px;
+    color: #0D9488;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<h2>Card loading style</h2>
+<p class="subtitle">How cards appear while their image is loading. Click a row to choose.</p>
+
+<div class="options-grid">
+
+  <!-- A: Blur-up -->
+  <div class="option-row" id="opt-a" onclick="sel('a')">
+    <div class="option-letter">A</div>
+    <div class="option-content">
+      <div class="option-name">Blur-up reveal</div>
+      <div class="option-desc">Card starts as a blurred low-res color blob, sharpens in as the full image loads. Like Medium's image loading. Feels intentional, not broken.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot">
+            <div class="blur-card">
+              <div class="placeholder" id="blur-ph" style="opacity:1;">🌊</div>
+              <div id="blur-img" class="blur-a" style="width:100%;height:100%;background:linear-gradient(160deg,#1a2535 0%,#0d1420 60%,#0a0f1a 100%);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:24px;opacity:0.7;">🌊</div>
+            </div>
+          </div>
+          <div class="preview-label">Loading</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div class="blur-card">
+              <div style="width:100%;height:100%;background:linear-gradient(160deg,#1a2535,#0d1420);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:24px;">🌊</div>
+            </div>
+          </div>
+          <div class="preview-label">Loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoBlur()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: Skeleton shimmer -->
+  <div class="option-row" id="opt-b" onclick="sel('b')">
+    <div class="option-letter">B</div>
+    <div class="option-content">
+      <div class="option-name">Skeleton shimmer → pop</div>
+      <div class="option-desc">Animated shimmer skeleton while loading, then card image "pops" in with a quick fade. Standard modern approach, very familiar.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot">
+            <div class="skeleton" id="skel">
+              <div class="skeleton-ready">🌊</div>
+            </div>
+          </div>
+          <div class="preview-label">Loading</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div style="width:100%;height:100%;background:linear-gradient(160deg,#1a2535,#0d1420);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:24px;">🌊</div>
+          </div>
+          <div class="preview-label">Loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoSkel()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Identity tint -->
+  <div class="option-row" id="opt-c" onclick="sel('c')">
+    <div class="option-letter">C</div>
+    <div class="option-content">
+      <div class="option-name">Identity-tinted placeholder</div>
+      <div class="option-desc">Placeholder uses the card's color identity (blue cards get a blue-tinted slot, red cards get red). No shimmer — just a calm colored block that's replaced when the image arrives.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot">
+            <div class="color-slot slot-u">
+              <div class="color-slot-inner">U</div>
+            </div>
+          </div>
+          <div class="preview-label">Blue card</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div class="color-slot slot-r">
+              <div class="color-slot-inner">R</div>
+            </div>
+          </div>
+          <div class="preview-label">Red card</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div class="color-slot slot-w">
+              <div class="color-slot-inner">W</div>
+            </div>
+          </div>
+          <div class="preview-label">White card</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(c) {
+  document.querySelectorAll('.option-row').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + c).classList.add('selected');
+  if (window.recordChoice) window.recordChoice(c, document.getElementById('opt-' + c).querySelector('.option-name').textContent);
+}
+
+function demoBlur() {
+  const img = document.getElementById('blur-img');
+  const ph = document.getElementById('blur-ph');
+  img.classList.remove('loaded');
+  ph.style.opacity = '1';
+  setTimeout(() => {
+    img.classList.add('loaded');
+    ph.style.opacity = '0';
+  }, 600);
+}
+
+function demoSkel() {
+  const skel = document.getElementById('skel');
+  skel.classList.remove('pop');
+  setTimeout(() => { skel.classList.add('pop'); }, 1000);
+}
+
+// auto-demo on load
+setTimeout(demoBlur, 800);
+setTimeout(demoSkel, 1200);
+</script>
+</body>
+</html>

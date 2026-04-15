@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Hero Options</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0A0D13; color: #E2E8F0; font-family: -apple-system, system-ui, sans-serif; padding: 32px 24px; }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 32px; }
+
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 860px; margin: 0 auto; }
+
+.option-wrap { cursor: pointer; border-radius: 16px; overflow: hidden; border: 2px solid #1E2D3D; transition: border-color 0.2s, transform 0.2s; }
+.option-wrap:hover { border-color: #0D9488; transform: translateY(-2px); }
+.option-wrap.selected { border-color: #0D9488; }
+
+.option-label { background: #161B27; padding: 12px 16px; font-size: 13px; font-weight: 600; color: #E2E8F0; border-top: 1px solid #1E2D3D; }
+.option-sub { color: #475569; font-size: 11px; font-weight: 400; margin-top: 2px; }
+
+/* ── shared deck card shell ── */
+.deck-card {
+  border-radius: 0;
+  overflow: hidden;
+  display: block;
+}
+.deck-hero { height: 140px; position: relative; overflow: hidden; }
+.deck-body-mock {
+  padding: 10px 14px 12px; background: #161B27;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.deck-name-mock { font-size: 15px; font-weight: 800; color: #F8FAFC; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
+.deck-format-badge { display: inline-flex; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; }
+.hero-content { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 14px 10px; z-index: 5; }
+.color-pips { display: flex; gap: 4px; margin-top: 4px; }
+.pip { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.4); }
+
+/* ── A: Color Splash abstract art ── */
+.splash-hero {
+  background: linear-gradient(135deg, #1A1225 0%, #2D1B4E 40%, #0A1F0E 100%);
+  position: relative; overflow: hidden;
+}
+.splash-blob {
+  position: absolute; border-radius: 50%;
+  filter: blur(28px);
+  opacity: 0.55;
+}
+.splash-overlay { position: absolute; inset: 0; background: linear-gradient(to top, #161B27 0%, transparent 50%); }
+
+/* ── B: Stylized card back fan (pure CSS) ── */
+.css-fan { position: absolute; right: 12px; top: 12px; }
+.css-card {
+  position: absolute;
+  width: 66px; height: 92px; border-radius: 6px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+  overflow: hidden;
+}
+.css-card-inner {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.css-card-pattern {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px,
+    transparent 2px, transparent 8px
+  );
+}
+.css-card-border {
+  position: absolute; inset: 5px; border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.css-card-gem {
+  width: 20px; height: 20px; border-radius: 50%;
+  position: relative; z-index: 1;
+}
+.fan-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(0,0,0,0.9) 25%, rgba(0,0,0,0.4) 60%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 50%); }
+
+/* ── C: Color identity mosaic ── */
+.mosaic-hero { position: relative; overflow: hidden; }
+.mosaic-grid {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+}
+.mosaic-cell { border-radius: 2px; }
+.mosaic-overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.2) 100%), linear-gradient(to top, #161B27 0%, transparent 45%); }
+
+/* ── D: Single large art + glow border ── */
+.art-hero { position: relative; background: #0A0D13; }
+.art-img-wrap {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.art-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.art-glow-border {
+  position: absolute; inset: 0;
+  box-shadow: inset 0 0 30px 10px rgba(129,140,248,0.3);
+  pointer-events: none;
+}
+.art-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(26,18,37,0.95) 25%, rgba(26,18,37,0.5) 65%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 45%); }
+</style>
+</head>
+<body>
+<h2>Deck hero visual — which treatment?</h2>
+<p class="subtitle">Same deck card shell, different hero approaches. Click to select.</p>
+
+<div class="options-grid">
+
+  <!-- A: Color Splash -->
+  <div class="option-wrap" onclick="sel(this,'a')">
+    <div class="deck-card">
+      <div class="deck-hero splash-hero">
+        <div class="splash-blob" style="width:120px;height:120px;background:#818CF8;top:-20px;right:20px"></div>
+        <div class="splash-blob" style="width:80px;height:80px;background:#86EFAC;bottom:-10px;right:80px"></div>
+        <div class="splash-blob" style="width:90px;height:90px;background:#C4B5D4;top:10px;right:100px"></div>
+        <div class="splash-blob" style="width:60px;height:60px;background:#FDE68A;bottom:0;right:160px"></div>
+        <div class="splash-overlay"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(129,140,248,0.2);color:#818CF8">Commander</div>
+          <div class="deck-name-mock">Atraxa Superfriends</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FDE68A"></div>
+            <div class="pip" style="background:#93C5FD"></div>
+            <div class="pip" style="background:#C4B5D4"></div>
+            <div class="pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body-mock">
+        <span style="font-size:11px;color:#475569">100 cards</span>
+        <span style="font-size:12px;font-weight:700;color:#0D9488">$320</span>
+      </div>
+    </div>
+    <div class="option-label">A — Color identity blobs
+      <div class="option-sub">Abstract art from mana colors — always unique, no images needed</div>
+    </div>
+  </div>
+
+  <!-- B: CSS Card Back Fan -->
+  <div class="option-wrap" onclick="sel(this,'b')">
+    <div class="deck-card">
+      <div class="deck-hero" style="background:linear-gradient(135deg,#1A1225,#2D1B4E)">
+        <!-- CSS fan -->
+        <div class="css-fan">
+          <div style="position:relative;width:110px;height:110px">
+            <div class="css-card" style="right:72px;top:14px;transform:rotate(-14deg);background:linear-gradient(135deg,#1A1225,#2D1B4E);opacity:0.6;z-index:1">
+              <div class="css-card-pattern"></div><div class="css-card-border"></div>
+              <div class="css-card-inner"><div class="css-card-gem" style="background:radial-gradient(circle,#86EFAC,#22C55E);box-shadow:0 0 10px rgba(134,239,172,0.6)"></div></div>
+            </div>
+            <div class="css-card" style="right:38px;top:7px;transform:rotate(-5deg);background:linear-gradient(135deg,#1A1225,#3D2060);opacity:0.8;z-index:2">
+              <div class="css-card-pattern"></div><div class="css-card-border"></div>
+              <div class="css-card-inner"><div class="css-card-gem" style="background:radial-gradient(circle,#93C5FD,#38BDF8);box-shadow:0 0 10px rgba(147,197,253,0.6)"></div></div>
+            </div>
+            <div class="css-card" style="right:0;top:0;transform:rotate(6deg);background:linear-gradient(135deg,#2D1B4E,#1A1225);z-index:3">
+              <div class="css-card-pattern"></div><div class="css-card-border"></div>
+              <div class="css-card-inner"><div class="css-card-gem" style="background:radial-gradient(circle,#C4B5D4,#A78BFA);box-shadow:0 0 10px rgba(196,181,212,0.6)"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="fan-overlay"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(129,140,248,0.2);color:#818CF8">Commander</div>
+          <div class="deck-name-mock">Atraxa Superfriends</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FDE68A"></div>
+            <div class="pip" style="background:#93C5FD"></div>
+            <div class="pip" style="background:#C4B5D4"></div>
+            <div class="pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body-mock">
+        <span style="font-size:11px;color:#475569">100 cards</span>
+        <span style="font-size:12px;font-weight:700;color:#0D9488">$320</span>
+      </div>
+    </div>
+    <div class="option-label">B — CSS card back fan
+      <div class="option-sub">Stylized card-back fan with colored gem per mana color — no images needed</div>
+    </div>
+  </div>
+
+  <!-- C: Mosaic tiles -->
+  <div class="option-wrap" onclick="sel(this,'c')">
+    <div class="deck-card">
+      <div class="deck-hero mosaic-hero" style="background:#0A0D13">
+        <div class="mosaic-grid">
+          <div class="mosaic-cell" style="background:rgba(129,140,248,0.6)"></div>
+          <div class="mosaic-cell" style="background:rgba(134,239,172,0.5)"></div>
+          <div class="mosaic-cell" style="background:rgba(196,181,212,0.55)"></div>
+          <div class="mosaic-cell" style="background:rgba(253,230,138,0.5)"></div>
+          <div class="mosaic-cell" style="background:rgba(129,140,248,0.4)"></div>
+          <div class="mosaic-cell" style="background:rgba(196,181,212,0.4)"></div>
+          <div class="mosaic-cell" style="background:rgba(129,140,248,0.7)"></div>
+          <div class="mosaic-cell" style="background:rgba(134,239,172,0.6)"></div>
+          <div class="mosaic-cell" style="background:rgba(129,140,248,0.35)"></div>
+          <div class="mosaic-cell" style="background:rgba(253,230,138,0.6)"></div>
+          <div class="mosaic-cell" style="background:rgba(134,239,172,0.45)"></div>
+          <div class="mosaic-cell" style="background:rgba(196,181,212,0.7)"></div>
+          <div class="mosaic-cell" style="background:rgba(253,230,138,0.35)"></div>
+          <div class="mosaic-cell" style="background:rgba(129,140,248,0.55)"></div>
+          <div class="mosaic-cell" style="background:rgba(134,239,172,0.7)"></div>
+        </div>
+        <div class="mosaic-overlay"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(129,140,248,0.2);color:#818CF8">Commander</div>
+          <div class="deck-name-mock">Atraxa Superfriends</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FDE68A"></div>
+            <div class="pip" style="background:#93C5FD"></div>
+            <div class="pip" style="background:#C4B5D4"></div>
+            <div class="pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body-mock">
+        <span style="font-size:11px;color:#475569">100 cards</span>
+        <span style="font-size:12px;font-weight:700;color:#0D9488">$320</span>
+      </div>
+    </div>
+    <div class="option-label">C — Color mosaic tiles
+      <div class="option-sub">Grid of colored tiles from mana identity — abstract, always rendered</div>
+    </div>
+  </div>
+
+  <!-- D: Real card art (large) -->
+  <div class="option-wrap" onclick="sel(this,'d')">
+    <div class="deck-card">
+      <div class="deck-hero art-hero">
+        <div class="art-img-wrap">
+          <img src="https://cards.scryfall.io/normal/front/d/0/d0a2c867-8191-4a2e-87ef-cbea5b258e03.jpg"
+            onerror="this.parentElement.style.background='linear-gradient(135deg,#1A1225,#2D1B4E)';this.style.display='none'" alt="">
+        </div>
+        <div class="art-glow-border"></div>
+        <div class="art-overlay"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(129,140,248,0.2);color:#818CF8">Commander</div>
+          <div class="deck-name-mock">Atraxa Superfriends</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FDE68A"></div>
+            <div class="pip" style="background:#93C5FD"></div>
+            <div class="pip" style="background:#C4B5D4"></div>
+            <div class="pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body-mock">
+        <span style="font-size:11px;color:#475569">100 cards</span>
+        <span style="font-size:12px;font-weight:700;color:#0D9488">$320</span>
+      </div>
+    </div>
+    <div class="option-label">D — Single featured card art
+      <div class="option-sub">Commander or first card in deck shown large — real art when available, color gradient fallback</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(el, choice) {
+  document.querySelectorAll('.option-wrap').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  if (window.recordChoice) window.recordChoice(choice, el.querySelector('.option-label').firstChild.textContent.trim());
+}
+</script>
+</body>
+</html>

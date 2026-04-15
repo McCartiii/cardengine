@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Sort View</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: #090D14;
+    color: #e2e8f0;
+    padding: 32px;
+  }
+
+  h2 { font-size: 18px; font-weight: 800; color: #F8FAFC; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+
+  .panel-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #475569;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1E2535;
+  }
+
+  /* View toggle */
+  .view-toggle {
+    display: inline-flex;
+    gap: 2px;
+    background: #161B27;
+    border: 1px solid #1E2535;
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 20px;
+  }
+  .vt-btn {
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    transition: all 0.15s;
+  }
+  .vt-btn.active { background: #1E2535; color: #CBD5E1; }
+
+  /* Section headers */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    margin-top: 18px;
+  }
+  .section-header:first-of-type { margin-top: 0; }
+  .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+  .section-count { font-size: 10px; color: #334155; }
+  .section-line { flex: 1; height: 1px; }
+
+  /* Type-sorted rows (existing) */
+  .card-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    transition: background 0.1s;
+  }
+  .card-row:hover { background: #161B27; }
+  .card-qty { width: 18px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; flex-shrink: 0; }
+  .card-name { flex: 1; font-size: 13px; color: #CBD5E1; }
+  .card-price { font-size: 12px; color: #334155; font-variant-numeric: tabular-nums; }
+
+  /* Color-sorted rows */
+  .color-card-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 12px;
+    border-radius: 7px;
+    transition: background 0.1s;
+    border-left: 2.5px solid transparent;
+  }
+  .color-card-row:hover { background: rgba(255,255,255,0.03); }
+
+  /* Color pips inline */
+  .pip-row { display: flex; gap: 3px; flex-shrink: 0; }
+  .pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Color section accent backgrounds */
+  .color-section-w .section-header .section-label { color: #FDE68A; }
+  .color-section-w .section-header .section-line { background: linear-gradient(to right, rgba(253,230,138,0.3), transparent); }
+  .color-section-w .color-card-row { border-left-color: rgba(253,230,138,0.4); }
+  .color-section-w .color-card-row:hover { background: rgba(253,230,138,0.04); }
+
+  .color-section-u .section-header .section-label { color: #93C5FD; }
+  .color-section-u .section-header .section-line { background: linear-gradient(to right, rgba(147,197,253,0.3), transparent); }
+  .color-section-u .color-card-row { border-left-color: rgba(147,197,253,0.4); }
+  .color-section-u .color-card-row:hover { background: rgba(147,197,253,0.04); }
+
+  .color-section-b .section-header .section-label { color: #C4B5D4; }
+  .color-section-b .section-header .section-line { background: linear-gradient(to right, rgba(196,181,212,0.3), transparent); }
+  .color-section-b .color-card-row { border-left-color: rgba(196,181,212,0.4); }
+  .color-section-b .color-card-row:hover { background: rgba(196,181,212,0.04); }
+
+  .color-section-r .section-header .section-label { color: #FCA5A5; }
+  .color-section-r .section-header .section-line { background: linear-gradient(to right, rgba(252,165,165,0.3), transparent); }
+  .color-section-r .color-card-row { border-left-color: rgba(252,165,165,0.4); }
+  .color-section-r .color-card-row:hover { background: rgba(252,165,165,0.04); }
+
+  .color-section-g .section-header .section-label { color: #86EFAC; }
+  .color-section-g .section-header .section-line { background: linear-gradient(to right, rgba(134,239,172,0.3), transparent); }
+  .color-section-g .color-card-row { border-left-color: rgba(134,239,172,0.4); }
+  .color-section-g .color-card-row:hover { background: rgba(134,239,172,0.04); }
+
+  .color-section-multi .section-header .section-label { color: #FCD34D; }
+  .color-section-multi .section-header .section-line { background: linear-gradient(to right, rgba(252,211,77,0.3), transparent); }
+  .color-section-multi .color-card-row { border-left-color: rgba(252,211,77,0.35); }
+  .color-section-multi .color-card-row:hover { background: rgba(252,211,77,0.03); }
+
+  .color-section-c .section-header .section-label { color: #94A3B8; }
+  .color-section-c .section-header .section-line { background: linear-gradient(to right, rgba(148,163,184,0.3), transparent); }
+  .color-section-c .color-card-row { border-left-color: rgba(148,163,184,0.3); }
+
+  .color-section-land .section-header .section-label { color: #A8907A; }
+  .color-section-land .section-header .section-line { background: linear-gradient(to right, rgba(168,144,122,0.3), transparent); }
+  .color-section-land .color-card-row { border-left-color: rgba(168,144,122,0.3); }
+
+  /* Note callout */
+  .note {
+    background: rgba(13,148,136,0.06);
+    border: 1px solid rgba(13,148,136,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 28px;
+  }
+  .note strong { color: #2DD4BF; }
+</style>
+</head>
+<body>
+
+<h2>Card Sorting — Type vs Color</h2>
+<p class="subtitle">The view toggle in the action bar switches between these two groupings</p>
+
+<div style="margin-bottom: 20px;">
+  <div class="view-toggle">
+    <button class="vt-btn">By Section</button>
+    <button class="vt-btn active">By Type</button>
+    <button class="vt-btn">By Color</button>
+  </div>
+</div>
+
+<div class="split">
+
+  <!-- Left: Type sort (current) -->
+  <div>
+    <div class="panel-label">Type Sort — current</div>
+
+    <div class="section-header">
+      <span class="section-label" style="color:#a855f7;">Commander</span>
+      <span class="section-count">(1)</span>
+      <div class="section-line" style="background:linear-gradient(to right,rgba(168,85,247,0.3),transparent);"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Atraxa, Praetors' Voice</span><span class="card-price" style="color:#0D9488;margin-left:auto;">$18.00</span></div>
+
+    <div class="section-header">
+      <span class="section-label" style="color:#f59e0b;">Planeswalkers</span>
+      <span class="section-count">(12)</span>
+      <div class="section-line" style="background:linear-gradient(to right,rgba(245,158,11,0.3),transparent);"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Elspeth, Sun's Champion</span><span class="card-price" style="margin-left:auto;">$4.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Jace, the Mind Sculptor</span><span class="card-price" style="color:#0D9488;margin-left:auto;">$36.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Liliana of the Veil</span><span class="card-price" style="color:#0D9488;margin-left:auto;">$24.00</span></div>
+
+    <div class="section-header">
+      <span class="section-label" style="color:#22c55e;">Creatures</span>
+      <span class="section-count">(22)</span>
+      <div class="section-line" style="background:linear-gradient(to right,rgba(34,197,94,0.3),transparent);"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Deepglow Skate</span><span class="card-price" style="margin-left:auto;">$3.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Crystalline Crawler</span><span class="card-price" style="margin-left:auto;">$1.20</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Vorinclex, Voice of Hunger</span><span class="card-price" style="margin-left:auto;">$9.00</span></div>
+
+    <div class="section-header">
+      <span class="section-label" style="color:#38bdf8;">Instants</span>
+      <span class="section-count">(8)</span>
+      <div class="section-line" style="background:linear-gradient(to right,rgba(56,189,248,0.3),transparent);"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Counterspell</span><span class="card-price" style="margin-left:auto;">$1.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Cyclonic Rift</span><span class="card-price" style="color:#0D9488;margin-left:auto;">$12.00</span></div>
+
+    <div class="section-header">
+      <span class="section-label" style="color:#78716c;">Lands</span>
+      <span class="section-count">(35)</span>
+      <div class="section-line" style="background:linear-gradient(to right,rgba(120,113,108,0.3),transparent);"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Command Tower</span><span class="card-price" style="margin-left:auto;">$0.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Breeding Pool</span><span class="card-price" style="margin-left:auto;">$14.00</span></div>
+    <div style="padding:4px 10px;font-size:11px;color:#334155;">+ 33 more…</div>
+  </div>
+
+  <!-- Right: Color sort (new) -->
+  <div>
+    <div class="panel-label">Color Sort — new</div>
+
+    <div class="color-section-w">
+      <div class="section-header">
+        <div class="pip" style="background:#FDE68A;"></div>
+        <span class="section-label">White</span>
+        <span class="section-count">(14)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Elspeth, Sun's Champion</span><span class="card-price" style="margin-left:auto;color:#334155;">$4.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Swords to Plowshares</span><span class="card-price" style="margin-left:auto;color:#334155;">$2.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Path to Exile</span><span class="card-price" style="margin-left:auto;color:#334155;">$1.50</span></div>
+    </div>
+
+    <div class="color-section-u">
+      <div class="section-header">
+        <div class="pip" style="background:#93C5FD;"></div>
+        <span class="section-label">Blue</span>
+        <span class="section-count">(18)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Jace, the Mind Sculptor</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$36.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Counterspell</span><span class="card-price" style="margin-left:auto;color:#334155;">$1.50</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Cyclonic Rift</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$12.00</span></div>
+    </div>
+
+    <div class="color-section-b">
+      <div class="section-header">
+        <div class="pip" style="background:#C4B5D4;"></div>
+        <span class="section-label">Black</span>
+        <span class="section-count">(12)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Liliana of the Veil</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$24.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Demonic Tutor</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$28.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Toxic Deluge</span><span class="card-price" style="margin-left:auto;color:#334155;">$16.00</span></div>
+    </div>
+
+    <div class="color-section-g">
+      <div class="section-header">
+        <div class="pip" style="background:#86EFAC;"></div>
+        <span class="section-label">Green</span>
+        <span class="section-count">(10)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Doubling Season</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$42.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Vorinclex, Voice of Hunger</span><span class="card-price" style="margin-left:auto;color:#334155;">$9.00</span></div>
+    </div>
+
+    <div class="color-section-multi">
+      <div class="section-header">
+        <div style="display:flex;gap:2px;">
+          <div class="pip" style="background:#FDE68A;"></div>
+          <div class="pip" style="background:#93C5FD;margin-left:-4px;"></div>
+          <div class="pip" style="background:#C4B5D4;margin-left:-4px;"></div>
+          <div class="pip" style="background:#86EFAC;margin-left:-4px;"></div>
+        </div>
+        <span class="section-label">Multicolor</span>
+        <span class="section-count">(8)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Atraxa, Praetors' Voice</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$18.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Atraxa, Grand Unifier</span><span class="card-price" style="margin-left:auto;color:#0D9488;">$22.00</span></div>
+    </div>
+
+    <div class="color-section-c">
+      <div class="section-header">
+        <div class="pip" style="background:#94A3B8;"></div>
+        <span class="section-label">Colorless</span>
+        <span class="section-count">(10)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Sol Ring</span><span class="card-price" style="margin-left:auto;color:#334155;">$3.00</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Contagion Engine</span><span class="card-price" style="margin-left:auto;color:#334155;">$4.50</span></div>
+    </div>
+
+    <div class="color-section-land">
+      <div class="section-header">
+        <div class="pip" style="background:#A8907A;"></div>
+        <span class="section-label">Lands</span>
+        <span class="section-count">(35)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Command Tower</span><span class="card-price" style="margin-left:auto;color:#334155;">$0.50</span></div>
+      <div class="color-card-row"><span class="card-qty">1</span><span class="card-name" style="color:#CBD5E1;">Breeding Pool</span><span class="card-price" style="margin-left:auto;color:#334155;">$14.00</span></div>
+      <div style="padding:4px 10px;font-size:11px;color:#334155;">+ 33 more…</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  <strong>Color sort order:</strong> W → U → B → R → G → Multicolor → Colorless → Lands (standard WUBRG ordering). Multicolor cards appear in their own section rather than duplicated. The left border + header color matches the mana color, keeping it subtle.
+</div>
+
+</body>
+</html>

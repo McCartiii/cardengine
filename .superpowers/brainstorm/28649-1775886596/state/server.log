@@ -1,0 +1,17 @@
+{"type":"server-started","port":51369,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:51369","screen_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content","state_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/state"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/timer-style.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      Full Chess Clock\n      Set total game time in setup, split per player. Active player's clock ticks down. Pass turn to advance. Time-out = elimination. Just like the web version.","choice":"a","id":null,"timestamp":1775886813243}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/layout-style.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      Face-to-Face (current mobile)\n      Top player(s) rotated 180° so each player reads from their side of the table. Phone lays flat between players. Best for 2-player.","choice":"a","id":null,"timestamp":1775886936985}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/counters.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/counter-access.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/counter-access-v2.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/swipe-up-counter.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/swipe-up-counter-v2.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/animations-demo.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/setup-screen.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/setup-refined.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/setup-refined-v2.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/setup-no-emoji.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/28649-1775886596/content/setup-simplified.html"}
+{"type":"server-stopped","reason":"idle timeout"}

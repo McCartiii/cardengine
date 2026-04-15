@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Button Style</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1117;
+    color: #E2E8F0;
+    font-family: -apple-system, system-ui, sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 40px; }
+
+  .options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .option-row {
+    background: #161B27;
+    border: 1.5px solid #1E2D3D;
+    border-radius: 14px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .option-row:hover { border-color: #2D4059; background: #1a2030; }
+  .option-row.selected { border-color: #0D9488; background: #0d2020; }
+
+  .option-letter {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: #1E2535;
+    border: 1px solid #2D4059;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #94A3B8;
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .option-row.selected .option-letter { background: #0D9488; border-color: #0D9488; color: white; }
+
+  .option-content { flex: 1; }
+  .option-name { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .option-desc { font-size: 12px; color: #475569; line-height: 1.5; margin-bottom: 14px; }
+
+  .btn-preview { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* ── A: Gradient + Glow ── */
+  .btn-a-primary {
+    padding: 8px 18px; border-radius: 9px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: white;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    box-shadow: 0 2px 12px rgba(13,148,136,0.45), inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: all 0.15s;
+    position: relative; overflow: hidden;
+  }
+  .btn-a-primary::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%);
+    background-size: 200% 100%; background-position: -100% 0;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .btn-a-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(13,148,136,0.55), inset 0 1px 0 rgba(255,255,255,0.15); }
+  .btn-a-primary:hover::after { opacity: 1; animation: sweep 0.6s ease forwards; }
+
+  .btn-a-secondary {
+    padding: 8px 18px; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #94A3B8;
+    background: transparent;
+    border: 1.5px solid #1E2D3D;
+    transition: all 0.15s;
+  }
+  .btn-a-secondary:hover { border-color: #2D4059; color: #E2E8F0; background: #161B27; }
+
+  .btn-a-danger {
+    padding: 8px 18px; border-radius: 9px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: white;
+    background: linear-gradient(135deg, #F43F5E, #FB7185);
+    box-shadow: 0 2px 12px rgba(244,63,94,0.35);
+    transition: all 0.15s;
+  }
+  .btn-a-danger:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(244,63,94,0.45); }
+
+  /* ── B: Flat Solid ── */
+  .btn-b-primary {
+    padding: 8px 18px; border-radius: 9px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: white;
+    background: #0D9488;
+    transition: all 0.15s;
+  }
+  .btn-b-primary:hover { background: #14B8A6; transform: translateY(-1px); }
+
+  .btn-b-secondary {
+    padding: 8px 18px; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #E2E8F0;
+    background: #1E2535; border: 1.5px solid #2D4059;
+    transition: all 0.15s;
+  }
+  .btn-b-secondary:hover { background: #2D3748; }
+
+  .btn-b-danger {
+    padding: 8px 18px; border-radius: 9px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: white;
+    background: #F43F5E;
+    transition: all 0.15s;
+  }
+  .btn-b-danger:hover { background: #FB7185; transform: translateY(-1px); }
+
+  /* ── C: Outlined Glow ── */
+  .btn-c-primary {
+    padding: 8px 18px; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #2DD4BF;
+    background: rgba(13,148,136,0.1);
+    border: 1.5px solid rgba(13,148,136,0.5);
+    transition: all 0.2s;
+  }
+  .btn-c-primary:hover {
+    background: rgba(13,148,136,0.18);
+    border-color: #0D9488;
+    color: #2DD4BF;
+    box-shadow: 0 0 16px rgba(13,148,136,0.35), inset 0 0 12px rgba(13,148,136,0.08);
+  }
+
+  .btn-c-secondary {
+    padding: 8px 18px; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #94A3B8;
+    background: transparent;
+    border: 1.5px solid #1E2D3D;
+    transition: all 0.2s;
+  }
+  .btn-c-secondary:hover { border-color: #2D4059; color: #E2E8F0; }
+
+  .btn-c-danger {
+    padding: 8px 18px; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #FDA4AF;
+    background: rgba(244,63,94,0.08);
+    border: 1.5px solid rgba(244,63,94,0.4);
+    transition: all 0.2s;
+  }
+  .btn-c-danger:hover { background: rgba(244,63,94,0.15); box-shadow: 0 0 16px rgba(244,63,94,0.25); }
+
+  .tag { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  @keyframes sweep {
+    from { background-position: -100% 0; }
+    to   { background-position: 200% 0; }
+  }
+</style>
+</head>
+<body>
+<h2>Button style</h2>
+<p class="subtitle">Hover the buttons to see interactions. Click a row to choose.</p>
+
+<div class="options-grid">
+
+  <div class="option-row" id="opt-a" onclick="sel('a')">
+    <div class="option-letter">A</div>
+    <div class="option-content">
+      <div class="option-name">Gradient + shimmer sweep</div>
+      <div class="option-desc">Primary CTAs get a teal gradient with a light shimmer on hover. Secondary and danger buttons stay flat. Most "premium" feel.</div>
+      <div class="btn-preview">
+        <button class="btn-a-primary">Import Deck</button>
+        <button class="btn-a-secondary">Cancel</button>
+        <button class="btn-a-danger">Delete</button>
+        <span class="tag">hover me →</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option-row" id="opt-b" onclick="sel('b')">
+    <div class="option-letter">B</div>
+    <div class="option-content">
+      <div class="option-name">Flat solid with lift</div>
+      <div class="option-desc">Solid colors, subtle translateY(-1px) lift on hover. Clean, fast-feeling. Like Moxfield / Linear.</div>
+      <div class="btn-preview">
+        <button class="btn-b-primary">Import Deck</button>
+        <button class="btn-b-secondary">Cancel</button>
+        <button class="btn-b-danger">Delete</button>
+        <span class="tag">hover me →</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option-row" id="opt-c" onclick="sel('c')">
+    <div class="option-letter">C</div>
+    <div class="option-content">
+      <div class="option-name">Outlined with glow</div>
+      <div class="option-desc">Translucent tinted backgrounds with colored borders. Glows on hover. Looks more "cyber" / game-app-ish.</div>
+      <div class="btn-preview">
+        <button class="btn-c-primary">Import Deck</button>
+        <button class="btn-c-secondary">Cancel</button>
+        <button class="btn-c-danger">Delete</button>
+        <span class="tag">hover me →</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(c) {
+  document.querySelectorAll('.option-row').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + c).classList.add('selected');
+  if (window.recordChoice) window.recordChoice(c, document.getElementById('opt-' + c).querySelector('.option-name').textContent);
+}
+</script>
+</body>
+</html>

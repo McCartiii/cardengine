@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login Designs</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060609; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; color: white; overflow-x: auto; }
+
+  .demo-container {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    padding: 24px 20px 40px;
+  }
+
+  .demo-col { display: flex; flex-direction: column; align-items: center; }
+  .demo-label { text-align: center; margin-top: 14px; max-width: 360px; }
+  .demo-label h3 { font-size: 14px; font-weight: 700; color: white; margin-bottom: 4px; }
+  .demo-label p { font-size: 10px; color: #555; line-height: 1.6; }
+
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    background: #0F1117;
+    border-radius: 44px;
+    border: 3px solid #1a1a25;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     SHARED STYLES
+     ════════════════════════════════════════════════════════════════════════ */
+
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes glow-breathe { 0%,100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+  @keyframes float-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  @keyframes card-glow { 0%,100% { box-shadow: 0 0 30px rgba(13,148,136,0.08); } 50% { box-shadow: 0 0 50px rgba(13,148,136,0.15); } }
+
+  .bg-glow {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13,148,136,0.06) 0%, transparent 70%);
+    animation: glow-breathe 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    box-shadow: 0 2px 12px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+    margin-bottom: 10px;
+  }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 60%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+
+  .btn-text { position: relative; z-index: 1; }
+
+  .input-field {
+    width: 100%;
+    padding: 15px 16px;
+    border-radius: 12px;
+    border: 1px solid #1E2D3D;
+    background: #161B27;
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    margin-bottom: 10px;
+  }
+
+  .input-field::placeholder { color: #475569; }
+  .input-field:focus { border-color: #0D9488; }
+
+  .social-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #1E2D3D;
+    background: #161B27;
+    font-size: 14px;
+    font-weight: 600;
+    color: #E2E8F0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.2s;
+    margin-bottom: 8px;
+  }
+
+  .social-btn:hover { border-color: #2D4059; background: #1E2535; }
+
+  .social-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .divider-line { flex: 1; height: 1px; background: #1E2D3D; }
+  .divider-text { font-size: 10px; color: #475569; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     DESIGN A — Floating Card
+     ════════════════════════════════════════════════════════════════════════ */
+
+  .design-a .phone-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 32px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .design-a .login-card {
+    background: rgba(22,27,39,0.8);
+    border: 1px solid rgba(30,45,61,0.6);
+    border-radius: 24px;
+    padding: 32px 24px;
+    backdrop-filter: blur(20px);
+    animation: card-glow 4s ease-in-out infinite;
+  }
+
+  .design-a .card-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .design-a .logo-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .design-a .logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 900;
+    color: white;
+    box-shadow: 0 4px 16px rgba(13,148,136,0.3);
+  }
+
+  .design-a .logo-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.3px;
+  }
+
+  .design-a .card-sub {
+    font-size: 12px;
+    color: #475569;
+    letter-spacing: 0.3px;
+  }
+
+  .design-a .tab-row {
+    display: flex;
+    background: #0F1117;
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 20px;
+  }
+
+  .design-a .tab {
+    flex: 1;
+    padding: 9px 0;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .design-a .tab.active {
+    background: #1E2535;
+    color: #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  .design-a .input-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94A3B8;
+    margin-bottom: 5px;
+    letter-spacing: 0.3px;
+  }
+
+  .design-a .forgot-link {
+    text-align: right;
+    font-size: 11px;
+    color: #0D9488;
+    font-weight: 600;
+    margin-top: -4px;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+
+  .design-a .bottom-text {
+    text-align: center;
+    font-size: 12px;
+    color: #475569;
+    margin-top: 16px;
+  }
+
+  .design-a .bottom-text a {
+    color: #2DD4BF;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     DESIGN B — Full Bleed Minimal
+     ════════════════════════════════════════════════════════════════════════ */
+
+  .design-b .phone-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+  }
+
+  .design-b .hero-area {
+    flex: 0 0 auto;
+    padding: 80px 28px 40px;
+    position: relative;
+  }
+
+  .design-b .hero-glow {
+    position: absolute;
+    top: 40px;
+    right: -40px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13,148,136,0.12) 0%, transparent 70%);
+    animation: glow-breathe 3s ease-in-out infinite;
+  }
+
+  .design-b .hero-title {
+    font-size: 34px;
+    font-weight: 900;
+    color: #E2E8F0;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  .design-b .hero-title span {
+    background: linear-gradient(135deg, #0D9488, #2DD4BF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .design-b .hero-sub {
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .design-b .form-area {
+    flex: 1;
+    background: #161B27;
+    border-top-left-radius: 28px;
+    border-top-right-radius: 28px;
+    border-top: 1px solid #1E2D3D;
+    padding: 28px 24px 40px;
+  }
+
+  .design-b .form-handle {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 auto 20px;
+  }
+
+  .design-b .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .design-b .input-row .input-field {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  .design-b .input-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+
+  .design-b .social-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .design-b .social-row .social-btn {
+    flex: 1;
+    padding: 13px;
+  }
+
+  .design-b .terms {
+    text-align: center;
+    font-size: 10px;
+    color: #475569;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  .design-b .terms a { color: #94A3B8; text-decoration: none; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     DESIGN C — Ultra Premium
+     ════════════════════════════════════════════════════════════════════════ */
+
+  .design-c .phone-frame {
+    background: #0A0D12;
+  }
+
+  .design-c .phone-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    position: relative;
+    z-index: 1;
+  }
+
+  .design-c .top-area {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 55%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 28px;
+  }
+
+  .design-c .brand-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 36px;
+    border: 1px solid rgba(13,148,136,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .design-c .brand-circle::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1px solid rgba(13,148,136,0.1);
+  }
+
+  .design-c .brand-circle::after {
+    content: '';
+    position: absolute;
+    inset: -16px;
+    border-radius: 50%;
+    border: 1px solid rgba(13,148,136,0.05);
+  }
+
+  .design-c .brand-inner {
+    width: 52px;
+    height: 52px;
+    border-radius: 26px;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    color: white;
+    box-shadow: 0 8px 32px rgba(13,148,136,0.4);
+  }
+
+  .design-c .brand-name {
+    font-size: 28px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.8px;
+    margin-bottom: 4px;
+  }
+
+  .design-c .brand-tag {
+    font-size: 13px;
+    color: #475569;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .design-c .bottom-sheet {
+    background: linear-gradient(180deg, #12151E 0%, #161B27 100%);
+    border-top-left-radius: 32px;
+    border-top-right-radius: 32px;
+    border-top: 1px solid rgba(30,45,61,0.5);
+    padding: 24px 24px 44px;
+    min-height: 48%;
+  }
+
+  .design-c .sheet-handle {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    margin: 0 auto 20px;
+  }
+
+  .design-c .auth-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .design-c .auth-option {
+    padding: 15px 16px;
+    border-radius: 14px;
+    border: 1px solid #1E2D3D;
+    background: rgba(22,27,39,0.6);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .design-c .auth-option:hover {
+    border-color: #2D4059;
+    background: rgba(30,37,53,0.8);
+  }
+
+  .design-c .auth-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .design-c .auth-icon-apple { background: rgba(255,255,255,0.08); }
+  .design-c .auth-icon-google { background: rgba(234,67,53,0.08); color: #EA4335; }
+  .design-c .auth-icon-email { background: rgba(13,148,136,0.1); color: #2DD4BF; }
+
+  .design-c .auth-option-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #E2E8F0;
+  }
+
+  .design-c .auth-option-sub {
+    font-size: 11px;
+    color: #475569;
+    margin-top: 1px;
+  }
+
+  .design-c .auth-arrow {
+    margin-left: auto;
+    color: #2D4059;
+    font-size: 16px;
+  }
+
+  .design-c .skip-link {
+    text-align: center;
+    font-size: 12px;
+    color: #475569;
+    margin-top: 12px;
+    cursor: pointer;
+  }
+
+  .design-c .skip-link span { color: #94A3B8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+
+  <!-- ═══════════ DESIGN A — Floating Card ═══════════ -->
+  <div class="demo-col design-a">
+    <div class="phone-frame">
+      <div class="bg-glow"></div>
+      <div class="phone-content">
+        <div class="login-card">
+          <div class="card-header">
+            <div class="logo-row">
+              <div class="logo-icon">CE</div>
+              <div class="logo-name">Card Engine</div>
+            </div>
+            <div class="card-sub">Scan. Collect. Master.</div>
+          </div>
+
+          <div class="tab-row">
+            <div class="tab active">Sign In</div>
+            <div class="tab">Sign Up</div>
+          </div>
+
+          <div class="input-label">Email</div>
+          <input class="input-field" type="email" placeholder="you@example.com" />
+
+          <div class="input-label">Password</div>
+          <input class="input-field" type="password" placeholder="Enter password" />
+
+          <div class="forgot-link">Forgot password?</div>
+
+          <button class="btn-primary">
+            <span class="btn-shimmer"></span>
+            <span class="btn-text">Sign In</span>
+          </button>
+
+          <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-text">or continue with</div>
+            <div class="divider-line"></div>
+          </div>
+
+          <div style="display:flex;gap:8px;">
+            <div class="social-btn" style="flex:1;"><span class="social-icon" style="font-size:18px;">G</span></div>
+            <div class="social-btn" style="flex:1;"><span class="social-icon" style="font-size:20px;font-weight:600;"></span></div>
+          </div>
+
+          <div class="bottom-text">
+            Don't have an account? <a href="#">Sign up</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>A — Floating Card</h3>
+      <p>Glassmorphic card with glow pulse. Sign In / Sign Up tabs. Email + password with social login below. Compact, traditional, refined. Card floats over ambient teal glow.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ DESIGN B — Full Bleed ═══════════ -->
+  <div class="demo-col design-b">
+    <div class="phone-frame">
+      <div class="phone-content">
+        <div class="hero-area">
+          <div class="hero-glow"></div>
+          <div class="hero-title">Your cards,<br/>your <span>collection</span>.</div>
+          <div class="hero-sub">Track, scan, and build decks with AI-powered tools.</div>
+        </div>
+
+        <div class="form-area">
+          <div class="form-handle"></div>
+
+          <div class="input-label">Email</div>
+          <input class="input-field" placeholder="you@example.com" />
+
+          <div class="input-label">Password</div>
+          <input class="input-field" type="password" placeholder="Enter password" />
+
+          <button class="btn-primary" style="margin-top:4px;">
+            <span class="btn-shimmer"></span>
+            <span class="btn-text">Get Started</span>
+          </button>
+
+          <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-text">or</div>
+            <div class="divider-line"></div>
+          </div>
+
+          <div class="social-row">
+            <div class="social-btn"><span style="font-size:18px;font-weight:600;"></span> Apple</div>
+            <div class="social-btn"><span style="font-size:16px;">G</span> Google</div>
+          </div>
+
+          <div class="terms">By continuing, you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>B — Hero + Bottom Sheet</h3>
+      <p>Bold headline with gradient accent at top. Form slides up from bottom as a sheet. Large typography. Social login side-by-side. Feels like an onboarding flow.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ DESIGN C — Ultra Premium ═══════════ -->
+  <div class="demo-col design-c">
+    <div class="phone-frame">
+      <div class="phone-content">
+        <div class="top-area">
+          <div class="brand-circle">
+            <div class="brand-inner">CE</div>
+          </div>
+          <div class="brand-name">Card Engine</div>
+          <div class="brand-tag">Scan. Collect. Master.</div>
+        </div>
+
+        <div class="bottom-sheet">
+          <div class="sheet-handle"></div>
+
+          <div class="auth-options">
+            <div class="auth-option">
+              <div class="auth-icon-wrap auth-icon-apple" style="font-size:20px;font-weight:600;color:white;"></div>
+              <div>
+                <div class="auth-option-text">Continue with Apple</div>
+                <div class="auth-option-sub">Fastest sign in</div>
+              </div>
+              <div class="auth-arrow">></div>
+            </div>
+
+            <div class="auth-option">
+              <div class="auth-icon-wrap auth-icon-google">G</div>
+              <div>
+                <div class="auth-option-text">Continue with Google</div>
+                <div class="auth-option-sub">Use your Google account</div>
+              </div>
+              <div class="auth-arrow">></div>
+            </div>
+
+            <div class="auth-option">
+              <div class="auth-icon-wrap auth-icon-email">@</div>
+              <div>
+                <div class="auth-option-text">Email + Password</div>
+                <div class="auth-option-sub">Sign in or create account</div>
+              </div>
+              <div class="auth-arrow">></div>
+            </div>
+          </div>
+
+          <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-text">or</div>
+            <div class="divider-line"></div>
+          </div>
+
+          <button class="btn-primary">
+            <span class="btn-shimmer"></span>
+            <span class="btn-text">Continue as Guest</span>
+          </button>
+
+          <div class="skip-link">Guest mode has <span>limited features</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>C — Ultra Premium</h3>
+      <p>Centered brand mark with concentric ring halos. Auth options as rich list items with icons, descriptions, and arrows. Bottom sheet feel. Social-first, email as fallback. Guest mode prominent.</p>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

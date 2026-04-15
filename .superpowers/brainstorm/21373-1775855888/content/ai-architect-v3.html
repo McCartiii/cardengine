@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Architect — Polished V3</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #090D14; color: #e2e8f0; min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell { max-width: 820px; margin: 0 auto; padding: 20px; }
+
+/* Demo switcher */
+.demo-bar {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 3px; background: rgba(15,17,23,0.97);
+  border: 1px solid #1E2535; border-radius: 8px; padding: 4px; z-index: 200;
+}
+.db { padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 500; color: #475569; background: none; border: none; cursor: pointer; }
+.db.active { background: #1E2535; color: #e2e8f0; }
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* ═══ CONFIG BAR — glass morphism ═══ */
+.config-bar {
+  background: rgba(17,24,39,0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(30,37,53,0.8);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.config-bar::before {
+  content: '';
+  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(13,148,136,0.3), transparent);
+}
+.config-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.config-row + .config-row { margin-top: 6px; }
+.cfg-divider { width: 1px; height: 18px; background: rgba(30,37,53,0.8); margin: 0 3px; }
+.cfg-label { font-size: 9px; font-weight: 700; color: rgba(71,85,105,0.7); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 4px; }
+
+.chip {
+  padding: 5px 12px; border-radius: 20px; font-size: 10.5px; font-weight: 600;
+  background: rgba(22,27,39,0.6); border: 1px solid rgba(30,37,53,0.6);
+  color: #64748b; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.chip:hover { border-color: rgba(13,148,136,0.2); color: #94a3b8; }
+.chip.on { background: rgba(13,148,136,0.1); border-color: rgba(13,148,136,0.35); color: #0D9488; }
+.chip.purple { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: #818cf8; }
+
+.bracket-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 20px; font-size: 10.5px; font-weight: 700;
+  background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
+  color: #f59e0b; cursor: pointer; white-space: nowrap;
+}
+.bracket-dot { width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.4); }
+
+/* ═══ COMMAND INPUT — hero section ═══ */
+.cmd-hero {
+  background: rgba(17,24,39,0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(30,37,53,0.8);
+  border-radius: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.cmd-hero::before {
+  content: '';
+  position: absolute; top: 0; left: 5%; right: 5%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(13,148,136,0.4), transparent);
+}
+.cmd-hero::after {
+  content: '';
+  position: absolute; top: 0; left: 20%; right: 20%; height: 40px;
+  background: radial-gradient(ellipse at center top, rgba(13,148,136,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cmd-input-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px;
+}
+.cmd-badge {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(13,148,136,0.2), rgba(13,148,136,0.05));
+  border: 1px solid rgba(13,148,136,0.25);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 12px rgba(13,148,136,0.1);
+}
+.cmd-badge svg { stroke: #0D9488; }
+.cmd-field {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 15px; font-weight: 500; color: #F8FAFC;
+  letter-spacing: -0.01em;
+}
+.cmd-field::placeholder { color: #334155; }
+.cmd-send {
+  padding: 9px 24px; border-radius: 10px; border: none;
+  background: linear-gradient(135deg, #0D9488, #0f766e);
+  color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 0 20px rgba(13,148,136,0.2), 0 2px 8px rgba(0,0,0,0.2);
+  transition: all 0.15s; flex-shrink: 0;
+}
+.cmd-send:hover { box-shadow: 0 0 28px rgba(13,148,136,0.35), 0 4px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
+
+/* Instructions */
+.cmd-instructions {
+  padding: 0 18px 10px; display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 600; color: #334155; cursor: pointer;
+}
+.cmd-instructions:hover { color: #475569; }
+.cmd-instructions svg { width: 10px; height: 10px; }
+
+/* Quick actions */
+.cmd-actions {
+  display: flex; gap: 5px; flex-wrap: wrap; padding: 0 12px 12px;
+}
+.cmd-act {
+  padding: 7px 16px; border-radius: 10px; font-size: 11px; font-weight: 500;
+  background: rgba(15,17,23,0.5); border: 1px solid rgba(30,37,53,0.6);
+  color: #64748b; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.cmd-act:hover { border-color: rgba(13,148,136,0.3); color: #0D9488; background: rgba(13,148,136,0.04); }
+.cmd-act-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(13,148,136,0.4); }
+
+/* ═══ STATS STRIP ═══ */
+.stats-strip {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px;
+}
+.stat-card {
+  background: rgba(17,24,39,0.5);
+  border: 1px solid rgba(30,37,53,0.6);
+  border-radius: 12px;
+  padding: 14px 12px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.stat-card:hover { border-color: rgba(30,37,53,0.9); }
+.stat-card.accent { border-color: rgba(245,158,11,0.25); }
+.stat-card.accent::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, #f59e0b, transparent);
+}
+.stat-val { font-size: 22px; font-weight: 800; color: #F8FAFC; line-height: 1; letter-spacing: -0.02em; }
+.stat-val.warn { color: #f59e0b; }
+.stat-label { font-size: 9px; color: #475569; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.06em; font-weight: 600; }
+
+/* ═══ CURVE + COLOR ═══ */
+.panels-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.panel {
+  background: rgba(17,24,39,0.5);
+  border: 1px solid rgba(30,37,53,0.6);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.panel-title { font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+
+.curve-bars { display: flex; align-items: flex-end; gap: 5px; height: 52px; }
+.curve-bar { flex: 1; position: relative; border-radius: 3px 3px 0 0; }
+.curve-bar-fill {
+  width: 100%; height: 100%; border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, rgba(13,148,136,0.7), rgba(13,148,136,0.2));
+  transition: height 0.3s;
+}
+.curve-bar.peak .curve-bar-fill { background: linear-gradient(180deg, #14b8a6, rgba(13,148,136,0.4)); box-shadow: 0 -2px 8px rgba(13,148,136,0.3); }
+.curve-count { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #64748b; font-weight: 700; }
+.curve-label { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 8px; color: #334155; font-weight: 600; }
+
+/* Color bar */
+.color-bar { display: flex; gap: 2px; border-radius: 6px; overflow: hidden; height: 10px; margin-bottom: 10px; }
+.color-seg { border-radius: 3px; transition: width 0.3s; }
+.color-legend { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: #64748b; }
+.mana-pip {
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 800;
+}
+.pip-glow { box-shadow: 0 0 6px var(--glow); }
+
+/* ═══ ISSUES ═══ */
+.issues-panel {
+  background: rgba(17,24,39,0.5);
+  border: 1px solid rgba(30,37,53,0.6);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.issues-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid rgba(30,37,53,0.5);
+}
+.issues-title { font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
+.issues-meta { font-size: 9px; color: #334155; }
+.issue {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; transition: background 0.1s;
+}
+.issue:not(:last-child) { border-bottom: 1px solid rgba(30,37,53,0.3); }
+.issue:hover { background: rgba(13,148,136,0.02); }
+.issue-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.issue-dot.crit { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+.issue-dot.warn { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.3); }
+.issue-dot.ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.3); }
+.issue-text { flex: 1; font-size: 11.5px; color: #94a3b8; font-weight: 500; }
+.issue-badge { font-size: 8px; font-weight: 700; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; flex-shrink: 0; letter-spacing: 0.03em; }
+.issue-fix {
+  padding: 4px 12px; border-radius: 8px; font-size: 9.5px; font-weight: 600; flex-shrink: 0;
+  background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.2);
+  color: #0D9488; cursor: pointer; transition: all 0.15s;
+}
+.issue-fix:hover { background: rgba(13,148,136,0.15); box-shadow: 0 0 8px rgba(13,148,136,0.15); }
+
+/* ═══ CHAT ═══ */
+.chat-area { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
+
+.msg { display: flex; gap: 10px; }
+.msg.user { justify-content: flex-end; }
+
+.msg-avatar {
+  width: 30px; height: 30px; border-radius: 10px; flex-shrink: 0; margin-top: 2px;
+  background: linear-gradient(135deg, rgba(13,148,136,0.2), rgba(13,148,136,0.05));
+  border: 1px solid rgba(13,148,136,0.25);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 10px rgba(13,148,136,0.08);
+}
+.msg-avatar svg { stroke: #0D9488; }
+
+.msg-bubble {
+  max-width: 85%; border-radius: 14px; position: relative;
+}
+.msg.user .msg-bubble {
+  padding: 11px 16px;
+  background: rgba(13,148,136,0.08);
+  border: 1px solid rgba(13,148,136,0.2);
+  border-radius: 14px 14px 4px 14px;
+  color: #e2e8f0; font-size: 13px; font-weight: 500; line-height: 1.6;
+}
+.msg.ai .msg-bubble {
+  padding: 16px 20px;
+  background: rgba(17,24,39,0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(30,37,53,0.7);
+  border-radius: 14px 14px 14px 4px;
+  color: #cbd5e1; font-size: 12.5px; line-height: 1.7;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.msg.ai .msg-bubble strong { color: #F8FAFC; font-weight: 600; }
+.msg.ai .msg-bubble .section-head {
+  display: block; font-size: 11px; font-weight: 700; color: #94a3b8;
+  margin: 14px 0 6px; letter-spacing: 0.03em;
+  padding-bottom: 4px; border-bottom: 1px solid rgba(30,37,53,0.5);
+}
+.msg.ai .msg-bubble .section-head:first-child { margin-top: 0; }
+.msg.ai .msg-bubble ul { padding-left: 16px; margin: 6px 0; }
+.msg.ai .msg-bubble li { margin-bottom: 4px; }
+.msg.ai .msg-bubble li::marker { color: rgba(13,148,136,0.4); }
+.msg.ai .msg-bubble .card-name { color: #0D9488; font-weight: 600; }
+
+/* Cursor */
+.cursor {
+  display: inline-block; width: 2px; height: 16px; background: #0D9488;
+  border-radius: 1px; animation: blink 1s step-end infinite;
+  margin-left: 2px; vertical-align: text-bottom;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ═══ BOTTOM INPUT ═══ */
+.bottom-input {
+  background: rgba(17,24,39,0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(30,37,53,0.7);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.bi-instructions {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-bottom: 1px solid rgba(30,37,53,0.4);
+  font-size: 10px; font-weight: 600; color: #0D9488; cursor: pointer;
+}
+.bi-instructions span { color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.bi-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+}
+.bi-field {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 13.5px; font-weight: 500; color: #F8FAFC;
+}
+.bi-field::placeholder { color: #334155; }
+.bi-send {
+  padding: 9px 22px; border-radius: 10px; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.bi-send.active {
+  background: linear-gradient(135deg, #0D9488, #0f766e);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(13,148,136,0.2);
+}
+.bi-send.working {
+  background: rgba(30,37,53,0.6);
+  color: #475569;
+}
+.spinner {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid rgba(71,85,105,0.3); border-top-color: #475569;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <button class="db active" onclick="show('dashboard')">Dashboard</button>
+  <button class="db" onclick="show('chat')">Chat</button>
+</div>
+
+<div class="shell" style="padding-top:52px;">
+
+<!-- ═══ DASHBOARD VIEW ═══ -->
+<div class="page active" id="page-dashboard">
+
+  <!-- Config bar -->
+  <div class="config-bar">
+    <div class="config-row">
+      <div class="bracket-chip"><div class="bracket-dot"></div> Bracket 3</div>
+      <div class="cfg-divider"></div>
+      <div class="chip on">Ramp</div>
+      <div class="chip on">Card Draw</div>
+      <div class="chip">Removal</div>
+      <div class="chip">Combo</div>
+      <div class="chip">Aggro</div>
+      <div class="chip">Control</div>
+      <div class="chip">Tokens</div>
+      <div class="chip">Voltron</div>
+      <div class="cfg-divider"></div>
+      <div class="cfg-label">Pool</div>
+      <div class="chip on">Mix</div>
+      <div class="chip">Owned</div>
+      <div class="chip">All</div>
+    </div>
+    <div class="config-row">
+      <div class="cfg-label">Theme</div>
+      <div class="chip">Superfriends</div>
+      <div class="chip">Voltron</div>
+      <div class="chip purple">Tribal</div>
+      <div class="chip">Aristocrats</div>
+      <div class="chip">Spellslinger</div>
+      <div class="chip">Reanimator</div>
+      <div class="chip">Landfall</div>
+      <div class="chip">Enchantress</div>
+      <div class="chip">Artifacts</div>
+      <div class="chip">Mill</div>
+    </div>
+  </div>
+
+  <!-- Command input -->
+  <div class="cmd-hero">
+    <div class="cmd-input-row">
+      <div class="cmd-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+      </div>
+      <input class="cmd-field" placeholder="What do you want to build?" />
+      <button class="cmd-send">Send</button>
+    </div>
+    <div class="cmd-instructions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838.838-2.872a2 2 0 0 1 .506-.855z"/>
+      </svg>
+      Add custom instructions
+    </div>
+    <div class="cmd-actions">
+      <div class="cmd-act"><div class="cmd-act-dot"></div> Build remaining deck</div>
+      <div class="cmd-act"><div class="cmd-act-dot"></div> Suggest upgrades</div>
+      <div class="cmd-act"><div class="cmd-act-dot"></div> Find synergies</div>
+      <div class="cmd-act"><div class="cmd-act-dot"></div> Budget swaps</div>
+      <div class="cmd-act"><div class="cmd-act-dot"></div> How to pilot</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-strip">
+    <div class="stat-card"><div class="stat-val">67</div><div class="stat-label">Cards</div></div>
+    <div class="stat-card"><div class="stat-val">3.2</div><div class="stat-label">Avg CMC</div></div>
+    <div class="stat-card"><div class="stat-val">36</div><div class="stat-label">Lands</div></div>
+    <div class="stat-card"><div class="stat-val">$142</div><div class="stat-label">Value</div></div>
+    <div class="stat-card accent"><div class="stat-val warn">B-</div><div class="stat-label">Health</div></div>
+  </div>
+
+  <!-- Curve + Color -->
+  <div class="panels-row">
+    <div class="panel">
+      <div class="panel-title">Mana Curve</div>
+      <div class="curve-bars">
+        <div class="curve-bar" style="height:20%"><div class="curve-bar-fill"></div><div class="curve-count">4</div><div class="curve-label">0</div></div>
+        <div class="curve-bar" style="height:35%"><div class="curve-bar-fill"></div><div class="curve-count">7</div><div class="curve-label">1</div></div>
+        <div class="curve-bar" style="height:60%"><div class="curve-bar-fill"></div><div class="curve-count">12</div><div class="curve-label">2</div></div>
+        <div class="curve-bar peak" style="height:100%"><div class="curve-bar-fill"></div><div class="curve-count">16</div><div class="curve-label">3</div></div>
+        <div class="curve-bar" style="height:55%"><div class="curve-bar-fill"></div><div class="curve-count">9</div><div class="curve-label">4</div></div>
+        <div class="curve-bar" style="height:35%"><div class="curve-bar-fill"></div><div class="curve-count">6</div><div class="curve-label">5</div></div>
+        <div class="curve-bar" style="height:18%"><div class="curve-bar-fill"></div><div class="curve-count">3</div><div class="curve-label">6</div></div>
+        <div class="curve-bar" style="height:12%"><div class="curve-bar-fill"></div><div class="curve-count">2</div><div class="curve-label">7+</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Color Balance</div>
+      <div class="color-bar">
+        <div class="color-seg" style="width:22%;background:#f9fafb"></div>
+        <div class="color-seg" style="width:18%;background:#60a5fa"></div>
+        <div class="color-seg" style="width:16%;background:#7e22ce"></div>
+        <div class="color-seg" style="width:5%;background:#ef4444"></div>
+        <div class="color-seg" style="width:24%;background:#16a34a"></div>
+        <div class="color-seg" style="width:15%;background:#94a3b8"></div>
+      </div>
+      <div class="color-legend">
+        <div class="color-item"><div class="mana-pip pip-glow" style="background:#f9fafb;color:#1a1a1a;--glow:rgba(249,250,251,0.3)">W</div><span style="font-weight:600">White</span> <span style="color:#334155">22%</span></div>
+        <div class="color-item"><div class="mana-pip pip-glow" style="background:#60a5fa;color:#1a1a1a;--glow:rgba(96,165,250,0.3)">U</div><span style="font-weight:600">Blue</span> <span style="color:#334155">18%</span></div>
+        <div class="color-item"><div class="mana-pip pip-glow" style="background:#7e22ce;color:#e9d5ff;--glow:rgba(126,34,206,0.3)">B</div><span style="font-weight:600">Black</span> <span style="color:#334155">16%</span></div>
+        <div class="color-item"><div class="mana-pip pip-glow" style="background:#ef4444;color:#fff;--glow:rgba(239,68,68,0.3)">R</div><span style="font-weight:600">Red</span> <span style="color:#334155">5%</span></div>
+        <div class="color-item"><div class="mana-pip pip-glow" style="background:#16a34a;color:#fff;--glow:rgba(22,163,74,0.3)">G</div><span style="font-weight:600">Green</span> <span style="color:#334155">24%</span></div>
+        <div class="color-item"><div class="mana-pip pip-glow" style="background:#94a3b8;color:#1a1a1a;--glow:rgba(148,163,184,0.3)">C</div><span style="font-weight:600">Colorless</span> <span style="color:#334155">15%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Issues -->
+  <div class="issues-panel">
+    <div class="issues-head">
+      <div class="issues-title">Issues</div>
+      <div class="issues-meta">2 warnings · 1 critical</div>
+    </div>
+    <div class="issue">
+      <div class="issue-dot crit"></div>
+      <div class="issue-text">No artifact/enchantment removal</div>
+      <div class="issue-badge" style="background:rgba(239,68,68,0.1);color:#ef4444">Critical</div>
+      <div class="issue-fix">Fix</div>
+    </div>
+    <div class="issue">
+      <div class="issue-dot warn"></div>
+      <div class="issue-text">Only 2 board wipes — need 4-5</div>
+      <div class="issue-badge" style="background:rgba(245,158,11,0.1);color:#f59e0b">Low</div>
+      <div class="issue-fix">Fix</div>
+    </div>
+    <div class="issue">
+      <div class="issue-dot warn"></div>
+      <div class="issue-text">33 cards short of 100</div>
+      <div class="issue-badge" style="background:rgba(245,158,11,0.1);color:#f59e0b">Incomplete</div>
+      <div class="issue-fix">Fill</div>
+    </div>
+    <div class="issue">
+      <div class="issue-dot ok"></div>
+      <div class="issue-text">Ramp package solid — 10 sources</div>
+      <div class="issue-badge" style="background:rgba(34,197,94,0.1);color:#22c55e">Good</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ CHAT VIEW ═══ -->
+<div class="page" id="page-chat">
+
+  <!-- Collapsed config -->
+  <div class="config-bar" style="padding:6px 14px;">
+    <div class="config-row">
+      <div class="bracket-chip"><div class="bracket-dot"></div> Bracket 3</div>
+      <div class="cfg-divider"></div>
+      <div class="chip on">Ramp</div>
+      <div class="chip on">Card Draw</div>
+      <div class="chip on">Aggro</div>
+      <div class="chip on">Control</div>
+      <div class="cfg-divider"></div>
+      <div class="chip purple">Tribal</div>
+      <div class="cfg-divider"></div>
+      <div class="cfg-label">Pool</div>
+      <div class="chip on">Mix</div>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="msg user">
+      <div class="msg-bubble">Build me the remaining 99 but I want the deck to have themes from Solo Leveling</div>
+    </div>
+
+    <div class="msg ai">
+      <div class="msg-avatar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+      </div>
+      <div class="msg-bubble">
+        <p style="margin-bottom:8px"><strong>Jin Sakai</strong> is <strong>Esper (W/U/B)</strong> — a solo attacker with double strike or unblockable modes and card draw on combat damage. This maps perfectly to Solo Leveling themes.</p>
+
+        <span class="section-head">Theme Mapping</span>
+        <ul>
+          <li><span class="card-name">Sung Jin-Woo</span> = Jin Sakai (lone shadow monarch rising in power)</li>
+          <li><span class="card-name">Shadow Army</span> = token generation / reanimation</li>
+          <li><span class="card-name">Leveling Up</span> = +1/+1 counters, power growth</li>
+          <li><span class="card-name">The System</span> = draw engines, card advantage</li>
+          <li><span class="card-name">Shadow Monarch</span> = aristocrats, death triggers</li>
+        </ul>
+
+        <span class="section-head">Core Strategy</span>
+        <p>Voltron core with Jin Sakai suited up in equipment and auras, backed by a reanimation subtheme that brings fallen creatures back as your "shadow army." +1/+1 counter synergies represent leveling up.</p>
+
+        <span class="section-head">Key Cards Found</span>
+        <ul>
+          <li><span class="card-name">Sword of Feast and Famine</span> — equipment, doubles your mana (power spike)</li>
+          <li><span class="card-name">Reconnaissance</span> — untap after damage, free attacks</li>
+          <li><span class="card-name">Reanimate</span> — bring back fallen warriors as shadows</li>
+          <li><span class="card-name">Animate Dead</span> — same shadow army theme</li>
+          <li><span class="card-name">Dauthi Voidwalker</span> — shadow creature that exiles threats</li>
+        </ul>
+        <div class="cursor"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom input -->
+  <div class="bottom-input">
+    <div class="bi-instructions">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838.838-2.872a2 2 0 0 1 .506-.855z"/>
+      </svg>
+      Instructions active
+      <span>— Keep budget under $200, avoid infinite combos</span>
+    </div>
+    <div class="bi-row">
+      <input class="bi-field" placeholder="Thinking..." disabled />
+      <button class="bi-send working"><div class="spinner"></div> Working</button>
+    </div>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.db').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; padding: 30px; min-height: 100vh; font-family: 'DM Sans', sans-serif; }
+
+  @keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+  @keyframes slide-in { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes line-draw { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+  @keyframes subtle-shift { 0%,100% { opacity: 0.06; } 50% { opacity: 0.1; } }
+
+  .device {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    background: #0E0E0E;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     BACKGROUND — geometric card-back pattern, not space
+     ═══════════════════════════════════════════════════════ */
+
+  .bg-pattern {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* Subtle geometric grid — like a card back or deck box texture */
+  .bg-geo {
+    position: absolute;
+    inset: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 40px,
+        rgba(13,148,136,0.015) 40px,
+        rgba(13,148,136,0.015) 41px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 40px,
+        rgba(13,148,136,0.015) 40px,
+        rgba(13,148,136,0.015) 41px
+      );
+    animation: subtle-shift 8s ease-in-out infinite;
+  }
+
+  /* Single accent wash — barely there */
+  .bg-wash {
+    position: absolute;
+    bottom: -20%;
+    left: -20%;
+    width: 140%;
+    height: 60%;
+    background: radial-gradient(ellipse, rgba(13,148,136,0.04) 0%, transparent 70%);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     TOP SECTION — Brand mark
+     ═══════════════════════════════════════════════════════ */
+
+  .top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+
+  /* The "card" — a simple, elegant rectangle */
+  .brand-card {
+    width: 200px;
+    height: 280px;
+    border-radius: 12px;
+    position: relative;
+    margin-bottom: 24px;
+    animation: fade-in 1s ease-out 0.2s both;
+  }
+
+  /* Outer border — dark, clean */
+  .bc-outer {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: #0A0A0A;
+    border: 1px solid #1A1A1A;
+    overflow: hidden;
+  }
+
+  /* Inner frame */
+  .bc-inner {
+    position: absolute;
+    inset: 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.03);
+    background: #0E0E0E;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Card art area — NOT cosmic, but geometric/textural */
+  .bc-art {
+    flex: 1;
+    margin: 6px 6px 0;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    background: #090909;
+  }
+
+  /* Geometric pattern inside art — diamond tessellation */
+  .bc-art-pattern {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(60deg, rgba(13,148,136,0.06) 25%, transparent 25%),
+      linear-gradient(-60deg, rgba(13,148,136,0.06) 25%, transparent 25%),
+      linear-gradient(60deg, transparent 75%, rgba(13,148,136,0.06) 75%),
+      linear-gradient(-60deg, transparent 75%, rgba(13,148,136,0.06) 75%);
+    background-size: 40px 70px;
+    background-position: 0 0, 0 0, 20px 35px, 20px 35px;
+  }
+
+  /* Center content of art */
+  .bc-art-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+
+  /* Monogram — clean, large, typographic */
+  .bc-monogram {
+    font-family: 'Playfair Display', serif;
+    font-size: 64px;
+    font-weight: 800;
+    color: rgba(13,148,136,0.75);
+    letter-spacing: -3px;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+
+  /* Thin decorative line */
+  .bc-rule {
+    width: 40px;
+    height: 1px;
+    background: rgba(13,148,136,0.2);
+    margin-bottom: 10px;
+  }
+
+  .bc-tagline {
+    font-size: 7px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.15);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  /* Bottom strip of card — like a real card's text area */
+  .bc-strip {
+    height: 56px;
+    margin: 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.015);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.02);
+  }
+
+  .bc-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 2px;
+  }
+
+  .bc-type {
+    font-size: 7px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.12);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SEPARATOR
+     ═══════════════════════════════════════════════════════ */
+
+  .sep {
+    position: absolute;
+    top: 384px;
+    left: 40px; right: 40px;
+    height: 1px;
+    background: rgba(255,255,255,0.04);
+    z-index: 3;
+    transform-origin: center;
+    animation: line-draw 0.8s ease-out 0.6s both;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     FORM SECTION
+     ═══════════════════════════════════════════════════════ */
+
+  .form-section {
+    position: absolute;
+    top: 404px;
+    left: 0; right: 0;
+    bottom: 0;
+    z-index: 3;
+    padding: 0 36px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-header {
+    margin-bottom: 24px;
+    animation: slide-in 0.6s ease-out 0.8s both;
+  }
+
+  .form-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.88);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .form-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.2px;
+  }
+
+  /* Inputs */
+  .input-group {
+    margin-bottom: 12px;
+    animation: slide-in 0.6s ease-out var(--d, 0.9s) both;
+  }
+
+  .input-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.16);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 14px 0;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: transparent;
+    color: rgba(255,255,255,0.8);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    outline: none;
+    transition: border-color 0.3s;
+    letter-spacing: 0.2px;
+  }
+
+  .input-field:focus {
+    border-bottom-color: rgba(13,148,136,0.4);
+  }
+
+  .input-field::placeholder {
+    color: rgba(255,255,255,0.08);
+    font-weight: 300;
+  }
+
+  .form-meta {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+    margin-top: 4px;
+    animation: slide-in 0.6s ease-out 1.1s both;
+  }
+
+  .forgot {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(13,148,136,0.5);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .forgot:hover { color: rgba(13,148,136,0.8); }
+
+  /* CTA */
+  .cta-group {
+    margin-bottom: 20px;
+    animation: slide-in 0.6s ease-out 1.2s both;
+  }
+
+  .cta {
+    width: 100%;
+    padding: 16px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    background: #0D9488;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, background 0.2s;
+  }
+
+  .cta:hover { background: #14B8A6; }
+  .cta:active { transform: scale(0.98); }
+
+  .cta-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 25%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  .cta span { position: relative; z-index: 1; }
+
+  /* Divider */
+  .form-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    animation: slide-in 0.6s ease-out 1.3s both;
+  }
+
+  .fd-line { flex: 1; height: 1px; background: rgba(255,255,255,0.04); }
+  .fd-text { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.1); letter-spacing: 0.5px; }
+
+  /* Social */
+  .social-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    animation: slide-in 0.6s ease-out 1.4s both;
+  }
+
+  .social-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .social-btn:hover {
+    border-color: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .social-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .social-icon {
+    font-size: 15px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  /* Guest */
+  .guest-line {
+    text-align: center;
+    animation: slide-in 0.6s ease-out 1.5s both;
+  }
+
+  .guest-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.1);
+  }
+
+  .guest-link {
+    color: rgba(13,148,136,0.35);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .guest-link:hover { color: rgba(13,148,136,0.6); }
+</style>
+</head>
+<body>
+
+<div class="device">
+
+  <!-- Background -->
+  <div class="bg-pattern">
+    <div class="bg-geo"></div>
+    <div class="bg-wash"></div>
+  </div>
+
+  <!-- Brand card -->
+  <div class="top">
+    <div class="brand-card">
+      <div class="bc-outer">
+        <div class="bc-inner">
+          <div class="bc-art">
+            <div class="bc-art-pattern"></div>
+            <div class="bc-art-center">
+              <div class="bc-monogram">CE</div>
+              <div class="bc-rule"></div>
+              <div class="bc-tagline">Scan . Collect . Master</div>
+            </div>
+          </div>
+          <div class="bc-strip">
+            <div class="bc-name">Card Engine</div>
+            <div class="bc-type">Collection Platform</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Form -->
+  <div class="form-section">
+    <div class="form-header">
+      <div class="form-title">Sign in</div>
+      <div class="form-subtitle">Welcome back to your collection</div>
+    </div>
+
+    <div class="input-group" style="--d: 0.9s;">
+      <label class="input-label">Email</label>
+      <input class="input-field" type="email" placeholder="you@example.com" />
+    </div>
+
+    <div class="input-group" style="--d: 1s;">
+      <label class="input-label">Password</label>
+      <input class="input-field" type="password" placeholder="Enter your password" />
+    </div>
+
+    <div class="form-meta">
+      <a class="forgot">Forgot password?</a>
+    </div>
+
+    <div class="cta-group">
+      <button class="cta">
+        <span class="cta-shimmer"></span>
+        <span>Sign In</span>
+      </button>
+    </div>
+
+    <div class="form-divider">
+      <div class="fd-line"></div>
+      <div class="fd-text">or</div>
+      <div class="fd-line"></div>
+    </div>
+
+    <div class="social-row">
+      <div class="social-btn">
+        <span class="social-icon"></span>
+        <span class="social-name">Apple</span>
+      </div>
+      <div class="social-btn">
+        <span class="social-icon" style="font-size:13px;font-weight:700;color:rgba(66,133,244,0.35);">G</span>
+        <span class="social-name">Google</span>
+      </div>
+    </div>
+
+    <div class="guest-line">
+      <span class="guest-text">or <a class="guest-link">continue as guest</a></span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

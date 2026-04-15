@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Deck — Creation Flow</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #090D14; color: #e2e8f0; min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px 24px 40px; -webkit-font-smoothing: antialiased;
+}
+.backdrop {
+  position: fixed; inset: 0; background: rgba(6,8,16,0.88);
+  backdrop-filter: blur(10px); display: flex; align-items: center;
+  justify-content: center; padding: 60px 24px 24px;
+}
+.modal {
+  background: #111827; border: 1px solid #1E2535; border-radius: 20px;
+  width: 100%; max-width: 520px; max-height: calc(100vh - 100px);
+  overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(13,148,136,0.08);
+}
+.modal-body { overflow-y: auto; flex: 1; }
+.modal-body::-webkit-scrollbar { width: 4px; }
+.modal-body::-webkit-scrollbar-thumb { background: #1E2535; border-radius: 4px; }
+
+/* Progress */
+.progress { display: flex; align-items: center; gap: 8px; padding: 20px 28px 0; flex-shrink: 0; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #1E2535; transition: all 0.25s; }
+.dot.active { background: #0D9488; width: 24px; border-radius: 3px; }
+.dot.done { background: #0D9488; opacity: 0.4; }
+
+/* Step header */
+.step-header { padding: 20px 28px 0; }
+.step-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: #0D9488; text-transform: uppercase; margin-bottom: 4px; }
+.step-title { font-size: 22px; font-weight: 700; color: #F8FAFC; }
+.step-sub { font-size: 13px; color: #475569; margin-top: 3px; }
+
+/* Name step */
+.name-wrap { padding: 24px 28px 8px; }
+.name-input {
+  width: 100%; background: #0F1117; border: 1px solid #1E2535;
+  border-radius: 12px; padding: 14px 16px; font-size: 16px; font-weight: 500;
+  color: #F8FAFC; outline: none; transition: border-color 0.15s;
+}
+.name-input:focus { border-color: #0D9488; }
+.name-input::placeholder { color: #334155; }
+
+/* Commander step */
+.cmd-wrap { padding: 20px 28px 8px; }
+
+/* Format pill / switcher */
+.format-pill-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.format-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 10px; border-radius: 20px;
+  background: rgba(22,163,74,0.1); border: 1px solid rgba(22,163,74,0.25);
+  font-size: 12px; font-weight: 600; color: #16a34a; cursor: default;
+  transition: all 0.15s;
+}
+.format-pill .fmt-dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; }
+.change-format-btn {
+  font-size: 11px; color: #334155; background: none; border: none; cursor: pointer;
+  padding: 4px 8px; border-radius: 6px; transition: all 0.15s; font-weight: 500;
+  border: 1px solid #1E2535;
+}
+.change-format-btn:hover { color: #94a3b8; border-color: #2d3748; }
+
+/* Format drawer */
+.format-drawer {
+  background: #0F1117; border: 1px solid #1E2535; border-radius: 14px;
+  overflow: hidden; margin-bottom: 14px;
+  max-height: 0; transition: max-height 0.3s ease;
+}
+.format-drawer.open { max-height: 500px; }
+.drawer-inner { padding: 12px; }
+.fmt-group-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #334155; margin: 8px 4px 6px; display: block;
+}
+.fmt-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.fmt-chip {
+  padding: 5px 11px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  background: #161B27; border: 1px solid #1E2535; color: #94a3b8;
+  cursor: pointer; transition: all 0.12s; white-space: nowrap;
+}
+.fmt-chip:hover { border-color: var(--c); color: var(--c); background: rgba(var(--cr), 0.06); }
+.fmt-chip.active { border-color: var(--c); color: var(--c); background: rgba(var(--cr), 0.1); }
+
+/* Commander search */
+.cmd-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #475569; text-transform: uppercase; margin-bottom: 8px; }
+.cmd-search {
+  width: 100%; background: #0F1117; border: 1px solid #1E2535;
+  border-radius: 10px; padding: 11px 14px; font-size: 13px;
+  color: #F8FAFC; outline: none; transition: border-color 0.15s;
+}
+.cmd-search:focus { border-color: #16a34a; }
+.cmd-search::placeholder { color: #334155; }
+.cmd-results { margin-top: 6px; background: #0F1117; border: 1px solid #1E2535; border-radius: 10px; overflow: hidden; }
+.cmd-result {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  cursor: pointer; transition: background 0.1s;
+}
+.cmd-result:not(:last-child) { border-bottom: 1px solid #1E2535; }
+.cmd-result:hover { background: rgba(22,163,74,0.05); }
+.cmd-result.selected { background: rgba(22,163,74,0.09); }
+.cmd-thumb {
+  width: 30px; height: 22px; border-radius: 3px; flex-shrink: 0;
+  background: #1E2535; overflow: hidden;
+}
+.cmd-name { font-size: 12px; font-weight: 500; color: #e2e8f0; flex: 1; }
+.cmd-sub { font-size: 10px; color: #475569; }
+.cmd-pips { display: flex; gap: 3px; }
+.pip {
+  width: 11px; height: 11px; border-radius: 50%; font-size: 7px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+}
+.pip-w { background: #f9fafb; color: #1a1a1a; }
+.pip-u { background: #60a5fa; color: #1a1a1a; }
+.pip-b { background: #7e22ce; color: #e9d5ff; }
+.pip-r { background: #ef4444; color: #fff; }
+.pip-g { background: #16a34a; color: #fff; }
+
+/* Non-commander format: just name shown */
+.no-cmd-note {
+  padding: 14px 16px; background: #0F1117; border: 1px solid #1E2535;
+  border-radius: 10px; font-size: 12px; color: #475569; line-height: 1.6;
+}
+.no-cmd-note strong { color: #94a3b8; }
+
+/* Confirm */
+.confirm-card {
+  margin: 20px 28px 8px; background: #0F1117; border: 1px solid #1E2535;
+  border-radius: 14px; padding: 18px; display: flex; align-items: center; gap: 14px;
+}
+.confirm-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.confirm-name { font-size: 16px; font-weight: 700; color: #F8FAFC; }
+.confirm-meta { font-size: 12px; color: #475569; margin-top: 2px; }
+.confirm-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; margin-top: 5px; }
+.hint-text { padding: 4px 28px 4px; font-size: 12px; color: #2d3748; line-height: 1.6; }
+
+/* Footer */
+.modal-footer {
+  display: flex; align-items: center; gap: 8px; padding: 14px 28px 22px;
+  flex-shrink: 0; border-top: 1px solid #1E2535; background: #111827;
+}
+.btn-back {
+  flex-shrink: 0; padding: 10px 18px; border-radius: 10px; font-size: 13px;
+  font-weight: 500; background: transparent; color: #475569;
+  border: 1px solid #1E2535; cursor: pointer; transition: all 0.15s;
+}
+.btn-back:hover { color: #94a3b8; border-color: #2d3748; }
+.btn-next {
+  flex: 1; padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: #0D9488; color: #fff; border: none; cursor: pointer; transition: all 0.15s;
+}
+.btn-next:hover { background: #0f9d90; box-shadow: 0 0 24px rgba(13,148,136,0.3); }
+.btn-skip { font-size: 12px; color: #334155; background: none; border: none; cursor: pointer; padding: 10px 12px; white-space: nowrap; }
+.btn-skip:hover { color: #475569; }
+
+.step { display: none; }
+.step.active { display: block; }
+.spacer { height: 12px; }
+
+/* Demo nav */
+.demo-bar {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 4px; background: rgba(15,17,23,0.95);
+  border: 1px solid #1E2535; border-radius: 10px; padding: 5px; z-index: 200;
+}
+.demo-btn { padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; color: #475569; background: none; border: none; cursor: pointer; }
+.demo-btn.active { background: #1E2535; color: #e2e8f0; }
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <button class="demo-btn active" onclick="showStep(1)">1 · Name</button>
+  <button class="demo-btn" onclick="showStep(2)">2 · Commander</button>
+  <button class="demo-btn" onclick="showStep(3)">3 · Done</button>
+</div>
+
+<div class="backdrop">
+<div class="modal">
+
+  <div class="progress">
+    <div class="dot" id="d1"></div>
+    <div class="dot" id="d2"></div>
+    <div class="dot" id="d3"></div>
+  </div>
+
+  <!-- STEP 1: Name -->
+  <div class="step active" id="step1">
+    <div class="modal-body">
+      <div class="step-header">
+        <div class="step-label">Step 1 of 2</div>
+        <div class="step-title">Name your deck</div>
+        <div class="step-sub">You can always rename it later</div>
+      </div>
+      <div class="name-wrap">
+        <input class="name-input" id="deck-name-input" type="text" placeholder="e.g. Atraxa Superfriends, Budget Burn…" value="My Atraxa Deck" autofocus />
+      </div>
+      <div class="spacer"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-next" onclick="showStep(2)">Continue →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Commander (default) / Format switch -->
+  <div class="step" id="step2">
+    <div class="modal-body">
+      <div class="step-header">
+        <div class="step-label" id="s2-label">Step 2 of 2</div>
+        <div class="step-title" id="s2-title">Choose your commander</div>
+        <div class="step-sub" id="s2-sub">Search for a legendary creature to lead your deck</div>
+      </div>
+      <div class="cmd-wrap">
+
+        <!-- Format pill + change button -->
+        <div class="format-pill-row">
+          <div class="format-pill" id="active-format-pill">
+            <div class="fmt-dot" id="fmt-dot"></div>
+            <span id="fmt-pill-label">Commander</span>
+          </div>
+          <button class="change-format-btn" onclick="toggleDrawer()">Change format ↓</button>
+        </div>
+
+        <!-- Format drawer (hidden by default) -->
+        <div class="format-drawer" id="format-drawer">
+          <div class="drawer-inner">
+            <span class="fmt-group-label">Singleton</span>
+            <div class="fmt-chips">
+              <div class="fmt-chip active" style="--c:#16a34a;--cr:22,163,74" onclick="pickFormat(this,'commander','Commander','#16a34a','22,163,74',true,'👑')">Commander</div>
+              <div class="fmt-chip" style="--c:#8b5cf6;--cr:139,92,246" onclick="pickFormat(this,'oathbreaker','Oathbreaker','#8b5cf6','139,92,246',true,'⚔️')">Oathbreaker</div>
+              <div class="fmt-chip" style="--c:#14b8a6;--cr:20,184,166" onclick="pickFormat(this,'brawl','Brawl','#14b8a6','20,184,166',true,'🏆')">Brawl</div>
+              <div class="fmt-chip" style="--c:#a78bfa;--cr:167,139,250" onclick="pickFormat(this,'historic-brawl','Historic Brawl','#a78bfa','167,139,250',true,'📜')">Historic Brawl</div>
+            </div>
+            <span class="fmt-group-label">60-Card Competitive</span>
+            <div class="fmt-chips">
+              <div class="fmt-chip" style="--c:#0D9488;--cr:13,148,136" onclick="pickFormat(this,'standard','Standard','#0D9488','13,148,136',false,'🃏')">Standard</div>
+              <div class="fmt-chip" style="--c:#6366f1;--cr:99,102,241" onclick="pickFormat(this,'pioneer','Pioneer','#6366f1','99,102,241',false,'🃏')">Pioneer</div>
+              <div class="fmt-chip" style="--c:#f59e0b;--cr:245,158,11" onclick="pickFormat(this,'modern','Modern','#f59e0b','245,158,11',false,'🃏')">Modern</div>
+              <div class="fmt-chip" style="--c:#ec4899;--cr:236,72,153" onclick="pickFormat(this,'legacy','Legacy','#ec4899','236,72,153',false,'🃏')">Legacy</div>
+              <div class="fmt-chip" style="--c:#ef4444;--cr:239,68,68" onclick="pickFormat(this,'vintage','Vintage','#ef4444','239,68,68',false,'💎')">Vintage</div>
+              <div class="fmt-chip" style="--c:#64748b;--cr:100,116,139" onclick="pickFormat(this,'pauper','Pauper','#64748b','100,116,139',false,'🃏')">Pauper</div>
+            </div>
+            <span class="fmt-group-label">Arena &amp; Digital</span>
+            <div class="fmt-chips">
+              <div class="fmt-chip" style="--c:#22d3ee;--cr:34,211,238" onclick="pickFormat(this,'explorer','Explorer','#22d3ee','34,211,238',false,'🃏')">Explorer</div>
+              <div class="fmt-chip" style="--c:#818cf8;--cr:129,140,248" onclick="pickFormat(this,'historic','Historic','#818cf8','129,140,248',false,'🃏')">Historic</div>
+              <div class="fmt-chip" style="--c:#f472b6;--cr:244,114,182" onclick="pickFormat(this,'alchemy','Alchemy','#f472b6','244,114,182',false,'🧪')">Alchemy</div>
+              <div class="fmt-chip" style="--c:#fb923c;--cr:251,146,60" onclick="pickFormat(this,'timeless','Timeless','#fb923c','251,146,60',false,'⏳')">Timeless</div>
+            </div>
+            <span class="fmt-group-label">Other</span>
+            <div class="fmt-chips">
+              <div class="fmt-chip" style="--c:#94a3b8;--cr:148,163,184" onclick="pickFormat(this,'penny-dreadful','Penny Dreadful','#94a3b8','148,163,184',false,'🪙')">Penny Dreadful</div>
+              <div class="fmt-chip" style="--c:#475569;--cr:71,85,105" onclick="pickFormat(this,'custom','Custom','#475569','71,85,105',false,'✏️')">Custom</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commander search (shown for singleton formats) -->
+        <div id="cmd-search-block">
+          <div class="cmd-label" id="cmd-label-text">Commander</div>
+          <input class="cmd-search" type="text" id="cmd-search-input" placeholder="Search legendary creatures…" value="Atraxa" />
+          <div class="cmd-results">
+            <div class="cmd-result selected" onclick="selectCmd(this)">
+              <div class="cmd-thumb"></div>
+              <div style="flex:1">
+                <div class="cmd-name">Atraxa, Praetors' Voice</div>
+                <div class="cmd-sub">Legendary Creature — Phyrexian Angel Horror</div>
+              </div>
+              <div class="cmd-pips">
+                <div class="pip pip-w">W</div><div class="pip pip-u">U</div>
+                <div class="pip pip-b">B</div><div class="pip pip-g">G</div>
+              </div>
+            </div>
+            <div class="cmd-result" onclick="selectCmd(this)">
+              <div class="cmd-thumb"></div>
+              <div style="flex:1">
+                <div class="cmd-name">Atraxa, Grand Unifier</div>
+                <div class="cmd-sub">Legendary Creature — Phyrexian Angel</div>
+              </div>
+              <div class="cmd-pips">
+                <div class="pip pip-w">W</div><div class="pip pip-u">U</div>
+                <div class="pip pip-b">B</div><div class="pip pip-g">G</div>
+              </div>
+            </div>
+            <div class="cmd-result" onclick="selectCmd(this)">
+              <div class="cmd-thumb"></div>
+              <div style="flex:1">
+                <div class="cmd-name">Athreos, God of Passage</div>
+                <div class="cmd-sub">Legendary Enchantment Creature — God</div>
+              </div>
+              <div class="cmd-pips">
+                <div class="pip pip-w">W</div><div class="pip pip-b">B</div>
+              </div>
+            </div>
+            <div class="cmd-result" onclick="selectCmd(this)">
+              <div class="cmd-thumb"></div>
+              <div style="flex:1">
+                <div class="cmd-name">Atarka, World Render</div>
+                <div class="cmd-sub">Legendary Creature — Elder Dragon</div>
+              </div>
+              <div class="cmd-pips">
+                <div class="pip pip-r">R</div><div class="pip pip-g">G</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Non-commander fallback note -->
+        <div id="no-cmd-block" style="display:none">
+          <div class="no-cmd-note">
+            <strong id="no-cmd-format-name">Standard</strong> doesn't use a commander.
+            Your deck will start empty — you can import a list or search for cards in the editor.
+          </div>
+        </div>
+
+      </div>
+      <div class="spacer"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-back" onclick="showStep(1)">Back</button>
+      <button class="btn-skip" id="skip-btn" onclick="goConfirm()">Skip commander</button>
+      <button class="btn-next" onclick="goConfirm()">Create Deck →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Confirm (brief) -->
+  <div class="step" id="step3">
+    <div class="modal-body">
+      <div class="step-header">
+        <div class="step-label">All set</div>
+        <div class="step-title">Ready to build</div>
+        <div class="step-sub">Opening the deck editor…</div>
+      </div>
+
+      <div class="confirm-card" id="confirm-card">
+        <div class="confirm-icon" id="confirm-icon">👑</div>
+        <div>
+          <div class="confirm-name" id="confirm-deck-name">My Atraxa Deck</div>
+          <div class="confirm-meta" id="confirm-deck-meta">Commander · Atraxa, Praetors' Voice</div>
+          <div class="confirm-tag" id="confirm-tag" style="background:rgba(22,163,74,0.12);color:#16a34a;">
+            <span id="confirm-tag-text">100-card singleton · WUBG</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint-text">You'll land in the editor where you can import a list, search for cards, or use AI suggestions to build out your deck.</div>
+      <div class="spacer"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-back" onclick="showStep(2)">Back</button>
+      <button class="btn-next" style="background:linear-gradient(135deg,#0D9488,#0f766e);box-shadow:0 0 24px rgba(13,148,136,0.22)">
+        Open Editor →
+      </button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+let state = {
+  format: 'commander',
+  formatLabel: 'Commander',
+  formatColor: '#16a34a',
+  formatRgb: '22,163,74',
+  formatIcon: '👑',
+  needsCommander: true,
+  drawerOpen: false,
+};
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.demo-btn').forEach((b,i) => b.classList.toggle('active', i===n-1));
+  document.getElementById('step'+n).classList.add('active');
+  [1,2,3].forEach(i => {
+    const d = document.getElementById('d'+i);
+    d.className = 'dot';
+    if (i < n) d.classList.add('done');
+    if (i === n) d.classList.add('active');
+  });
+}
+
+function toggleDrawer() {
+  state.drawerOpen = !state.drawerOpen;
+  const d = document.getElementById('format-drawer');
+  d.classList.toggle('open', state.drawerOpen);
+  document.querySelector('.change-format-btn').textContent = state.drawerOpen ? 'Close ↑' : 'Change format ↓';
+}
+
+function pickFormat(el, format, label, color, rgb, needsCommander, icon) {
+  state.format = format;
+  state.formatLabel = label;
+  state.formatColor = color;
+  state.formatRgb = rgb;
+  state.needsCommander = needsCommander;
+  state.formatIcon = icon;
+
+  // Update chips
+  document.querySelectorAll('.fmt-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+
+  // Update pill
+  document.getElementById('fmt-pill-label').textContent = label;
+  document.getElementById('fmt-dot').style.background = color;
+  document.getElementById('active-format-pill').style.background = `rgba(${rgb},0.10)`;
+  document.getElementById('active-format-pill').style.borderColor = `rgba(${rgb},0.25)`;
+  document.getElementById('active-format-pill').style.color = color;
+
+  // Show/hide commander search
+  const cmdBlock = document.getElementById('cmd-search-block');
+  const noCmdBlock = document.getElementById('no-cmd-block');
+  const skipBtn = document.getElementById('skip-btn');
+
+  if (needsCommander) {
+    cmdBlock.style.display = 'block';
+    noCmdBlock.style.display = 'none';
+    skipBtn.style.display = 'block';
+    // Adapt label
+    if (format === 'oathbreaker') {
+      document.getElementById('cmd-label-text').textContent = 'Oathbreaker (Planeswalker)';
+      document.getElementById('cmd-search-input').placeholder = 'Search planeswalkers…';
+      document.getElementById('s2-title').textContent = 'Choose your oathbreaker';
+      document.getElementById('s2-sub').textContent = 'Pick a planeswalker to lead your 60-card deck';
+    } else {
+      document.getElementById('cmd-label-text').textContent = format === 'brawl' || format === 'historic-brawl' ? 'Commander' : 'Commander';
+      document.getElementById('cmd-search-input').placeholder = 'Search legendary creatures…';
+      document.getElementById('s2-title').textContent = 'Choose your commander';
+      document.getElementById('s2-sub').textContent = 'Search for a legendary creature to lead your deck';
+    }
+  } else {
+    cmdBlock.style.display = 'none';
+    noCmdBlock.style.display = 'block';
+    skipBtn.style.display = 'none';
+    document.getElementById('no-cmd-format-name').textContent = label;
+    document.getElementById('s2-title').textContent = 'Format selected';
+    document.getElementById('s2-sub').textContent = label + ' · no commander needed';
+  }
+
+  // Close drawer
+  state.drawerOpen = false;
+  document.getElementById('format-drawer').classList.remove('open');
+  document.querySelector('.change-format-btn').textContent = 'Change format ↓';
+}
+
+function selectCmd(el) {
+  document.querySelectorAll('.cmd-result').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function goConfirm() {
+  const name = document.getElementById('deck-name-input').value || 'My Deck';
+  const selectedCmd = document.querySelector('.cmd-result.selected .cmd-name');
+  const cmdName = selectedCmd ? selectedCmd.textContent : null;
+
+  document.getElementById('confirm-icon').textContent = state.formatIcon;
+  document.getElementById('confirm-deck-name').textContent = name;
+  document.getElementById('confirm-deck-meta').textContent = state.formatLabel + (cmdName && state.needsCommander ? ' · ' + cmdName : '');
+
+  const tag = document.getElementById('confirm-tag');
+  tag.style.background = `rgba(${state.formatRgb},0.12)`;
+  tag.style.color = state.formatColor;
+
+  const tagTexts = {
+    commander: '100-card singleton',
+    oathbreaker: '60-card singleton',
+    brawl: '60-card singleton',
+    'historic-brawl': '100-card singleton',
+  };
+  document.getElementById('confirm-tag-text').textContent = tagTexts[state.format] || '60 cards';
+
+  showStep(3);
+}
+
+showStep(1);
+</script>
+</body>
+</html>

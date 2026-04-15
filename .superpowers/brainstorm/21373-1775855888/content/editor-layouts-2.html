@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Editor — More Options</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: #090D14; color: #e2e8f0; padding: 24px; }
+h1 { font-size: 18px; font-weight: 800; color: #F8FAFC; margin-bottom: 6px; }
+.subtitle { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+.layouts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.layout-card {
+  border: 2px solid #1E2535; border-radius: 16px; overflow: hidden;
+  cursor: pointer; transition: border-color 0.15s, transform 0.1s; background: #0F1117;
+}
+.layout-card:hover { border-color: #0D9488; transform: translateY(-2px); }
+.layout-card.selected { border-color: #0D9488; box-shadow: 0 0 0 1px #0D9488; }
+.layout-label { padding: 12px 16px; font-size: 13px; font-weight: 700; color: #CBD5E1; background: #161B27; border-bottom: 1px solid #1E2535; display: flex; align-items: center; justify-content: space-between; }
+.layout-label span { font-size: 11px; font-weight: 500; color: #64748b; }
+.mockup { padding: 12px; }
+
+.m-nav { height: 32px; background: #161B27; border-radius: 8px; margin-bottom: 7px; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+.m-dot { width: 22px; height: 22px; background: #0D9488; border-radius: 5px; font-size: 8px; font-weight: 900; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.m-navlink { width: 36px; height: 12px; background: #1E2535; border-radius: 3px; }
+.m-navlink.active { background: rgba(13,148,136,0.4); }
+.m-sp { flex: 1; }
+
+/* ── Option C: Card Art Workspace ── */
+.lc-header { height: 38px; background: #161B27; border-radius: 8px; margin-bottom: 7px; border: 1px solid #1E2535; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+.lc-title { width: 90px; height: 11px; background: #CBD5E1; border-radius: 3px; }
+.lc-badge { width: 44px; height: 16px; background: #1E2535; border-radius: 4px; border: 1px solid #334155; }
+.lc-btn { height: 20px; border-radius: 5px; padding: 0 7px; font-size: 8px; font-weight: 700; }
+.lc-btn.primary { background: #0D9488; color: white; }
+.lc-btn.ghost { background: #1E2535; color: #94a3b8; border: 1px solid #334155; }
+.lc-toolbar { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; }
+.lc-search { flex: 1; height: 26px; background: #161B27; border-radius: 7px; border: 1px solid #1E2535; display: flex; align-items: center; padding: 0 8px; gap: 4px; font-size: 8px; color: #475569; }
+.lc-view-toggle { display: flex; background: #0F1117; border: 1px solid #1E2535; border-radius: 6px; overflow: hidden; }
+.lc-vbtn { padding: 0 6px; height: 22px; font-size: 8px; font-weight: 600; color: #475569; background: transparent; border: none; cursor: pointer; }
+.lc-vbtn.active { background: #1E2535; color: #CBD5E1; }
+.lc-body { display: grid; grid-template-columns: 1fr 110px; gap: 6px; }
+/* Art grid */
+.lc-art-grid { background: #161B27; border-radius: 8px; padding: 7px; }
+.lc-section-hdr { font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: flex; align-items: center; gap: 3px; }
+.lc-section-hdr::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+.lc-art-row { display: flex; gap: 3px; margin-bottom: 5px; }
+.lc-card-art { width: 28px; height: 39px; border-radius: 3px; background: linear-gradient(135deg, #1a2744, #0a1628); border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; position: relative; overflow: hidden; }
+.lc-card-art::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(13,148,136,0.3), transparent); }
+.lc-card-qty { position: absolute; top: 1px; right: 1px; background: rgba(0,0,0,0.8); color: white; font-size: 5px; font-weight: 900; padding: 0 2px; border-radius: 1px; }
+/* Search sidebar */
+.lc-sidebar { }
+.lc-result { display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 5px; border: 1px solid #1E2535; margin-bottom: 3px; background: #0F1117; }
+.lc-thumb { width: 18px; height: 25px; background: linear-gradient(135deg, #1a2744, #0a1628); border-radius: 2px; flex-shrink: 0; }
+.lc-rinfo { flex: 1; min-width: 0; }
+.lc-rname { height: 6px; background: #CBD5E1; border-radius: 1px; opacity: 0.6; margin-bottom: 2px; }
+.lc-rprice { height: 5px; background: #475569; border-radius: 1px; width: 60%; }
+.lc-radd { width: 12px; height: 12px; background: #0D9488; border-radius: 2px; flex-shrink: 0; }
+
+/* ── Option D: Focus mode with large preview ── */
+.ld-header { height: 38px; background: #161B27; border-radius: 8px; margin-bottom: 7px; border: 1px solid #1E2535; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+.ld-title { width: 90px; height: 11px; background: #CBD5E1; border-radius: 3px; }
+.ld-badge { width: 44px; height: 16px; background: #1E2535; border-radius: 4px; border: 1px solid #334155; }
+.ld-stats { display: flex; gap: 8px; margin-left: 4px; }
+.ld-stat { font-size: 8px; color: #475569; display: flex; gap: 3px; align-items: center; }
+.ld-stat strong { color: #CBD5E1; font-weight: 800; }
+.ld-stat.v { color: #14B8A6; font-weight: 800; }
+.ld-body { display: grid; grid-template-columns: 90px 1fr 80px; gap: 5px; }
+/* Large preview */
+.ld-preview { background: #161B27; border-radius: 8px; padding: 5px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.ld-card-large { width: 78px; height: 109px; border-radius: 6px; background: linear-gradient(135deg, #0D1824, #0a1020); border: 1px solid rgba(255,255,255,0.1); overflow: hidden; position: relative; }
+.ld-card-large::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(13,148,136,0.25), rgba(0,60,120,0.2)); }
+.ld-card-large::after { content: '🃏'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 20px; opacity: 0.15; }
+.ld-card-meta { width: 100%; }
+.ld-card-meta-name { height: 7px; background: #CBD5E1; border-radius: 2px; opacity: 0.7; margin-bottom: 3px; }
+.ld-card-meta-sub { height: 5px; background: #475569; border-radius: 2px; width: 70%; margin-bottom: 2px; }
+.ld-card-meta-price { height: 8px; background: rgba(13,148,136,0.4); border-radius: 2px; width: 50%; }
+/* Card list middle */
+.ld-list { background: #161B27; border-radius: 8px; padding: 7px; }
+.ld-section { margin-bottom: 7px; }
+.ld-shdr { font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; display: flex; align-items: center; gap: 3px; }
+.ld-shdr::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+.ld-row { display: flex; align-items: center; gap: 4px; padding: 2px 3px; border-radius: 3px; cursor: pointer; }
+.ld-row:hover { background: #1E2535; }
+.ld-row.active { background: rgba(13,148,136,0.1); border-left: 2px solid #0D9488; }
+.ld-qty { width: 10px; font-size: 8px; font-weight: 800; color: #0D9488; }
+.ld-name { flex: 1; height: 8px; background: #CBD5E1; border-radius: 2px; opacity: 0.65; }
+.ld-price { width: 18px; height: 6px; background: #334155; border-radius: 2px; }
+/* Search right */
+.ld-search-col { }
+.ld-search { height: 22px; background: #0F1117; border-radius: 5px; border: 1px solid #1E2535; margin-bottom: 4px; display: flex; align-items: center; padding: 0 5px; font-size: 8px; color: #475569; }
+.ld-sresult { padding: 3px 4px; border-radius: 4px; border: 1px solid #1E2535; margin-bottom: 3px; background: #0F1117; }
+.ld-sthumb { width: 100%; height: 32px; background: linear-gradient(135deg, #1a2744, #0a1628); border-radius: 3px; margin-bottom: 3px; }
+.ld-sname { height: 6px; background: #CBD5E1; border-radius: 1px; opacity: 0.5; margin-bottom: 2px; }
+.ld-sprice { height: 5px; background: #475569; border-radius: 1px; width: 60%; }
+.ld-sadd { width: 100%; height: 14px; background: #0D9488; border-radius: 3px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<h1>More Layout Options</h1>
+<p class="subtitle">Two more directions — pick any or mix ideas</p>
+
+<div class="layouts">
+
+  <!-- Option C: Art grid workspace -->
+  <div class="layout-card" id="c">
+    <div class="layout-label">C — Art Grid <span>View cards as art thumbnails while building</span></div>
+    <div class="mockup">
+      <div class="m-nav">
+        <div class="m-dot">CE</div>
+        <div style="display:flex;gap:3px;margin-left:4px"><div class="m-navlink"></div><div class="m-navlink active"></div><div class="m-navlink"></div></div>
+      </div>
+      <div class="lc-header">
+        <div class="lc-title"></div>
+        <div class="lc-badge"></div>
+        <div class="m-sp"></div>
+        <div class="lc-btn ghost" style="margin-right:3px">Copy</div>
+        <div class="lc-btn primary">Import</div>
+      </div>
+      <div class="lc-toolbar">
+        <div class="lc-search">🔍 Search cards…</div>
+        <div class="lc-view-toggle">
+          <div class="lc-vbtn">≡</div>
+          <div class="lc-vbtn active">⊞</div>
+        </div>
+        <div style="display:flex;gap:2px;align-items:center;">
+          <div style="width:7px;height:7px;border-radius:50%;background:#22c55e"></div>
+          <div style="width:7px;height:7px;border-radius:50%;background:#00d4ff"></div>
+          <div style="width:7px;height:7px;border-radius:50%;background:#78716c"></div>
+        </div>
+        <div style="font-size:7px;color:#14B8A6;font-weight:800;">$142</div>
+      </div>
+      <div class="lc-body">
+        <div class="lc-art-grid">
+          <div class="lc-section-hdr" style="color:#22c55e;">Creatures (24)</div>
+          <div class="lc-art-row">
+            <div class="lc-card-art"><div class="lc-card-qty">4</div></div>
+            <div class="lc-card-art" style="opacity:0.8"><div class="lc-card-qty">4</div></div>
+            <div class="lc-card-art" style="opacity:0.6"><div class="lc-card-qty">2</div></div>
+          </div>
+          <div class="lc-section-hdr" style="color:#00d4ff;margin-top:4px">Instants (8)</div>
+          <div class="lc-art-row">
+            <div class="lc-card-art" style="background:linear-gradient(135deg,#0a1a2e,#051020)"><div class="lc-card-qty">4</div></div>
+            <div class="lc-card-art" style="background:linear-gradient(135deg,#0a1a2e,#051020);opacity:0.7"><div class="lc-card-qty">4</div></div>
+          </div>
+          <div class="lc-section-hdr" style="color:#78716c;margin-top:4px">Lands (24)</div>
+          <div class="lc-art-row">
+            <div class="lc-card-art" style="background:linear-gradient(135deg,#1a1208,#0d0a04)"><div class="lc-card-qty">4</div></div>
+            <div class="lc-card-art" style="background:linear-gradient(135deg,#1a1208,#0d0a04);opacity:0.8"><div class="lc-card-qty">4</div></div>
+            <div class="lc-card-art" style="background:linear-gradient(135deg,#1a1208,#0d0a04);opacity:0.6"><div class="lc-card-qty">4</div></div>
+          </div>
+        </div>
+        <div class="lc-sidebar">
+          <div style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#475569;margin-bottom:4px">Results</div>
+          <div class="lc-result">
+            <div class="lc-thumb"></div>
+            <div class="lc-rinfo"><div class="lc-rname"></div><div class="lc-rprice"></div></div>
+            <div class="lc-radd"></div>
+          </div>
+          <div class="lc-result">
+            <div class="lc-thumb" style="opacity:0.5"></div>
+            <div class="lc-rinfo"><div class="lc-rname" style="width:80%"></div><div class="lc-rprice"></div></div>
+            <div class="lc-radd"></div>
+          </div>
+          <div class="lc-result">
+            <div class="lc-thumb" style="opacity:0.4"></div>
+            <div class="lc-rinfo"><div class="lc-rname" style="width:90%"></div><div class="lc-rprice"></div></div>
+            <div class="lc-radd"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option D: Focus mode with large card preview -->
+  <div class="layout-card" id="d">
+    <div class="layout-label">D — Focus Mode <span>Large card preview + list + search</span></div>
+    <div class="mockup">
+      <div class="m-nav">
+        <div class="m-dot">CE</div>
+        <div style="display:flex;gap:3px;margin-left:4px"><div class="m-navlink"></div><div class="m-navlink active"></div><div class="m-navlink"></div></div>
+      </div>
+      <div class="ld-header">
+        <div class="ld-title"></div>
+        <div class="ld-badge"></div>
+        <div class="ld-stats">
+          <div class="ld-stat"><strong>60</strong> cards</div>
+          <div class="ld-stat v">$142</div>
+          <div class="ld-stat">avg <strong>2.4</strong></div>
+        </div>
+        <div class="m-sp"></div>
+        <div class="lc-btn ghost" style="margin-right:3px">Copy</div>
+        <div class="lc-btn primary">Import</div>
+      </div>
+      <div class="ld-body">
+        <!-- Large card preview -->
+        <div class="ld-preview">
+          <div class="ld-card-large"></div>
+          <div class="ld-card-meta" style="margin-top:4px;">
+            <div class="ld-card-meta-name"></div>
+            <div class="ld-card-meta-sub"></div>
+            <div class="ld-card-meta-price"></div>
+          </div>
+        </div>
+        <!-- Card list -->
+        <div class="ld-list">
+          <div class="ld-section">
+            <div class="ld-shdr" style="color:#22c55e">Creatures</div>
+            <div class="ld-row active"><div class="ld-qty">4</div><div class="ld-name" style="width:75%"></div><div class="ld-price"></div></div>
+            <div class="ld-row"><div class="ld-qty">4</div><div class="ld-name" style="width:85%"></div><div class="ld-price"></div></div>
+            <div class="ld-row"><div class="ld-qty">2</div><div class="ld-name" style="width:60%"></div><div class="ld-price"></div></div>
+          </div>
+          <div class="ld-section">
+            <div class="ld-shdr" style="color:#00d4ff">Instants</div>
+            <div class="ld-row"><div class="ld-qty">4</div><div class="ld-name" style="width:70%"></div><div class="ld-price"></div></div>
+            <div class="ld-row"><div class="ld-qty">4</div><div class="ld-name" style="width:65%"></div><div class="ld-price"></div></div>
+          </div>
+          <div class="ld-section">
+            <div class="ld-shdr" style="color:#78716c">Lands</div>
+            <div class="ld-row"><div class="ld-qty">12</div><div class="ld-name" style="width:50%"></div><div class="ld-price"></div></div>
+            <div class="ld-row"><div class="ld-qty">4</div><div class="ld-name" style="width:70%"></div><div class="ld-price"></div></div>
+          </div>
+        </div>
+        <!-- Search col -->
+        <div class="ld-search-col">
+          <div class="ld-search">🔍 Search…</div>
+          <div class="ld-sresult">
+            <div class="ld-sthumb"></div>
+            <div class="ld-sname"></div>
+            <div class="ld-sprice"></div>
+            <div class="ld-sadd"></div>
+          </div>
+          <div class="ld-sresult">
+            <div class="ld-sthumb" style="opacity:0.5"></div>
+            <div class="ld-sname" style="width:80%"></div>
+            <div class="ld-sprice"></div>
+            <div class="ld-sadd" style="opacity:0.7"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.layout-card').forEach(card => {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('selected'));
+    this.classList.add('selected');
+  });
+});
+</script>
+</body>
+</html>

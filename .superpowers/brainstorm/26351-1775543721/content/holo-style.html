@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holo Effect Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1117;
+    color: #E2E8F0;
+    font-family: -apple-system, 'Geist', system-ui, sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 36px; }
+
+  .cards-row {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+
+  .option-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+  }
+  .option-block .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94A3B8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .option-block.selected .label { color: #0D9488; }
+  .option-block .description {
+    font-size: 12px;
+    color: #475569;
+    text-align: center;
+    max-width: 160px;
+    line-height: 1.5;
+  }
+
+  .card-demo {
+    width: 146px;
+    height: 204px;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    background: #1E2535;
+    border: 1.5px solid #1E2D3D;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    will-change: transform;
+  }
+
+  .option-block.selected .card-demo {
+    border-color: #0D9488;
+    box-shadow: 0 0 0 2px #0D9488, 0 16px 40px rgba(0,0,0,0.6);
+  }
+
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    border-radius: 9px;
+    position: relative;
+  }
+  .card-art {
+    position: absolute;
+    top: 12px; left: 10px; right: 10px;
+    height: 108px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+  }
+  .art-a { background: linear-gradient(160deg, #1E3A5F, #0D2040); }
+  .art-b { background: linear-gradient(160deg, #2A0E0E, #1a0808); }
+  .art-c { background: linear-gradient(160deg, #0A1F0E, #061209); }
+  .card-name {
+    position: absolute;
+    bottom: 38px; left: 10px; right: 10px;
+    font-size: 9px; font-weight: 700;
+    color: #E2E8F0; text-align: center;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .card-type {
+    position: absolute;
+    bottom: 26px; left: 10px; right: 10px;
+    font-size: 7.5px; color: #94A3B8; text-align: center;
+  }
+  .card-badge {
+    position: absolute; top: 8px; right: 8px;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 800; color: white;
+    background: #FB923C; box-shadow: 0 0 6px rgba(251,146,60,0.8);
+  }
+
+  /* ── A: Rainbow Foil ── */
+  .card-rainbow::before {
+    content: '';
+    position: absolute; inset: 0; border-radius: 9px;
+    background: conic-gradient(
+      from var(--angle, 0deg) at 50% 50%,
+      rgba(255,0,128,0.22), rgba(255,180,0,0.22),
+      rgba(0,255,128,0.22), rgba(0,180,255,0.22),
+      rgba(128,0,255,0.22), rgba(255,0,128,0.22)
+    );
+    opacity: 0; mix-blend-mode: screen;
+    transition: opacity 0.3s; pointer-events: none;
+    animation: spin-hue 4s linear infinite;
+  }
+  .card-rainbow::after {
+    content: '';
+    position: absolute; inset: 0; border-radius: 9px;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%);
+    background-size: 200% 100%;
+    opacity: 0; mix-blend-mode: overlay;
+    transition: opacity 0.3s; pointer-events: none;
+  }
+  .card-rainbow:hover { transform: translateY(-6px) scale(1.04); box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 24px rgba(200,100,255,0.25); }
+  .card-rainbow:hover::before { opacity: 1; }
+  .card-rainbow:hover::after { opacity: 1; animation: sweep 1.2s ease-in-out infinite; }
+
+  /* ── B: Prismatic Tilt ── */
+  .card-prismatic::before {
+    content: '';
+    position: absolute; inset: 0; border-radius: 9px;
+    background: linear-gradient(135deg,
+      rgba(0,212,255,0.15) 0%, rgba(128,0,255,0.15) 33%,
+      rgba(255,0,128,0.15) 66%, rgba(255,200,0,0.15) 100%
+    );
+    background-size: 300% 300%;
+    opacity: 0; mix-blend-mode: screen;
+    transition: opacity 0.3s; pointer-events: none;
+    animation: holo-pan 3s ease infinite;
+  }
+  .card-prismatic::after {
+    content: '';
+    position: absolute; inset: 0; border-radius: 9px;
+    background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.28) 50%, transparent 62%);
+    opacity: 0; mix-blend-mode: overlay;
+    transition: opacity 0.3s; pointer-events: none;
+  }
+  .card-prismatic:hover { transform: rotateY(5deg) rotateX(-3deg) translateY(-4px) scale(1.03); box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 24px rgba(0,200,255,0.3); }
+  .card-prismatic:hover::before { opacity: 1; }
+  .card-prismatic:hover::after { opacity: 1; }
+
+  /* ── C: Teal Glow ── */
+  .card-glow::after {
+    content: '';
+    position: absolute; inset: 0; border-radius: 9px;
+    background: linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(45,212,191,0.08) 100%);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .card-glow:hover { transform: translateY(-6px) scale(1.03); box-shadow: 0 24px 48px rgba(0,0,0,0.7), 0 0 28px rgba(13,148,136,0.45); }
+  .card-glow:hover::after { opacity: 1; }
+
+  @keyframes sweep {
+    0%   { background-position: -100% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes spin-hue {
+    from { --angle: 0deg; }
+    to   { --angle: 360deg; }
+  }
+  @keyframes holo-pan {
+    0%   { background-position: 0% 0%; }
+    50%  { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  .note { text-align: center; font-size: 12px; color: #475569; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h2>Which card hover effect?</h2>
+<p class="subtitle">Hover each card to preview, click to select.</p>
+
+<div class="cards-row">
+
+  <div class="option-block" id="opt-a" onclick="sel('a')">
+    <span class="label">A — Rainbow Foil</span>
+    <div class="card-demo card-rainbow">
+      <div class="card-inner">
+        <div class="card-art art-a">🌊</div>
+        <div class="card-badge">M</div>
+        <div class="card-name">Omniscience</div>
+        <div class="card-type">Enchantment</div>
+      </div>
+    </div>
+    <span class="description">Spinning rainbow shimmer + light sweep. Real foil card feel.</span>
+  </div>
+
+  <div class="option-block" id="opt-b" onclick="sel('b')">
+    <span class="label">B — Prismatic Tilt</span>
+    <div class="card-demo card-prismatic">
+      <div class="card-inner">
+        <div class="card-art art-b">⚡</div>
+        <div class="card-badge">M</div>
+        <div class="card-name">Ragavan</div>
+        <div class="card-type">Legendary Creature</div>
+      </div>
+    </div>
+    <span class="description">3D perspective tilt + shifting prismatic colors. Most premium.</span>
+  </div>
+
+  <div class="option-block" id="opt-c" onclick="sel('c')">
+    <span class="label">C — Teal Glow</span>
+    <div class="card-demo card-glow">
+      <div class="card-inner">
+        <div class="card-art art-c">🌲</div>
+        <div class="card-badge">M</div>
+        <div class="card-name">Gaea's Cradle</div>
+        <div class="card-type">Legendary Land</div>
+      </div>
+    </div>
+    <span class="description">Lift + teal brand glow. Clean, matches the app palette.</span>
+  </div>
+
+</div>
+
+<p class="note">Applies on hover in Collection, Deck, and card detail pages</p>
+
+<script>
+function sel(c) {
+  document.querySelectorAll('.option-block').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + c).classList.add('selected');
+  if (window.recordChoice) window.recordChoice(c, document.getElementById('opt-' + c).querySelector('.label').textContent.trim());
+}
+</script>
+</body>
+</html>

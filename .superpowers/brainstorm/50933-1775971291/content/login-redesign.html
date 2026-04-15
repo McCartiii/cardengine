@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login Redesign</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060609; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; color: white; }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes glow-breathe {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+  }
+
+  @keyframes float-in {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .demo-container {
+    display: flex;
+    gap: 50px;
+    justify-content: center;
+    padding: 30px 20px;
+  }
+
+  .demo-col { display: flex; flex-direction: column; align-items: center; }
+  .demo-label { text-align: center; margin-top: 14px; max-width: 340px; }
+  .demo-label h3 { font-size: 14px; font-weight: 700; color: white; margin-bottom: 4px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.6; }
+
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    background: #0F1117;
+    border-radius: 44px;
+    border: 3px solid #1a1a25;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .phone-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Ambient glow */
+  .bg-glow {
+    position: absolute;
+    top: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13,148,136,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    animation: glow-breathe 4s ease-in-out infinite;
+  }
+
+  /* Logo */
+  .logo-area {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: float-in 0.6s ease-out;
+  }
+
+  .logo-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+    color: white;
+    box-shadow: 0 4px 20px rgba(13,148,136,0.3);
+  }
+
+  .logo-text {
+    font-size: 24px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-tagline {
+    font-size: 12px;
+    color: #475569;
+    margin-top: 4px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  /* Form */
+  .form-area {
+    animation: float-in 0.6s ease-out 0.1s both;
+  }
+
+  .form-heading {
+    font-size: 20px;
+    font-weight: 700;
+    color: #E2E8F0;
+    margin-bottom: 6px;
+  }
+
+  .form-sub {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  .input-wrap {
+    position: relative;
+    margin-bottom: 14px;
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid #1E2D3D;
+    background: #161B27;
+    color: #E2E8F0;
+    font-size: 15px;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+
+  .input-field:focus {
+    border-color: #0D9488;
+    box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
+  }
+
+  .input-field::placeholder { color: #475569; }
+
+  /* OTP input */
+  .otp-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .otp-digit {
+    flex: 1;
+    height: 56px;
+    border-radius: 12px;
+    border: 1px solid #1E2D3D;
+    background: #161B27;
+    color: #E2E8F0;
+    font-size: 24px;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .otp-digit:focus {
+    border-color: #0D9488;
+    box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
+  }
+
+  .otp-digit.filled {
+    border-color: #2D4059;
+    color: #2DD4BF;
+  }
+
+  /* Button */
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    box-shadow: 0 2px 12px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: transform 0.15s, box-shadow 0.15s;
+    margin-bottom: 12px;
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 60%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+
+  .btn-text { position: relative; z-index: 1; }
+
+  .btn-disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* Secondary link */
+  .link-btn {
+    text-align: center;
+    padding: 12px;
+    font-size: 13px;
+    color: #475569;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .link-btn:hover { color: #94A3B8; }
+
+  /* Email highlight */
+  .email-hl { color: #2DD4BF; font-weight: 600; }
+
+  /* Resend timer */
+  .resend-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #475569;
+  }
+
+  .resend-link {
+    color: #0D9488;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: #1E2D3D;
+  }
+
+  .divider-text {
+    font-size: 11px;
+    color: #475569;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* Skip */
+  .skip-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid #1E2D3D;
+    background: #161B27;
+    color: #94A3B8;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .skip-btn:hover {
+    border-color: #2D4059;
+    color: #E2E8F0;
+  }
+
+  .skip-sub {
+    text-align: center;
+    font-size: 10px;
+    color: #475569;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+
+  <!-- Email step -->
+  <div class="demo-col">
+    <div class="phone-frame">
+      <div class="bg-glow"></div>
+      <div class="phone-content">
+        <div class="logo-area">
+          <div class="logo-mark">CE</div>
+          <div class="logo-text">Card Engine</div>
+          <div class="logo-tagline">Scan. Collect. Master.</div>
+        </div>
+
+        <div class="form-area">
+          <div class="form-heading">Sign in</div>
+          <div class="form-sub">Enter your email and we'll send you a 6-digit code.</div>
+
+          <div class="input-wrap">
+            <input class="input-field" type="email" placeholder="you@example.com" value="carter101@me.com" />
+          </div>
+
+          <button class="btn-primary">
+            <span class="btn-shimmer"></span>
+            <span class="btn-text">Send Code</span>
+          </button>
+
+          <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-text">or</div>
+            <div class="divider-line"></div>
+          </div>
+
+          <div class="skip-btn">Continue without account</div>
+          <div class="skip-sub">Some features require sign in</div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>Step 1 — Email</h3>
+      <p>Clean dark slate design. Teal gradient button with shimmer. Option to skip login for features like Life Counter that don't need auth.</p>
+    </div>
+  </div>
+
+  <!-- OTP step -->
+  <div class="demo-col">
+    <div class="phone-frame">
+      <div class="bg-glow"></div>
+      <div class="phone-content">
+        <div class="logo-area">
+          <div class="logo-mark">CE</div>
+          <div class="logo-text">Card Engine</div>
+          <div class="logo-tagline">Scan. Collect. Master.</div>
+        </div>
+
+        <div class="form-area">
+          <div class="form-heading">Enter your code</div>
+          <div class="form-sub">We sent a 6-digit code to <span class="email-hl">carter101@me.com</span></div>
+
+          <div class="otp-row">
+            <input class="otp-digit filled" value="4" maxlength="1" />
+            <input class="otp-digit filled" value="8" maxlength="1" />
+            <input class="otp-digit filled" value="2" maxlength="1" />
+            <input class="otp-digit" value="" maxlength="1" />
+            <input class="otp-digit" value="" maxlength="1" />
+            <input class="otp-digit" value="" maxlength="1" />
+          </div>
+
+          <button class="btn-primary btn-disabled">
+            <span class="btn-text">Verify</span>
+          </button>
+
+          <div class="resend-row">
+            Didn't get it? <span class="resend-link">Resend code</span>
+          </div>
+
+          <div class="link-btn">Use a different email</div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>Step 2 — OTP Code</h3>
+      <p>Individual digit boxes that auto-advance. Button enables when all 6 filled. Resend link + back option. Actual 6-digit numeric code, not a magic link.</p>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

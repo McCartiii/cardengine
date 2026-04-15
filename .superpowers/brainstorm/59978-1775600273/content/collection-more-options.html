@@ -1,0 +1,100 @@
+<h2>Collection page — more options</h2>
+<p class="subtitle">Option C but extended — pick what resonates or mix them together.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Quantity stepper on card — shows what you own</h3>
+      <p>Each card in results shows how many copies you own inline (<strong>0×</strong> → tap + to add). No modal, no drawer — just +/- right on the card. Owned count turns teal when you have copies. Fast for adding multiples of the same card.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8">
+        <div style="background:#161B27;border:1.5px solid #1E2D3D;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center;margin-bottom:6px">
+          <div style="font-size:28px">🃏</div>
+          <div style="flex:1">
+            <div style="color:#E2E8F0;font-size:12px;font-weight:600">Sol Ring</div>
+            <div style="color:#475569;font-size:10px">C21 · Uncommon · $1.20</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button style="width:24px;height:24px;border-radius:6px;background:#1E2535;border:1px solid #2D4059;color:#E2E8F0;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">−</button>
+            <span style="color:#0D9488;font-weight:700;min-width:16px;text-align:center">3</span>
+            <button style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#0D9488,#14B8A6);border:none;color:white;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">+</button>
+          </div>
+        </div>
+        <div style="background:#161B27;border:1.5px solid #1E2D3D;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">
+          <div style="font-size:28px">🃏</div>
+          <div style="flex:1">
+            <div style="color:#E2E8F0;font-size:12px;font-weight:600">Lightning Bolt</div>
+            <div style="color:#475569;font-size:10px">M11 · Common · $0.35</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button style="width:24px;height:24px;border-radius:6px;background:#1E2535;border:1px solid #2D4059;color:#475569;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">−</button>
+            <span style="color:#475569;font-weight:700;min-width:16px;text-align:center">0</span>
+            <button style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#0D9488,#14B8A6);border:none;color:white;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="e" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>Collection stats bar + one-tap add</h3>
+      <p>A sticky bar at the top shows your portfolio summary (card count, total value). Search results each have a single <strong>+</strong> icon — tap once to add 1 copy, tap again to increment. Cards you own get a teal "owned" badge. Filter toggle switches between all / owned only.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8">
+        <div style="background:#161B27;border:1px solid #0D9488;border-radius:10px;padding:10px;display:flex;justify-content:space-between;margin-bottom:10px">
+          <div><div style="color:#E2E8F0;font-weight:700;font-size:13px">142 cards</div><div style="color:#0D9488;font-size:10px">My Collection</div></div>
+          <div><div style="color:#E2E8F0;font-weight:700;font-size:13px">$384.20</div><div style="color:#475569;font-size:10px">Portfolio value</div></div>
+          <div><div style="color:#E2E8F0;font-weight:700;font-size:13px">3 sets</div><div style="color:#475569;font-size:10px">Represented</div></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <span style="background:#0D9488;color:white;padding:3px 10px;border-radius:6px;font-size:11px">All Cards</span>
+          <span style="background:#161B27;color:#94A3B8;padding:3px 10px;border-radius:6px;font-size:11px;border:1px solid #1E2D3D">Owned</span>
+        </div>
+        <div style="background:#161B27;border:1.5px solid #1E2D3D;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center;margin-bottom:6px">
+          <div style="font-size:28px">🃏</div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="color:#E2E8F0;font-size:12px;font-weight:600">Sol Ring</span>
+              <span style="background:#0d2020;border:1px solid #0D9488;color:#0D9488;padding:1px 6px;border-radius:4px;font-size:9px">×3 owned</span>
+            </div>
+            <div style="color:#475569;font-size:10px">$1.20 · Uncommon</div>
+          </div>
+          <button style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0D9488,#14B8A6);border:none;color:white;font-size:16px;font-weight:700;cursor:pointer">+</button>
+        </div>
+        <div style="background:#161B27;border:1.5px solid #1E2D3D;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">
+          <div style="font-size:28px">🃏</div>
+          <div style="flex:1">
+            <div style="color:#E2E8F0;font-size:12px;font-weight:600">Lightning Bolt</div>
+            <div style="color:#475569;font-size:10px">$0.35 · Common</div>
+          </div>
+          <button style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0D9488,#14B8A6);border:none;color:white;font-size:16px;font-weight:700;cursor:pointer">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="f" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>Scan-inspired quick-add sheet</h3>
+      <p>A floating <strong>Add to Collection</strong> button (bottom-right, like the scan FAB) opens a bottom sheet. Inside: search for a card, set quantity, confirm. Closes when done. The main search page stays pure price-browsing — adding to collection is a deliberate action, not inline.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8;position:relative;min-height:140px">
+        <div style="color:#E2E8F0;font-size:11px;margin-bottom:8px">— main search view —</div>
+        <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;margin-bottom:6px;opacity:0.5">Sol Ring · $1.20</div>
+        <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;opacity:0.5">Lightning Bolt · $0.35</div>
+        <div style="position:absolute;bottom:12px;right:12px;background:linear-gradient(135deg,#0D9488,#14B8A6);color:white;padding:8px 14px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 4px 16px rgba(13,148,136,0.4)">+ Add to Collection</div>
+        <div style="position:absolute;bottom:0;left:0;right:0;background:#161B27;border-top:1px solid #0D9488;border-radius:10px 10px 0 0;padding:12px">
+          <div style="color:#E2E8F0;font-weight:600;margin-bottom:8px">Add cards to collection</div>
+          <div style="background:#0d1420;border:1px solid #1E2D3D;border-radius:8px;padding:6px 10px;color:#475569;margin-bottom:8px">Search card name…</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:#475569">Qty: <strong style="color:#E2E8F0">1</strong></span>
+            <span style="background:linear-gradient(135deg,#0D9488,#14B8A6);color:white;padding:4px 14px;border-radius:8px">Add</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

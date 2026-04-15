@@ -1,0 +1,209 @@
+<h2>Deck Detail Page — Layout Options</h2>
+<p class="subtitle">Three approaches for <code>/decks/[id]</code> — the saved deck view. Which direction feels right?</p>
+
+<div class="cards" style="grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 24px;">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #0F1117; border-radius: 8px 8px 0 0;">
+      <!-- Mockup A: Left sidebar layout -->
+      <div style="display: flex; gap: 8px; font-size: 10px; color: #94a3b8;">
+        <!-- Left sidebar -->
+        <div style="width: 80px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+          <div style="background: #1E2535; border-radius: 6px; overflow: hidden;">
+            <div style="height: 90px; background: linear-gradient(135deg, #0D1824 0%, #1E3A5F 100%); position: relative; display: flex; align-items: center; justify-content: center;">
+              <div style="font-size: 18px; opacity: 0.5;">🃏</div>
+              <div style="position: absolute; bottom: 4px; left: 4px; right: 4px; font-size: 7px; color: #e2e8f0; font-weight: 700; line-height: 1.2;">Atraxa, Praetors' Voice</div>
+            </div>
+            <div style="padding: 6px; font-size: 7px; color: #64748b; display: flex; flex-direction: column; gap: 3px;">
+              <div style="display: flex; justify-content: space-between;"><span>Cards</span><span style="color: #e2e8f0; font-weight: 700;">99</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Value</span><span style="color: #0D9488; font-weight: 700;">$312</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Avg CMC</span><span style="color: #e2e8f0;">2.8</span></div>
+            </div>
+          </div>
+          <!-- Mana curve mini -->
+          <div style="background: #1E2535; border-radius: 6px; padding: 5px; font-size: 7px; color: #64748b;">
+            <div style="margin-bottom: 3px; font-weight: 700; color: #94a3b8;">Curve</div>
+            <div style="display: flex; align-items: flex-end; gap: 2px; height: 20px;">
+              <div style="flex: 1; background: #0D9488; height: 30%;border-radius:1px;"></div>
+              <div style="flex: 1; background: #0D9488; height: 70%;border-radius:1px;"></div>
+              <div style="flex: 1; background: #0D9488; height: 100%;border-radius:1px;"></div>
+              <div style="flex: 1; background: #0D9488; height: 85%;border-radius:1px;"></div>
+              <div style="flex: 1; background: #0D9488; height: 55%;border-radius:1px;"></div>
+              <div style="flex: 1; background: #0D9488; height: 25%;border-radius:1px;"></div>
+            </div>
+          </div>
+          <!-- Color pips -->
+          <div style="background: #1E2535; border-radius: 6px; padding: 5px; font-size: 7px; color: #64748b;">
+            <div style="margin-bottom: 3px; font-weight: 700; color: #94a3b8;">Colors</div>
+            <div style="display: flex; gap: 3px; flex-wrap: wrap;">
+              <div style="width: 10px; height: 10px; border-radius: 50%; background: #FDE68A;"></div>
+              <div style="width: 10px; height: 10px; border-radius: 50%; background: #93C5FD;"></div>
+              <div style="width: 10px; height: 10px; border-radius: 50%; background: #C4B5D4;"></div>
+              <div style="width: 10px; height: 10px; border-radius: 50%; background: #86EFAC;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Main content -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+          <div style="display: flex; gap: 4px; background: #1E2535; border-radius: 4px; padding: 3px;">
+            <div style="flex: 1; text-align: center; padding: 3px 4px; background: #0D9488; border-radius: 3px; color: white; font-weight: 700; font-size: 7px;">Cards</div>
+            <div style="flex: 1; text-align: center; padding: 3px 4px; font-size: 7px;">Advisor</div>
+            <div style="flex: 1; text-align: center; padding: 3px 4px; font-size: 7px;">AI Chat</div>
+          </div>
+          <div style="background: #1E2535; border-radius: 4px; padding: 5px; flex: 1; display: flex; flex-direction: column; gap: 3px;">
+            <div style="font-size: 7px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Creatures (28)</div>
+            <div style="background: #161B27; border-radius: 3px; padding: 3px 5px; display: flex; justify-content: space-between; font-size: 7px;"><span style="color:#e2e8f0">Atraxa, Praetors' Voice</span><span style="color:#64748b">$18.00</span></div>
+            <div style="background: #161B27; border-radius: 3px; padding: 3px 5px; display: flex; justify-content: space-between; font-size: 7px;"><span style="color:#e2e8f0">4 Deepglow Skate</span><span style="color:#64748b">$3.50</span></div>
+            <div style="background: #161B27; border-radius: 3px; padding: 3px 5px; display: flex; justify-content: space-between; font-size: 7px;"><span style="color:#e2e8f0">Crystalline Crawler</span><span style="color:#64748b">$1.20</span></div>
+            <div style="font-size: 7px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; margin-bottom: 2px;">Planeswalkers (12)</div>
+            <div style="background: #161B27; border-radius: 3px; padding: 3px 5px; display: flex; justify-content: space-between; font-size: 7px;"><span style="color:#e2e8f0">Atraxa, Grand Unifier</span><span style="color:#64748b">$24.00</span></div>
+            <div style="background: #161B27; border-radius: 3px; padding: 3px 5px; display: flex; justify-content: space-between; font-size: 7px;"><span style="color:#e2e8f0">Elspeth, Sun's Champion</span><span style="color:#64748b">$4.00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Sidebar + List</h3>
+      <p>Commander art, stats, and mana curve in a persistent left sidebar. Card list in the main area with tabs for Advisor and AI. Moxfield-inspired information density.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #0F1117; border-radius: 8px 8px 0 0; overflow: hidden;">
+      <!-- Mockup B: Hero header layout -->
+      <div style="font-size: 10px; color: #94a3b8;">
+        <!-- Hero banner -->
+        <div style="height: 70px; background: linear-gradient(135deg, #0a1020 0%, #1E3A5F 40%, #0D1824 100%); position: relative; padding: 10px 14px; display: flex; flex-direction: column; justify-content: flex-end;">
+          <!-- Card fan in hero -->
+          <div style="position: absolute; right: 10px; top: 5px; display: flex;">
+            <div style="width: 28px; height: 39px; border-radius: 3px; background: #1a2840; border: 1px solid rgba(255,255,255,0.15); transform: rotate(-12deg) translateX(12px); box-shadow: -2px 2px 8px rgba(0,0,0,0.8); overflow:hidden;">
+              <div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1810,#2a2510);"></div>
+            </div>
+            <div style="width: 28px; height: 39px; border-radius: 3px; background: #1a2840; border: 1px solid rgba(255,255,255,0.15); transform: rotate(-4deg) translateX(4px); box-shadow: -2px 2px 8px rgba(0,0,0,0.8); overflow:hidden;">
+              <div style="width:100%;height:100%;background:linear-gradient(135deg,#0D1824,#1E3A5F);"></div>
+            </div>
+            <div style="width: 28px; height: 39px; border-radius: 3px; background: #1a2840; border: 1px solid rgba(255,255,255,0.15); transform: rotate(4deg); box-shadow: -2px 2px 8px rgba(0,0,0,0.8); overflow:hidden;">
+              <div style="width:100%;height:100%;background:linear-gradient(135deg,#0a160d,#14532D);"></div>
+            </div>
+          </div>
+          <!-- Overlay gradient -->
+          <div style="position:absolute;inset:0;background:linear-gradient(to right, rgba(0,0,0,0.9) 30%, transparent 80%);"></div>
+          <!-- Text -->
+          <div style="position:relative;z-index:1;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+              <span style="background:rgba(34,197,94,0.2);color:#22c55e;border:1px solid rgba(34,197,94,0.3);border-radius:3px;padding:1px 5px;font-size:7px;font-weight:700;letter-spacing:0.5px;">COMMANDER</span>
+              <span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:3px;padding:1px 5px;font-size:7px;color:#64748b;">LEGAL</span>
+            </div>
+            <div style="font-size:11px;font-weight:900;color:#F8FAFC;line-height:1;">Atraxa Superfriends</div>
+            <div style="font-size:7px;color:#94a3b8;margin-top:2px;">⚜ Atraxa, Praetors' Voice</div>
+          </div>
+          <!-- Stats row -->
+          <div style="position:absolute;bottom:0;right:0;left:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);padding:4px 14px;display:flex;gap:12px;z-index:1;">
+            <span style="font-size:7px;color:#64748b;">99 cards</span>
+            <span style="font-size:7px;color:#0D9488;font-weight:700;">$312.00</span>
+            <span style="font-size:7px;color:#64748b;">avg 2.8 CMC</span>
+          </div>
+        </div>
+
+        <!-- Action bar -->
+        <div style="background:#161B27;border-bottom:1px solid #1E2535;padding:5px 10px;display:flex;gap:6px;align-items:center;">
+          <div style="flex:1;display:flex;gap:4px;">
+            <div style="padding:2px 7px;background:#0D9488;border-radius:4px;font-size:7px;color:white;font-weight:700;">Cards</div>
+            <div style="padding:2px 7px;border:1px solid #1E2535;border-radius:4px;font-size:7px;color:#64748b;">Advisor</div>
+            <div style="padding:2px 7px;border:1px solid #1E2535;border-radius:4px;font-size:7px;color:#64748b;">AI Chat</div>
+          </div>
+          <div style="padding:2px 7px;border:1px solid #1E2535;border-radius:4px;font-size:7px;color:#94a3b8;">↑ Import</div>
+          <div style="padding:2px 7px;border:1px solid #1E2535;border-radius:4px;font-size:7px;color:#94a3b8;">Share</div>
+        </div>
+
+        <!-- Card list with view toggle -->
+        <div style="padding:8px 10px;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+            <span style="font-size:7px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;flex:1;">Creatures (28)</span>
+            <div style="display:flex;gap:2px;">
+              <div style="padding:1px 4px;background:#1E2535;border-radius:2px;font-size:6px;color:#64748b;">☰</div>
+              <div style="padding:1px 4px;background:#1E2535;border-radius:2px;font-size:6px;color:#64748b;">▦</div>
+            </div>
+          </div>
+          <div style="background:#161B27;border-radius:4px;padding:3px 6px;display:flex;justify-content:space-between;font-size:7px;border:1px solid #1E2535;"><span style="color:#e2e8f0;">Atraxa, Praetors' Voice</span><span style="color:#0D9488;">$18.00</span></div>
+          <div style="background:#161B27;border-radius:4px;padding:3px 6px;display:flex;justify-content:space-between;font-size:7px;border:1px solid #1E2535;"><span style="color:#e2e8f0;">Deepglow Skate</span><span style="color:#64748b;">$3.50</span></div>
+          <div style="background:#161B27;border-radius:4px;padding:3px 6px;display:flex;justify-content:space-between;font-size:7px;border:1px solid #1E2535;"><span style="color:#e2e8f0;">Crystalline Crawler</span><span style="color:#64748b;">$1.20</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Hero Banner + Tabs</h3>
+      <p>Card fan art in a full-width hero header with deck identity gradient. Action tabs below. Most visually impactful — matches the decks list card style we planned.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #0F1117; border-radius: 8px 8px 0 0; overflow: hidden;">
+      <!-- Mockup C: Split pane -->
+      <div style="font-size: 10px; color: #94a3b8;">
+        <!-- Compact header -->
+        <div style="background:#161B27;border-bottom:1px solid #1E2535;padding:6px 10px;display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;">
+            <div style="font-size:9px;font-weight:900;color:#F8FAFC;">Atraxa Superfriends</div>
+            <div style="font-size:7px;color:#64748b;">Commander · 99 cards · $312</div>
+          </div>
+          <div style="display:flex;gap:3px;">
+            <div style="padding:2px 6px;border:1px solid #1E2535;border-radius:4px;font-size:6px;color:#94a3b8;">↑ Import</div>
+            <div style="padding:2px 6px;border:1px solid #1E2535;border-radius:4px;font-size:6px;color:#94a3b8;">⋯</div>
+          </div>
+        </div>
+
+        <!-- Split pane -->
+        <div style="display:flex;height:120px;">
+          <!-- Left: card list -->
+          <div style="flex:1;border-right:1px solid #1E2535;padding:6px 8px;overflow:hidden;display:flex;flex-direction:column;gap:3px;">
+            <div style="font-size:6px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Commander</div>
+            <div style="background:#1E2535;border-radius:3px;padding:2px 5px;font-size:6px;color:#F8FAFC;">Atraxa, Praetors' Voice</div>
+            <div style="font-size:6px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Creatures (28)</div>
+            <div style="background:#1E2535;border-radius:3px;padding:2px 5px;font-size:6px;color:#e2e8f0;">Deepglow Skate</div>
+            <div style="background:#1E2535;border-radius:3px;padding:2px 5px;font-size:6px;color:#e2e8f0;">Crystalline Crawler</div>
+            <div style="background:#1E2535;border-radius:3px;padding:2px 5px;font-size:6px;color:#e2e8f0;">Vorinclex, Voice of Hunger</div>
+            <div style="font-size:6px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Planeswalkers (12)</div>
+            <div style="background:#1E2535;border-radius:3px;padding:2px 5px;font-size:6px;color:#e2e8f0;">Elspeth, Sun's Champion</div>
+          </div>
+          <!-- Right: panel with tabs -->
+          <div style="width:100px;flex-shrink:0;display:flex;flex-direction:column;">
+            <div style="display:flex;border-bottom:1px solid #1E2535;">
+              <div style="flex:1;text-align:center;padding:3px;font-size:6px;color:#0D9488;border-bottom:2px solid #0D9488;">Stats</div>
+              <div style="flex:1;text-align:center;padding:3px;font-size:6px;color:#64748b;">Recs</div>
+              <div style="flex:1;text-align:center;padding:3px;font-size:6px;color:#64748b;">AI</div>
+            </div>
+            <div style="flex:1;padding:6px;display:flex;flex-direction:column;gap:4px;">
+              <div style="display:flex;justify-content:space-between;font-size:6px;"><span style="color:#64748b">Cards</span><span style="color:#F8FAFC;font-weight:700;">99</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:6px;"><span style="color:#64748b">Value</span><span style="color:#0D9488;font-weight:700;">$312</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:6px;"><span style="color:#64748b">Avg CMC</span><span style="color:#F8FAFC;">2.8</span></div>
+              <div style="height:1px;background:#1E2535;margin:2px 0;"></div>
+              <!-- Mini curve -->
+              <div style="display:flex;align-items:flex-end;gap:1px;height:18px;">
+                <div style="flex:1;background:#0D9488;height:30%;border-radius:1px;opacity:0.7;"></div>
+                <div style="flex:1;background:#0D9488;height:65%;border-radius:1px;opacity:0.7;"></div>
+                <div style="flex:1;background:#0D9488;height:100%;border-radius:1px;"></div>
+                <div style="flex:1;background:#0D9488;height:80%;border-radius:1px;opacity:0.8;"></div>
+                <div style="flex:1;background:#0D9488;height:50%;border-radius:1px;opacity:0.6;"></div>
+                <div style="flex:1;background:#0D9488;height:20%;border-radius:1px;opacity:0.4;"></div>
+              </div>
+              <div style="font-size:6px;color:#64748b;text-align:center;">CMC Distribution</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Split Pane</h3>
+      <p>Compact top bar, card list always visible on the left, right panel switches between Stats / Advisor / AI. App-like — more functional, less visual.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 16px; padding: 12px 16px; background: rgba(13,148,136,0.06); border: 1px solid rgba(13,148,136,0.2); border-radius: 10px;">
+  <p style="margin:0; font-size: 13px; color: #94a3b8;"><strong style="color:#2DD4BF;">My recommendation: B</strong> — The hero banner connects visually to the decks list card we planned (same fan art style), making navigation feel cohesive. Tabs below handle the three panels cleanly. Works well on mobile too.</p>
+</div>

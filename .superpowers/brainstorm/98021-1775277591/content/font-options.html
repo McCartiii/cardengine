@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Font Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700;1,9..144,900&family=Geist+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0D0B09;
+  --surface: #161310;
+  --surface-raised: #1E1A16;
+  --border: #2A2420;
+  --border-strong: #3D352C;
+  --text-primary: #F2ECE4;
+  --text-secondary: #A89880;
+  --text-muted: #665A4A;
+  --gold: #C9A84C;
+  --gold-dim: #8B7030;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #080706;
+  color: var(--text-primary);
+  padding: 40px 32px;
+}
+
+.page-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.page-title::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,#2A2420,transparent); }
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-width: 1000px;
+  margin: 0 auto 40px;
+}
+
+.option {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+.option:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 8px 32px rgba(201,168,76,0.15);
+}
+.option.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 8px 32px rgba(201,168,76,0.2);
+}
+.option.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  background: var(--gold);
+  color: #0D0B09;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 22px;
+  text-align: center;
+}
+
+.opt-preview {
+  padding: 28px 24px 20px;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.opt-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 6px;
+}
+
+/* Font A: Cinzel — Roman/classical fantasy */
+.cinzel { font-family: 'Cinzel', serif; }
+.opt-a-title {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+.opt-a-sub {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--gold-dim);
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+.opt-a-stat {
+  font-family: 'Geist Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: -0.02em;
+  margin-top: 16px;
+}
+
+/* Font B: Cormorant — luxury editorial */
+.opt-b-title {
+  font-family: 'Cormorant', serif;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.opt-b-title em { font-style: italic; color: var(--gold); font-weight: 600; }
+.opt-b-sub {
+  font-family: 'Cormorant', serif;
+  font-size: 14px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.opt-b-stat {
+  font-family: 'Geist Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: -0.02em;
+  margin-top: 16px;
+}
+
+/* Font C: Fraunces — optical variable, most distinctive */
+.opt-c-title {
+  font-family: 'Fraunces', serif;
+  font-size: 30px;
+  font-weight: 900;
+  font-optical-sizing: auto;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.opt-c-title em { font-style: italic; color: var(--gold); font-weight: 700; }
+.opt-c-sub {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-top: 5px;
+  letter-spacing: 0.01em;
+}
+.opt-c-stat {
+  font-family: 'Geist Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: -0.02em;
+  margin-top: 16px;
+}
+
+.opt-body {
+  padding: 16px 20px;
+}
+.opt-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.opt-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.opt-tag {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(201,168,76,0.1);
+  color: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,0.2);
+}
+
+/* ── Set symbol section ── */
+.set-section {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.set-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.set-header-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.set-header-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.set-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.set-card-mock {
+  position: relative;
+  width: 72px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.set-card-art {
+  width: 72px;
+  height: 100px;
+  border-radius: 8px;
+}
+
+/* Set symbol overlay in bottom-right of card */
+.set-symbol-overlay {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(13,11,9,0.82);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* SVG set symbols — using inline for demo */
+.symbol-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.set-info {
+  flex: 1;
+}
+.set-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.set-code {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.06em;
+}
+
+.rarity-variants {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+/* Rarity-colored set symbol badges */
+.set-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.sb-mythic {
+  background: rgba(234,88,12,0.1);
+  color: #FB923C;
+  border-color: rgba(234,88,12,0.28);
+}
+.sb-rare {
+  background: rgba(201,168,76,0.1);
+  color: #C9A84C;
+  border-color: rgba(201,168,76,0.28);
+}
+.sb-uncommon {
+  background: rgba(148,163,184,0.1);
+  color: #94A3B8;
+  border-color: rgba(148,163,184,0.22);
+}
+.sb-common {
+  background: rgba(107,114,128,0.08);
+  color: #6B7280;
+  border-color: rgba(107,114,128,0.18);
+}
+
+.sym-mythic { fill: #FB923C; filter: drop-shadow(0 0 3px rgba(234,88,12,0.8)); }
+.sym-rare { fill: #C9A84C; filter: drop-shadow(0 0 2px rgba(201,168,76,0.6)); }
+.sym-uncommon { fill: #94A3B8; }
+.sym-common { fill: #6B7280; }
+
+.set-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.015);
+  border-top: 1px solid var(--border);
+}
+.set-note strong { color: var(--text-secondary); }
+
+/* divider */
+.set-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+
+.impl-note {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.impl-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(201,168,76,0.12);
+  border: 1px solid rgba(201,168,76,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.impl-text {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.impl-text strong { color: var(--text-secondary); display: block; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Pick a typeface · then set symbol system below</div>
+
+<!-- FONT OPTIONS -->
+<div class="options">
+
+  <!-- A: Cinzel -->
+  <div class="option" onclick="this.classList.toggle('selected')">
+    <div class="opt-preview">
+      <div>
+        <div class="opt-eyebrow">Commander · Legal</div>
+        <div class="opt-a-title">Super Shredder</div>
+        <div class="opt-a-sub">Mainboard · 116 Cards</div>
+      </div>
+      <div class="opt-a-stat">$0.00</div>
+    </div>
+    <div class="opt-body">
+      <div class="opt-name">Cinzel</div>
+      <div class="opt-desc">Roman inscriptions, ancient power. Used in many high-fantasy games. Feels like it belongs on a card frame itself — authoritative and timeless.</div>
+      <div class="opt-tag">Classical Fantasy · All-caps works beautifully</div>
+    </div>
+  </div>
+
+  <!-- B: Cormorant -->
+  <div class="option" onclick="this.classList.toggle('selected')">
+    <div class="opt-preview">
+      <div>
+        <div class="opt-eyebrow">Commander · Legal</div>
+        <div class="opt-b-title">Super <em>Shredder</em></div>
+        <div class="opt-b-sub">Mainboard · 116 Cards</div>
+      </div>
+      <div class="opt-b-stat">$0.00</div>
+    </div>
+    <div class="opt-body">
+      <div class="opt-name">Cormorant</div>
+      <div class="opt-desc">Luxury editorial — like a high-end art book or auction catalogue. The italic variant adds drama to deck names. Premium without being loud.</div>
+      <div class="opt-tag">Editorial Luxury · Italic for emphasis</div>
+    </div>
+  </div>
+
+  <!-- C: Fraunces -->
+  <div class="option" onclick="this.classList.toggle('selected')">
+    <div class="opt-preview">
+      <div>
+        <div class="opt-eyebrow">Commander · Legal</div>
+        <div class="opt-c-title">Super <em>Shredder</em></div>
+        <div class="opt-c-sub">Mainboard · 116 Cards</div>
+      </div>
+      <div class="opt-c-stat">$0.00</div>
+    </div>
+    <div class="opt-body">
+      <div class="opt-name">Fraunces</div>
+      <div class="opt-desc">Variable optical font — built for display use. Has quirky details (the lowercase 'f', the italic) that feel designed, not generated. Most distinctive of the three.</div>
+      <div class="opt-tag">Most Distinctive · Variable optical sizing</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SET SYMBOL SYSTEM -->
+<div class="set-section">
+  <div class="set-header">
+    <div class="set-header-title">Set Symbol as Rarity Indicator</div>
+    <div class="set-header-sub">— same rarity coloring as the actual game (gold = rare, orange = mythic, silver = uncommon)</div>
+  </div>
+  <div class="set-body">
+
+    <!-- Strixhaven -->
+    <div class="set-row">
+      <div class="set-card-mock">
+        <div class="set-card-art" style="background:linear-gradient(155deg,#2d1b4e,#4c1d95,#7c3aed);"></div>
+        <div class="set-symbol-overlay">
+          <!-- Strixhaven symbol approximation: a stylized S/star -->
+          <svg class="symbol-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path class="sym-rare" d="M12 2L9 8H3L8 12.5L6 19L12 15.5L18 19L16 12.5L21 8H15L12 2Z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="set-info">
+        <div class="set-name">Strixhaven: School of Mages</div>
+        <div class="set-code">STX · 2021</div>
+        <div class="rarity-variants">
+          <div class="set-badge sb-mythic">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-mythic" d="M12 2L9 8H3L8 12.5L6 19L12 15.5L18 19L16 12.5L21 8H15L12 2Z"/></svg>
+            Mythic
+          </div>
+          <div class="set-badge sb-rare">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-rare" d="M12 2L9 8H3L8 12.5L6 19L12 15.5L18 19L16 12.5L21 8H15L12 2Z"/></svg>
+            Rare
+          </div>
+          <div class="set-badge sb-uncommon">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-uncommon" d="M12 2L9 8H3L8 12.5L6 19L12 15.5L18 19L16 12.5L21 8H15L12 2Z"/></svg>
+            Uncommon
+          </div>
+          <div class="set-badge sb-common">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-common" d="M12 2L9 8H3L8 12.5L6 19L12 15.5L18 19L16 12.5L21 8H15L12 2Z"/></svg>
+            Common
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-divider"></div>
+
+    <!-- Spider-Man / Marvel -->
+    <div class="set-row">
+      <div class="set-card-mock">
+        <div class="set-card-art" style="background:linear-gradient(155deg,#7f1d1d,#b91c1c,#dc2626);"></div>
+        <div class="set-symbol-overlay">
+          <!-- Spider-Man / Marvel approximation: web/spider shape -->
+          <svg class="symbol-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <circle class="sym-mythic" cx="12" cy="12" r="2.5"/>
+            <line x1="12" y1="2" x2="12" y2="9.5" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="12" y1="14.5" x2="12" y2="22" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="2" y1="12" x2="9.5" y2="12" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="14.5" y1="12" x2="22" y2="12" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="5" y1="5" x2="10.2" y2="10.2" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="13.8" y1="13.8" x2="19" y2="19" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="19" y1="5" x2="13.8" y2="10.2" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+            <line x1="10.2" y1="13.8" x2="5" y2="19" stroke="#FB923C" stroke-width="1.5" filter="drop-shadow(0 0 2px rgba(234,88,12,0.8))"/>
+          </svg>
+        </div>
+      </div>
+      <div class="set-info">
+        <div class="set-name">Marvel's Spider-Man</div>
+        <div class="set-code">SPM · 2025</div>
+        <div class="rarity-variants">
+          <div class="set-badge sb-mythic">
+            <svg width="10" height="10" viewBox="0 0 24 24"><circle class="sym-mythic" cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8" stroke="#FB923C" stroke-width="2"/><line x1="12" y1="16" x2="12" y2="22" stroke="#FB923C" stroke-width="2"/><line x1="2" y1="12" x2="8" y2="12" stroke="#FB923C" stroke-width="2"/><line x1="16" y1="12" x2="22" y2="12" stroke="#FB923C" stroke-width="2"/></svg>
+            Mythic
+          </div>
+          <div class="set-badge sb-rare">
+            <svg width="10" height="10" viewBox="0 0 24 24"><circle class="sym-rare" cx="12" cy="12" r="4"/></svg>
+            Rare
+          </div>
+          <div class="set-badge sb-uncommon">
+            <svg width="10" height="10" viewBox="0 0 24 24"><circle class="sym-uncommon" cx="12" cy="12" r="4"/></svg>
+            Uncommon
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-divider"></div>
+
+    <!-- Dominaria -->
+    <div class="set-row">
+      <div class="set-card-mock">
+        <div class="set-card-art" style="background:linear-gradient(155deg,#1e3a5f,#1d4ed8,#3b82f6);"></div>
+        <div class="set-symbol-overlay">
+          <!-- Dominaria: ornate D shape -->
+          <svg class="symbol-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path class="sym-uncommon" d="M6 4h5c4.4 0 7 2.7 7 8s-2.6 8-7 8H6V4zm3 3v10h2c2.8 0 4-1.8 4-5s-1.2-5-4-5H9z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="set-info">
+        <div class="set-name">Dominaria United</div>
+        <div class="set-code">DMU · 2022</div>
+        <div class="rarity-variants">
+          <div class="set-badge sb-mythic">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-mythic" d="M6 4h5c4.4 0 7 2.7 7 8s-2.6 8-7 8H6V4zm3 3v10h2c2.8 0 4-1.8 4-5s-1.2-5-4-5H9z"/></svg>
+            Mythic
+          </div>
+          <div class="set-badge sb-uncommon">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-uncommon" d="M6 4h5c4.4 0 7 2.7 7 8s-2.6 8-7 8H6V4zm3 3v10h2c2.8 0 4-1.8 4-5s-1.2-5-4-5H9z"/></svg>
+            Uncommon
+          </div>
+          <div class="set-badge sb-common">
+            <svg width="10" height="10" viewBox="0 0 24 24"><path class="sym-common" d="M6 4h5c4.4 0 7 2.7 7 8s-2.6 8-7 8H6V4zm3 3v10h2c2.8 0 4-1.8 4-5s-1.2-5-4-5H9z"/></svg>
+            Common
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="impl-note">
+    <div class="impl-icon">⚡</div>
+    <div class="impl-text">
+      <strong>Implementation: Scryfall SVG CDN</strong>
+      Scryfall hosts every set symbol as an SVG at a public endpoint keyed by set code (e.g. <code style="font-family:monospace;font-size:10px;color:#C9A84C;">stx</code>, <code style="font-family:monospace;font-size:10px;color:#C9A84C;">dmu</code>). We fetch the SVG, inject the rarity fill color at runtime (gold for rare, orange for mythic, silver for uncommon, gray for common) — exactly how the game itself works. Every set, past and future, is covered automatically.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

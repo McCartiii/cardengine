@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Editor — D+B Combo</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #090D14;
+  color: #e2e8f0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Nav */
+.nav {
+  height: 52px; background: rgba(15,17,23,0.96); border-bottom: 1px solid #1E2535;
+  display: flex; align-items: center; padding: 0 24px; gap: 16px;
+  position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px);
+}
+.nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.nav-mark { width: 28px; height: 28px; background: #0D9488; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: white; }
+.nav-name { font-size: 14px; font-weight: 700; color: #F8FAFC; }
+.nav-links { display: flex; gap: 2px; margin-left: 10px; }
+.nav-link { padding: 5px 12px; border-radius: 7px; font-size: 12px; color: #475569; font-weight: 500; text-decoration: none; }
+.nav-link.active { color: #0D9488; background: rgba(13,148,136,0.08); }
+
+/* Sticky header bar */
+.header-bar {
+  position: sticky; top: 52px; z-index: 50;
+  background: rgba(22,27,39,0.98); border-bottom: 1px solid #1E2535;
+  backdrop-filter: blur(12px); padding: 0 24px;
+  display: flex; align-items: center; gap: 10px; height: 52px;
+}
+.deck-name-input {
+  font-size: 16px; font-weight: 800; color: #F8FAFC; background: transparent;
+  border: none; outline: none; max-width: 200px; padding: 4px 8px; border-radius: 6px;
+  transition: background 0.12s;
+}
+.deck-name-input:hover, .deck-name-input:focus { background: rgba(255,255,255,0.04); }
+.format-select {
+  background: #161B27; border: 1px solid #1E2535; border-radius: 8px;
+  color: #94a3b8; font-size: 11px; font-weight: 700; padding: 4px 10px;
+  cursor: pointer;
+}
+.header-stats { display: flex; gap: 16px; align-items: center; margin-left: 4px; }
+.hstat { display: flex; flex-direction: column; gap: 0; }
+.hstat-val { font-size: 14px; font-weight: 800; color: #F8FAFC; line-height: 1.1; }
+.hstat-val.teal { color: #14B8A6; }
+.hstat-label { font-size: 9px; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+.header-sep { width: 1px; height: 24px; background: #1E2535; }
+/* Mana curve sparkline */
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 20px; }
+.spark-bar { width: 8px; background: linear-gradient(to top, #0D9488, #14B8A6); border-radius: 2px 2px 0 0; opacity: 0.85; transition: opacity 0.12s; }
+.spark-bar:hover { opacity: 1; }
+.color-pips { display: flex; gap: 4px; align-items: center; }
+.cpip { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.4); }
+.ml-auto { margin-left: auto; }
+.header-actions { display: flex; gap: 6px; align-items: center; }
+.btn { padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; transition: all 0.12s; }
+.btn-primary { background: #0D9488; color: white; }
+.btn-ghost { background: transparent; border: 1px solid #1E2535; color: #64748b; }
+.btn-ghost:hover { border-color: #334155; color: #94a3b8; }
+.btn-ai { background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.25); color: #0D9488; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+
+/* Main layout */
+.main { display: grid; grid-template-columns: 180px 1fr 200px; gap: 0; max-width: 1300px; margin: 0 auto; }
+
+/* ── Left Panel: Card Preview + Stats ── */
+.left-panel {
+  padding: 16px 12px 16px 16px;
+  position: sticky; top: 104px; height: calc(100vh - 104px);
+  overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+}
+
+/* Card preview */
+.card-preview {
+  border-radius: 12px; overflow: hidden;
+  background: #161B27; border: 1px solid #1E2535;
+}
+.card-preview-img {
+  width: 100%; aspect-ratio: 0.716;
+  background: linear-gradient(135deg, #0D1824 0%, #0a1020 50%, #0d1a0a 100%);
+  position: relative; overflow: hidden;
+}
+.card-preview-img::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(13,148,136,0.2) 0%, rgba(0,50,100,0.15) 50%, rgba(0,80,30,0.15) 100%);
+}
+.card-preview-img::after {
+  content: '🃏';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px; opacity: 0.12;
+}
+.card-preview-body { padding: 8px; }
+.cpb-name { font-size: 11px; font-weight: 700; color: #F8FAFC; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cpb-type { font-size: 9px; color: #64748b; margin-bottom: 4px; }
+.cpb-price { font-size: 13px; font-weight: 800; color: #14B8A6; }
+.cpb-hint { font-size: 9px; color: #334155; margin-top: 2px; }
+
+/* Stats panel */
+.stats-panel { background: #161B27; border: 1px solid #1E2535; border-radius: 12px; padding: 12px; }
+.stats-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; margin-bottom: 10px; }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.stat-cell { }
+.stat-val { font-size: 15px; font-weight: 800; color: #F8FAFC; line-height: 1.1; }
+.stat-val.teal { color: #14B8A6; }
+.stat-lbl { font-size: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+
+/* Mana curve bars */
+.curve-section { margin-bottom: 10px; }
+.curve-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #475569; margin-bottom: 6px; }
+.curve-row { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
+.curve-num { font-size: 8px; color: #475569; width: 8px; text-align: right; flex-shrink: 0; }
+.curve-track { flex: 1; height: 5px; background: #0F1117; border-radius: 2px; overflow: hidden; }
+.curve-fill { height: 100%; background: linear-gradient(to right, #0D9488, #14B8A6); border-radius: 2px; min-width: 2px; }
+.curve-ct { font-size: 8px; color: #475569; width: 12px; flex-shrink: 0; }
+
+/* Color dist */
+.color-dist { }
+.color-dist-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; gap: 1px; margin-bottom: 6px; }
+.cdb-seg { border-radius: 2px; }
+.color-legend { display: flex; flex-wrap: wrap; gap: 3px; }
+.color-legend-item { display: flex; align-items: center; gap: 3px; font-size: 8px; color: #64748b; }
+.clpip { width: 6px; height: 6px; border-radius: 50%; }
+
+.ai-btn-panel { margin-top: 2px; }
+.ai-btn-full { width: 100%; padding: 7px; background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.25); border-radius: 8px; color: #0D9488; font-size: 10px; font-weight: 700; cursor: pointer; text-align: center; transition: all 0.12s; }
+.ai-btn-full:hover { background: rgba(13,148,136,0.18); }
+
+/* ── Center: Card List ── */
+.center-panel { padding: 16px 12px; border-left: 1px solid #1E2535; border-right: 1px solid #1E2535; min-height: calc(100vh - 104px); }
+.section-group { margin-bottom: 20px; }
+.section-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.section-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.section-name { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+.section-count { font-size: 10px; color: #334155; }
+.section-line { flex: 1; height: 1px; background: rgba(255,255,255,0.04); }
+.card-rows { background: #161B27; border-radius: 12px; border: 1px solid #1E2535; overflow: hidden; }
+.card-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; transition: background 0.1s; cursor: pointer; }
+.card-row:hover { background: rgba(255,255,255,0.03); }
+.card-row:hover .cr-actions { opacity: 1; }
+.card-row + .card-row { border-top: 1px solid rgba(255,255,255,0.03); }
+.card-row.hovered { background: rgba(13,148,136,0.06); }
+.cr-qty { font-size: 12px; font-weight: 800; color: #0D9488; width: 16px; text-align: right; flex-shrink: 0; }
+.cr-name { flex: 1; font-size: 12px; font-weight: 500; color: #CBD5E1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cr-type { font-size: 10px; color: #334155; flex-shrink: 0; }
+.cr-mana { font-size: 9px; color: #475569; font-family: monospace; flex-shrink: 0; }
+.cr-price { font-size: 11px; color: #475569; width: 42px; text-align: right; flex-shrink: 0; }
+.cr-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.1s; flex-shrink: 0; }
+.cr-action { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
+.cr-action.minus { background: rgba(239,68,68,0.15); color: #f87171; }
+.cr-action.plus { background: rgba(13,148,136,0.15); color: #0D9488; }
+
+/* ── Right Panel: Search ── */
+.right-panel { padding: 16px 16px 16px 12px; position: sticky; top: 104px; height: calc(100vh - 104px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.search-input { width: 100%; background: #161B27; border: 1px solid #1E2535; border-radius: 10px; padding: 8px 12px; font-size: 12px; color: #F8FAFC; outline: none; transition: border-color 0.12s; }
+.search-input::placeholder { color: #334155; }
+.search-input:focus { border-color: #0D9488; }
+.search-results { display: flex; flex-direction: column; gap: 4px; }
+.search-result { display: flex; align-items: center; gap: 8px; background: #161B27; border: 1px solid #1E2535; border-radius: 10px; padding: 6px 8px; cursor: pointer; transition: border-color 0.12s; }
+.search-result:hover { border-color: #334155; }
+.sr-img { width: 28px; height: 39px; border-radius: 4px; background: linear-gradient(135deg, #1a2744, #0a1020); flex-shrink: 0; position: relative; overflow: hidden; }
+.sr-img::before { content: ''; position: absolute; inset: 0; background: rgba(13,148,136,0.2); }
+.sr-info { flex: 1; min-width: 0; }
+.sr-name { font-size: 11px; font-weight: 600; color: #CBD5E1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-sub { font-size: 9px; color: #475569; margin-top: 1px; }
+.sr-add { width: 24px; height: 24px; background: #0D9488; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; flex-shrink: 0; cursor: pointer; }
+.quick-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 4px 10px; background: #161B27; border: 1px solid #1E2535; border-radius: 6px; font-size: 10px; color: #475569; cursor: pointer; transition: all 0.12s; }
+.chip:hover { color: #CBD5E1; border-color: #334155; }
+.chip-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #334155; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a class="nav-logo" href="#">
+    <div class="nav-mark">CE</div>
+    <span class="nav-name">Card Engine</span>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="#">Collection</a>
+    <a class="nav-link active" href="#">Decks</a>
+    <a class="nav-link" href="#">Scan</a>
+  </div>
+</nav>
+
+<!-- Header bar -->
+<div class="header-bar">
+  <input class="deck-name-input" value="Atraxa Superfriends" />
+  <select class="format-select"><option>Commander</option></select>
+  <div class="header-sep"></div>
+  <div class="header-stats">
+    <div class="hstat"><div class="hstat-val">99</div><div class="hstat-label">Cards</div></div>
+    <div class="hstat"><div class="hstat-val teal">$312.40</div><div class="hstat-label">Value</div></div>
+    <div class="hstat"><div class="hstat-val">2.8</div><div class="hstat-label">Avg CMC</div></div>
+  </div>
+  <div class="header-sep"></div>
+  <!-- Live curve sparkline in header -->
+  <div style="display:flex;align-items:flex-end;gap:2px;height:22px;">
+    <div class="spark-bar" style="height:4px"></div>
+    <div class="spark-bar" style="height:10px"></div>
+    <div class="spark-bar" style="height:20px"></div>
+    <div class="spark-bar" style="height:16px"></div>
+    <div class="spark-bar" style="height:12px"></div>
+    <div class="spark-bar" style="height:7px"></div>
+    <div class="spark-bar" style="height:4px"></div>
+  </div>
+  <div class="color-pips">
+    <div class="cpip" style="background:#F9FAF4"></div>
+    <div class="cpip" style="background:#0E68AB"></div>
+    <div class="cpip" style="background:#6B6B6B"></div>
+    <div class="cpip" style="background:#00733E"></div>
+  </div>
+  <div class="ml-auto"></div>
+  <div class="header-actions">
+    <button class="btn btn-ghost">Copy List</button>
+    <button class="btn btn-ghost">MTGA</button>
+    <button class="btn-ai">✦ AI Suggestions</button>
+    <button class="btn btn-primary">Import</button>
+  </div>
+</div>
+
+<!-- 3-col layout -->
+<div class="main">
+
+  <!-- LEFT: Card Preview + Stats -->
+  <div class="left-panel">
+    <!-- Card preview -->
+    <div class="card-preview">
+      <div class="card-preview-img"></div>
+      <div class="card-preview-body">
+        <div class="cpb-name">Atraxa, Praetors' Voice</div>
+        <div class="cpb-type">Legendary Creature — Phyrexian</div>
+        <div class="cpb-price">$18.50</div>
+        <div class="cpb-hint">Hover any card to preview</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-panel">
+      <div class="stats-title">Deck Stats</div>
+      <div class="stats-grid">
+        <div class="stat-cell"><div class="stat-val">99</div><div class="stat-lbl">Cards</div></div>
+        <div class="stat-cell"><div class="stat-val">67</div><div class="stat-lbl">Unique</div></div>
+        <div class="stat-cell"><div class="stat-val teal">$312</div><div class="stat-lbl">Value</div></div>
+        <div class="stat-cell"><div class="stat-val">2.8</div><div class="stat-lbl">Avg CMC</div></div>
+      </div>
+
+      <div class="curve-section">
+        <div class="curve-label">Mana Curve</div>
+        <div class="curve-row"><div class="curve-num">1</div><div class="curve-track"><div class="curve-fill" style="width:35%"></div></div><div class="curve-ct">7</div></div>
+        <div class="curve-row"><div class="curve-num">2</div><div class="curve-track"><div class="curve-fill" style="width:70%"></div></div><div class="curve-ct">14</div></div>
+        <div class="curve-row"><div class="curve-num">3</div><div class="curve-track"><div class="curve-fill" style="width:85%"></div></div><div class="curve-ct">17</div></div>
+        <div class="curve-row"><div class="curve-num">4</div><div class="curve-track"><div class="curve-fill" style="width:55%"></div></div><div class="curve-ct">11</div></div>
+        <div class="curve-row"><div class="curve-num">5</div><div class="curve-track"><div class="curve-fill" style="width:30%"></div></div><div class="curve-ct">6</div></div>
+        <div class="curve-row"><div class="curve-num">6+</div><div class="curve-track"><div class="curve-fill" style="width:15%"></div></div><div class="curve-ct">3</div></div>
+      </div>
+
+      <div class="color-dist">
+        <div class="curve-label">Colors</div>
+        <div class="color-dist-bar">
+          <div class="cdb-seg" style="flex:18;background:#F9FAF4;opacity:0.85"></div>
+          <div class="cdb-seg" style="flex:22;background:#0E68AB"></div>
+          <div class="cdb-seg" style="flex:15;background:#5a5a5a"></div>
+          <div class="cdb-seg" style="flex:20;background:#00733E"></div>
+        </div>
+        <div class="color-legend">
+          <div class="color-legend-item"><div class="clpip" style="background:#F9FAF4"></div>White 18</div>
+          <div class="color-legend-item"><div class="clpip" style="background:#0E68AB"></div>Blue 22</div>
+          <div class="color-legend-item"><div class="clpip" style="background:#5a5a5a"></div>Black 15</div>
+          <div class="color-legend-item"><div class="clpip" style="background:#00733E"></div>Green 20</div>
+        </div>
+      </div>
+
+      <div class="ai-btn-panel">
+        <div class="ai-btn-full">✦ Get AI Suggestions</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Card List -->
+  <div class="center-panel">
+    <!-- Commander -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot" style="background:#a855f7"></div>
+        <div class="section-name" style="color:#a855f7">Commander</div>
+        <div class="section-count">(1)</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="card-rows">
+        <div class="card-row hovered">
+          <div class="cr-qty">1</div>
+          <div class="cr-name">Atraxa, Praetors' Voice</div>
+          <div class="cr-type">Legendary Creature</div>
+          <div class="cr-mana">{G}{W}{U}{B}</div>
+          <div class="cr-price">$18.50</div>
+          <div class="cr-actions">
+            <button class="cr-action minus">−</button>
+            <button class="cr-action plus">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Creatures -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot" style="background:#22c55e"></div>
+        <div class="section-name" style="color:#22c55e">Creatures</div>
+        <div class="section-count">(24)</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="card-rows">
+        <div class="card-row"><div class="cr-qty">4</div><div class="cr-name">Deepglow Skate</div><div class="cr-type">Creature</div><div class="cr-mana">{4}{U}</div><div class="cr-price">$4.20</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">4</div><div class="cr-name">Lighthouse Chronologist</div><div class="cr-type">Creature</div><div class="cr-mana">{1}{U}</div><div class="cr-price">$2.10</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">2</div><div class="cr-name">Vorinclex, Monstrous Raider</div><div class="cr-type">Legendary Creature</div><div class="cr-mana">{4}{G}{G}</div><div class="cr-price">$22.00</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">4</div><div class="cr-name">Crystalline Crawler</div><div class="cr-type">Creature</div><div class="cr-mana">{4}</div><div class="cr-price">$1.50</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+      </div>
+    </div>
+
+    <!-- Planeswalkers -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot" style="background:#f59e0b"></div>
+        <div class="section-name" style="color:#f59e0b">Planeswalkers</div>
+        <div class="section-count">(12)</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="card-rows">
+        <div class="card-row"><div class="cr-qty">1</div><div class="cr-name">Jace, the Mind Sculptor</div><div class="cr-type">Planeswalker</div><div class="cr-mana">{2}{U}{U}</div><div class="cr-price">$44.00</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">1</div><div class="cr-name">Elspeth, Sun's Champion</div><div class="cr-type">Planeswalker</div><div class="cr-mana">{4}{W}{W}</div><div class="cr-price">$3.50</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">1</div><div class="cr-name">Garruk Wildspeaker</div><div class="cr-type">Planeswalker</div><div class="cr-mana">{2}{G}{G}</div><div class="cr-price">$5.80</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+      </div>
+    </div>
+
+    <!-- Instants -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot" style="background:#00d4ff"></div>
+        <div class="section-name" style="color:#00d4ff">Instants</div>
+        <div class="section-count">(8)</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="card-rows">
+        <div class="card-row"><div class="cr-qty">4</div><div class="cr-name">Cyclonic Rift</div><div class="cr-type">Instant</div><div class="cr-mana">{1}{U}</div><div class="cr-price">$12.00</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">4</div><div class="cr-name">Counterspell</div><div class="cr-type">Instant</div><div class="cr-mana">{U}{U}</div><div class="cr-price">$1.20</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+      </div>
+    </div>
+
+    <!-- Lands -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot" style="background:#78716c"></div>
+        <div class="section-name" style="color:#78716c">Lands</div>
+        <div class="section-count">(36)</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="card-rows">
+        <div class="card-row"><div class="cr-qty">1</div><div class="cr-name">Command Tower</div><div class="cr-type">Land</div><div class="cr-mana">—</div><div class="cr-price">$0.50</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">1</div><div class="cr-name">Breeding Pool</div><div class="cr-type">Land</div><div class="cr-mana">—</div><div class="cr-price">$14.00</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+        <div class="card-row"><div class="cr-qty">8</div><div class="cr-name">Island</div><div class="cr-type">Basic Land</div><div class="cr-mana">—</div><div class="cr-price">$0.10</div><div class="cr-actions"><button class="cr-action minus">−</button><button class="cr-action plus">+</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Search -->
+  <div class="right-panel">
+    <input class="search-input" placeholder="Search for a card…" value="Atraxa" />
+    <div class="search-results">
+      <div class="search-result">
+        <div class="sr-img"></div>
+        <div class="sr-info">
+          <div class="sr-name">Atraxa, Praetors' Voice</div>
+          <div class="sr-sub">SLD · $18.50</div>
+        </div>
+        <div class="sr-add">+</div>
+      </div>
+      <div class="search-result">
+        <div class="sr-img" style="opacity:0.6"></div>
+        <div class="sr-info">
+          <div class="sr-name">Deepglow Skate</div>
+          <div class="sr-sub">C16 · $4.20</div>
+        </div>
+        <div class="sr-add">+</div>
+      </div>
+      <div class="search-result">
+        <div class="sr-img" style="opacity:0.4"></div>
+        <div class="sr-info">
+          <div class="sr-name">Vorinclex, Monstrous Raider</div>
+          <div class="sr-sub">KHM · $22.00</div>
+        </div>
+        <div class="sr-add">+</div>
+      </div>
+      <div class="search-result">
+        <div class="sr-img" style="opacity:0.35"></div>
+        <div class="sr-info">
+          <div class="sr-name">Crystalline Crawler</div>
+          <div class="sr-sub">CN2 · $1.50</div>
+        </div>
+        <div class="sr-add">+</div>
+      </div>
+    </div>
+    <div>
+      <div class="chip-label">Quick add</div>
+      <div class="quick-chips" style="margin-top:4px;">
+        <div class="chip">Sol Ring</div>
+        <div class="chip">Lightning Bolt</div>
+        <div class="chip">Brainstorm</div>
+        <div class="chip">Swords to Plowshares</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

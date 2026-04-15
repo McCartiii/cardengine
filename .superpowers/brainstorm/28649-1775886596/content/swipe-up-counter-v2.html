@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Counter — Separated Panels with Flair</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060609; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; color: white; overflow-x: hidden; }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-2px); }
+  }
+
+  .demo-container {
+    display: flex;
+    gap: 60px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 30px 20px;
+  }
+
+  .arrow-between {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: #333;
+    padding-top: 340px;
+  }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 16px;
+  }
+  .demo-label h3 { font-size: 14px; font-weight: 700; color: white; margin-bottom: 4px; }
+  .demo-label p { font-size: 11px; color: #666; max-width: 320px; line-height: 1.6; }
+
+  /* ── Phone frame ── */
+  .phone-frame {
+    width: 375px;
+    height: 780px;
+    margin: 0 auto;
+    background: #08080e;
+    border-radius: 44px;
+    border: 3px solid #1a1a25;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.03);
+  }
+
+  .status-bar {
+    height: 50px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 6px;
+    font-size: 10px;
+    color: #3a3a4a;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .phone-body {
+    height: calc(100% - 50px);
+    padding: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Individual player card ── */
+  .player-card {
+    flex: 1;
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .player-card:active { transform: scale(0.98); }
+
+  /* Player-specific backgrounds */
+  .player-purple {
+    background: radial-gradient(ellipse at 50% 30%, rgba(124,58,237,0.12) 0%, rgba(124,58,237,0.03) 50%, #0c0c16 100%);
+    border: 1px solid rgba(124,58,237,0.15);
+    box-shadow: 0 0 30px rgba(124,58,237,0.05), inset 0 1px 0 rgba(124,58,237,0.08);
+  }
+
+  .player-blue {
+    background: radial-gradient(ellipse at 50% 70%, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.03) 50%, #0c0c16 100%);
+    border: 1px solid rgba(59,130,246,0.15);
+    box-shadow: 0 0 30px rgba(59,130,246,0.05), inset 0 1px 0 rgba(59,130,246,0.08);
+  }
+
+  .player-card.rotated {
+    transform: rotate(180deg);
+  }
+
+  .player-card.rotated:active { transform: rotate(180deg) scale(0.98); }
+
+  /* Top edge glow */
+  .edge-glow {
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 2px;
+    border-radius: 0 0 4px 4px;
+  }
+
+  .player-purple .edge-glow {
+    background: linear-gradient(90deg, transparent, #7c3aed, transparent);
+    box-shadow: 0 0 12px rgba(124,58,237,0.4);
+  }
+
+  .player-blue .edge-glow {
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+    box-shadow: 0 0 12px rgba(59,130,246,0.4);
+  }
+
+  /* ── Timer badge ── */
+  .timer-badge {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.04);
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+    letter-spacing: 0.5px;
+  }
+
+  .timer-badge.active {
+    color: #4ade80;
+    background: rgba(74,222,128,0.08);
+    border-color: rgba(74,222,128,0.2);
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* ── Player name ── */
+  .player-name {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .player-purple .player-name { color: rgba(167,139,250,0.6); }
+  .player-blue .player-name { color: rgba(96,165,250,0.6); }
+
+  /* ── Life total ── */
+  .life-total {
+    font-size: 88px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -4px;
+    position: relative;
+  }
+
+  .player-purple .life-total {
+    color: white;
+    text-shadow: 0 0 60px rgba(124,58,237,0.25), 0 2px 4px rgba(0,0,0,0.5);
+  }
+
+  .player-blue .life-total {
+    color: white;
+    text-shadow: 0 0 60px rgba(59,130,246,0.25), 0 2px 4px rgba(0,0,0,0.5);
+  }
+
+  .life-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0.2;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  /* ── +/- tap zones ── */
+  .tap-zone {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 40%;
+    display: flex;
+    align-items: center;
+    transition: background 0.15s;
+  }
+
+  .tap-zone:active {
+    background: rgba(255,255,255,0.03);
+  }
+
+  .tap-zone-left { left: 0; justify-content: flex-start; padding-left: 20px; }
+  .tap-zone-right { right: 0; justify-content: flex-end; padding-right: 20px; }
+
+  .tap-icon {
+    font-size: 28px;
+    font-weight: 200;
+    color: rgba(255,255,255,0.08);
+    transition: color 0.15s;
+  }
+
+  .tap-zone:active .tap-icon { color: rgba(255,255,255,0.3); }
+
+  /* ── Swipe pill ── */
+  .swipe-pill-wrap {
+    position: absolute;
+    bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .swipe-pill {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.15);
+  }
+
+  /* ── Center controls ── */
+  .center-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 4px 0;
+    flex-shrink: 0;
+  }
+
+  .center-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .center-btn:active { background: rgba(255,255,255,0.1); transform: scale(0.9); }
+
+  .coin-btn {
+    width: 56px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .game-timer {
+    font-family: 'SF Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: #3a3a4a;
+    letter-spacing: 0.5px;
+    padding: 0 6px;
+  }
+
+  /* ── Counter drawer ── */
+  .counter-drawer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(0deg, #0e0e1a 0%, rgba(14,14,26,0.97) 100%);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px 18px 0 0;
+    padding: 10px 14px 18px;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .counter-drawer.open { transform: translateY(0); }
+
+  .drawer-handle {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.15);
+    margin: 0 auto 12px;
+  }
+
+  .counter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .counter-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s;
+  }
+
+  .counter-icon {
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .counter-info { flex: 1; }
+
+  .counter-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.4;
+    margin-bottom: 1px;
+    font-weight: 600;
+  }
+
+  .counter-value {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .counter-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .counter-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.4);
+    font-size: 14px;
+    font-weight: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .counter-btn:active {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    transform: scale(0.88);
+  }
+
+  .poison .counter-icon { background: rgba(139,92,246,0.15); color: #a78bfa; }
+  .poison .counter-value { color: #a78bfa; }
+  .poison .counter-item { border-color: rgba(139,92,246,0.1); }
+  .energy .counter-icon { background: rgba(234,179,8,0.12); color: #facc15; }
+  .energy .counter-value { color: #facc15; }
+  .cmdr .counter-icon { background: rgba(239,68,68,0.12); color: #f87171; }
+  .cmdr .counter-value { color: #f87171; }
+  .exp .counter-icon { background: rgba(34,197,94,0.12); color: #4ade80; }
+  .exp .counter-value { color: #4ade80; }
+
+  /* ── Non-zero indicator dots ── */
+  .active-counters {
+    position: absolute;
+    bottom: 22px;
+    display: flex;
+    gap: 5px;
+  }
+
+  .counter-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+  <!-- STATE 1: Default — clean separated cards -->
+  <div>
+    <div class="phone-frame">
+      <div class="status-bar">Commander · 60 min</div>
+      <div class="phone-body">
+
+        <!-- Player 1 — separate card, rotated -->
+        <div class="player-card player-purple rotated">
+          <div class="edge-glow"></div>
+          <div class="timer-badge">15:00</div>
+          <div class="tap-zone tap-zone-left"><div class="tap-icon">−</div></div>
+          <div class="tap-zone tap-zone-right"><div class="tap-icon">+</div></div>
+          <div class="player-name">Player 1</div>
+          <div class="life-total">40</div>
+          <div class="life-label">life</div>
+          <div class="swipe-pill-wrap">
+            <div class="swipe-pill"></div>
+          </div>
+        </div>
+
+        <!-- Center controls -->
+        <div class="center-strip">
+          <div class="center-btn" style="font-size:12px;color:#444;">⚙</div>
+          <div class="game-timer">00:00</div>
+          <div class="center-btn coin-btn" style="font-size:16px;">🪙</div>
+          <div class="game-timer" style="visibility:hidden;">00:00</div>
+          <div class="center-btn" style="font-size:13px;color:#444;">↺</div>
+        </div>
+
+        <!-- Player 2 — separate card -->
+        <div class="player-card player-blue">
+          <div class="edge-glow"></div>
+          <div class="timer-badge">15:00</div>
+          <div class="tap-zone tap-zone-left"><div class="tap-icon">−</div></div>
+          <div class="tap-zone tap-zone-right"><div class="tap-icon">+</div></div>
+          <div class="player-name">Player 2</div>
+          <div class="life-total">40</div>
+          <div class="life-label">life</div>
+          <div class="swipe-pill-wrap">
+            <div class="swipe-pill"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>Default — Separated Cards</h3>
+      <p>Each player is their own floating card with a subtle color glow, edge light, and radial gradient. Gap between them with center controls.</p>
+    </div>
+  </div>
+
+  <div class="arrow-between">→</div>
+
+  <!-- STATE 2: Drawer open, with active game state -->
+  <div>
+    <div class="phone-frame">
+      <div class="status-bar">Commander · 60 min</div>
+      <div class="phone-body">
+
+        <!-- Player 1 — rotated, with counter dots showing non-zero -->
+        <div class="player-card player-purple rotated">
+          <div class="edge-glow"></div>
+          <div class="timer-badge">12:44</div>
+          <div class="tap-zone tap-zone-left"><div class="tap-icon">−</div></div>
+          <div class="tap-zone tap-zone-right"><div class="tap-icon">+</div></div>
+          <div class="player-name">Player 1</div>
+          <div class="life-total">36</div>
+          <div class="life-label">life</div>
+          <div class="active-counters">
+            <div class="counter-dot" style="background:#a78bfa;box-shadow:0 0 6px #a78bfa;"></div>
+          </div>
+          <div class="swipe-pill-wrap">
+            <div class="swipe-pill"></div>
+          </div>
+        </div>
+
+        <!-- Center controls -->
+        <div class="center-strip">
+          <div class="center-btn" style="font-size:12px;color:#444;">⚙</div>
+          <div class="game-timer" style="color:#4ade80;">08:32</div>
+          <div class="center-btn coin-btn" style="font-size:16px;">🪙</div>
+          <div class="game-timer" style="visibility:hidden;">00:00</div>
+          <div class="center-btn" style="font-size:13px;color:#444;">↺</div>
+        </div>
+
+        <!-- Player 2 — with drawer open -->
+        <div class="player-card player-blue" style="justify-content:flex-start;padding-top:22px;">
+          <div class="edge-glow"></div>
+          <div class="timer-badge active">14:28</div>
+          <div class="player-name">Player 2</div>
+          <div class="life-total" style="font-size:56px;letter-spacing:-2px;">37</div>
+
+          <!-- Active counter dots (when drawer closed) -->
+          <div class="active-counters" style="bottom:auto;top:14px;left:14px;">
+            <div class="counter-dot" style="background:#a78bfa;box-shadow:0 0 6px #a78bfa;"></div>
+            <div class="counter-dot" style="background:#f87171;box-shadow:0 0 6px #f87171;"></div>
+          </div>
+
+          <!-- Drawer -->
+          <div class="counter-drawer open">
+            <div class="drawer-handle"></div>
+            <div class="counter-grid">
+              <div class="counter-item poison">
+                <div class="counter-icon">☠</div>
+                <div class="counter-info">
+                  <div class="counter-label">Poison</div>
+                  <div class="counter-value">3</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+              <div class="counter-item energy">
+                <div class="counter-icon">⚡</div>
+                <div class="counter-info">
+                  <div class="counter-label">Energy</div>
+                  <div class="counter-value">0</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+              <div class="counter-item cmdr">
+                <div class="counter-icon">⚔</div>
+                <div class="counter-info">
+                  <div class="counter-label">Cmdr Dmg</div>
+                  <div class="counter-value">7</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+              <div class="counter-item exp">
+                <div class="counter-icon">★</div>
+                <div class="counter-info">
+                  <div class="counter-label">Experience</div>
+                  <div class="counter-value">0</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>Mid-Game — Drawer Open</h3>
+      <p>Player 2's turn (green timer glow). Swiped up counter drawer. Player 1 has a poison dot indicator showing non-zero counters at a glance. Life total shrinks to make room.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

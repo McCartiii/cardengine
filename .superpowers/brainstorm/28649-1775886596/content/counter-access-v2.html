@@ -1,0 +1,99 @@
+<h2>Counter Access — More Options</h2>
+<p class="subtitle">All the ways to access poison, energy, commander damage, and experience from a player panel</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;text-align:center;">
+      <div style="font-size:48px;font-weight:900;color:white;">40</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+        <div style="background:#2a2a3e;border-radius:8px;padding:6px 10px;font-size:11px;color:#888;">☠ 0</div>
+        <div style="background:#2a2a3e;border-radius:8px;padding:6px 10px;font-size:11px;color:#888;">⚡ 0</div>
+        <div style="background:#2a2a3e;border-radius:8px;padding:6px 10px;font-size:11px;color:#888;">⚔ 0</div>
+        <div style="background:#2a2a3e;border-radius:8px;padding:6px 10px;font-size:11px;color:#888;">★ 0</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Always Visible Row</h3>
+      <p>Counter chips always shown below life. Tap to expand +/−. Fastest access but takes vertical space in every panel.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;text-align:center;">
+      <div style="font-size:48px;font-weight:900;color:white;">40</div>
+      <div style="margin-top:12px;display:flex;justify-content:center;">
+        <div style="background:#2a2a3e;border-radius:20px;padding:6px 16px;font-size:11px;color:#666;">⋯ counters</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Expandable Drawer</h3>
+      <p>Single "counters" button reveals a slide-up panel with all counters. Clean default, one extra tap.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;text-align:center;">
+      <div style="display:flex;justify-content:center;gap:4px;margin-bottom:8px;font-size:9px;color:#555;">← swipe →</div>
+      <div style="display:flex;gap:16px;justify-content:center;align-items:baseline;">
+        <div style="opacity:0.3;font-size:20px;color:#888;">☠ 0</div>
+        <div style="font-size:48px;font-weight:900;color:white;">40</div>
+        <div style="opacity:0.3;font-size:20px;color:#888;">⚡ 0</div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:4px;margin-top:8px;">
+        <div style="width:6px;height:6px;border-radius:3px;background:#fff;"></div>
+        <div style="width:6px;height:6px;border-radius:3px;background:#444;"></div>
+        <div style="width:6px;height:6px;border-radius:3px;background:#444;"></div>
+        <div style="width:6px;height:6px;border-radius:3px;background:#444;"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Swipe Pages</h3>
+      <p>Swipe left/right on a player panel to cycle through: Life → Poison → Energy → Commander Dmg → Experience. Dot indicators show which page you're on. Zero extra UI, very mobile-native.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;text-align:center;">
+      <div style="font-size:48px;font-weight:900;color:white;">40</div>
+      <div style="margin-top:14px;display:flex;justify-content:center;gap:6px;">
+        <div style="width:28px;height:28px;border-radius:14px;background:#2a2a3e;display:flex;align-items:center;justify-content:center;font-size:12px;">☠</div>
+        <div style="width:28px;height:28px;border-radius:14px;background:#2a2a3e;display:flex;align-items:center;justify-content:center;font-size:12px;">⚡</div>
+        <div style="width:28px;height:28px;border-radius:14px;background:#2a2a3e;display:flex;align-items:center;justify-content:center;font-size:12px;">⚔</div>
+        <div style="width:28px;height:28px;border-radius:14px;background:#2a2a3e;display:flex;align-items:center;justify-content:center;font-size:12px;">★</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D — Icon Ring (Mode Switch)</h3>
+      <p>Tap an icon to swap the main display to that counter with +/−. Tap again to return to life. The big number area is reused for whichever counter is active.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="e" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;text-align:center;">
+      <div style="font-size:48px;font-weight:900;color:white;">40</div>
+      <div style="margin-top:6px;font-size:10px;color:#555;">long press for counters</div>
+    </div>
+    <div class="card-body">
+      <h3>E — Long Press Modal</h3>
+      <p>Long press anywhere on a player panel to open a full counter sheet (like the current commander damage sheet). Cleanest panel but requires knowing the gesture exists.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="f" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:24px;text-align:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0 12px;">
+        <div style="font-size:11px;color:#ef4444;">☠ 3</div>
+        <div style="font-size:48px;font-weight:900;color:white;">40</div>
+        <div style="font-size:11px;color:#eab308;">⚡ 2</div>
+      </div>
+      <div style="margin-top:8px;display:flex;justify-content:center;gap:12px;">
+        <div style="font-size:10px;color:#a78bfa;">⚔ 7/21</div>
+        <div style="font-size:10px;color:#666;">★ 0</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>F — Corners + Tap to Edit</h3>
+      <p>Non-zero counters appear in corners/edges of the panel. Tap any counter value to get +/− controls. Zero counters stay hidden — panel stays clean until counters matter.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Full Screen MTG Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030306; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; display: flex; justify-content: center; padding: 30px; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ANIMATIONS
+     ═══════════════════════════════════════════════════════════════════ */
+
+  @keyframes card-fullscreen-to-small {
+    0% {
+      top: 2%;
+      left: 4%;
+      width: 92%;
+      height: 92%;
+      border-radius: 20px;
+      opacity: 1;
+    }
+    /* Hold full screen */
+    40% {
+      top: 2%;
+      left: 4%;
+      width: 92%;
+      height: 92%;
+      border-radius: 20px;
+      opacity: 1;
+    }
+    /* Shrink and move up */
+    75% {
+      top: 16px;
+      left: 50%;
+      width: 120px;
+      height: 168px;
+      border-radius: 10px;
+      margin-left: -60px;
+      opacity: 1;
+    }
+    100% {
+      top: 16px;
+      left: 50%;
+      width: 120px;
+      height: 168px;
+      border-radius: 10px;
+      margin-left: -60px;
+      opacity: 1;
+    }
+  }
+
+  @keyframes card-hover {
+    0%, 100% { transform: perspective(800px) rotateY(-1.5deg) rotateX(2deg) translateY(0); }
+    25% { transform: perspective(800px) rotateY(1deg) rotateX(-1deg) translateY(-4px); }
+    50% { transform: perspective(800px) rotateY(1.5deg) rotateX(-2deg) translateY(-2px); }
+    75% { transform: perspective(800px) rotateY(-0.5deg) rotateX(0.5deg) translateY(-5px); }
+  }
+
+  @keyframes foil-sweep {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  @keyframes holo-spin {
+    0% { --holo-angle: 0deg; }
+    100% { --holo-angle: 360deg; }
+  }
+
+  @keyframes sparkle-1 { 0%,100% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1); } }
+  @keyframes sparkle-2 { 0%,100% { opacity: 0; transform: scale(0); } 40% { opacity: 0.8; transform: scale(1.2); } 60% { opacity: 0; } }
+  @keyframes sparkle-3 { 0%,100% { opacity: 0; transform: scale(0) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(90deg); } }
+
+  @keyframes light-sweep {
+    0% { left: -80%; opacity: 0; }
+    20% { opacity: 0.6; }
+    80% { opacity: 0.6; }
+    100% { left: 180%; opacity: 0; }
+  }
+
+  @keyframes rainbow-drift {
+    0% { filter: hue-rotate(0deg) saturate(1.2); }
+    100% { filter: hue-rotate(360deg) saturate(1.2); }
+  }
+
+  @keyframes form-slide-up {
+    0% { opacity: 0; transform: translateY(60px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes neon-glow-1 {
+    0%, 100% { opacity: 0.12; transform: translate(0,0) scale(1); }
+    33% { opacity: 0.22; transform: translate(20px,-15px) scale(1.1); }
+    66% { opacity: 0.15; transform: translate(-15px,10px) scale(0.95); }
+  }
+
+  @keyframes neon-glow-2 {
+    0%, 100% { opacity: 0.1; transform: translate(0,0) scale(1); }
+    33% { opacity: 0.18; transform: translate(-18px,12px) scale(1.08); }
+    66% { opacity: 0.12; transform: translate(12px,-18px) scale(1.05); }
+  }
+
+  @keyframes neon-pulse {
+    0%, 100% { opacity: 0.06; }
+    50% { opacity: 0.14; }
+  }
+
+  @keyframes edge-breathe { 0%,100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+  @keyframes particle-drift {
+    0%, 100% { transform: translate(0,0); opacity: 0.15; }
+    25% { transform: translate(5px,-8px); opacity: 0.5; }
+    50% { transform: translate(-3px,-14px); opacity: 0.25; }
+    75% { transform: translate(7px,-4px); opacity: 0.4; }
+  }
+
+  @keyframes bg-breathe {
+    0%, 100% { background-color: #0A0D14; }
+    50% { background-color: #080B12; }
+  }
+
+  @keyframes brand-reveal {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PHONE
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 3px solid #12141e;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+    animation: bg-breathe 8s ease-in-out infinite;
+    background: #0A0D14;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     NEON BACKGROUND
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .neon-layer { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+
+  .neon-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(45px);
+  }
+
+  /* Teal — dominant */
+  .n1 {
+    width: 280px; height: 280px;
+    top: 20%; left: -20%;
+    background: radial-gradient(circle, rgba(13,148,136,0.25) 0%, transparent 70%);
+    animation: neon-glow-1 14s ease-in-out infinite;
+  }
+
+  /* Hot pink / magenta */
+  .n2 {
+    width: 240px; height: 240px;
+    top: 45%; right: -22%;
+    background: radial-gradient(circle, rgba(236,72,153,0.16) 0%, transparent 70%);
+    animation: neon-glow-2 12s ease-in-out infinite;
+  }
+
+  /* Electric blue */
+  .n3 {
+    width: 220px; height: 220px;
+    bottom: 5%; left: -10%;
+    background: radial-gradient(circle, rgba(14,165,233,0.18) 0%, transparent 70%);
+    animation: neon-glow-1 16s ease-in-out 2s infinite;
+  }
+
+  /* Purple */
+  .n4 {
+    width: 200px; height: 200px;
+    top: 5%; right: -10%;
+    background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+    animation: neon-glow-2 18s ease-in-out 4s infinite;
+  }
+
+  /* Gold */
+  .n5 {
+    width: 160px; height: 160px;
+    bottom: 25%; right: 10%;
+    background: radial-gradient(circle, rgba(251,191,36,0.08) 0%, transparent 70%);
+    animation: neon-pulse 5s ease-in-out infinite;
+  }
+
+  /* Neon line accents */
+  .neon-line {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line-color), transparent);
+    opacity: 0.15;
+  }
+
+  .nl1 { --line-color: rgba(13,148,136,0.5); top: 32%; left: 5%; width: 40%; transform: rotate(-2deg); }
+  .nl2 { --line-color: rgba(236,72,153,0.4); top: 58%; right: 5%; width: 35%; transform: rotate(1deg); }
+  .nl3 { --line-color: rgba(14,165,233,0.3); top: 75%; left: 10%; width: 30%; transform: rotate(-1deg); }
+
+  /* Particles */
+  .neon-particle {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .np1 { width: 3px; height: 3px; background: #2DD4BF; top: 28%; left: 15%; animation: particle-drift 7s ease-in-out infinite; box-shadow: 0 0 8px #2DD4BF; }
+  .np2 { width: 2px; height: 2px; background: #EC4899; top: 42%; right: 20%; animation: particle-drift 9s ease-in-out 1s infinite; box-shadow: 0 0 6px #EC4899; }
+  .np3 { width: 2px; height: 2px; background: #38BDF8; top: 55%; left: 60%; animation: particle-drift 6s ease-in-out 2s infinite; box-shadow: 0 0 6px #38BDF8; }
+  .np4 { width: 2px; height: 2px; background: #A78BFA; top: 68%; left: 25%; animation: particle-drift 8s ease-in-out 3s infinite; box-shadow: 0 0 5px #A78BFA; }
+  .np5 { width: 3px; height: 3px; background: #FBBF24; top: 35%; right: 35%; animation: particle-drift 10s ease-in-out 0.5s infinite; box-shadow: 0 0 8px #FBBF24; }
+  .np6 { width: 2px; height: 2px; background: #2DD4BF; top: 80%; right: 15%; animation: particle-drift 7s ease-in-out 4s infinite; box-shadow: 0 0 6px #2DD4BF; }
+
+  /* Noise */
+  .neon-noise {
+    position: absolute;
+    inset: -50%;
+    width: 200%; height: 200%;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MTG CARD — Full screen → small
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .card-wrapper {
+    position: absolute;
+    z-index: 10;
+    animation: card-fullscreen-to-small 3.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    transform-style: preserve-3d;
+  }
+
+  .card-3d {
+    width: 100%;
+    height: 100%;
+    animation: card-hover 6s ease-in-out 3.5s infinite;
+    transform-style: preserve-3d;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.7));
+  }
+
+  .mtg-card {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Card frame (black border) ── */
+  .card-outer {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #0C0E14;
+    border: 1px solid rgba(60,70,90,0.4);
+  }
+
+  .card-inner {
+    position: absolute;
+    inset: 3.5%;
+    border-radius: 8px;
+    border: 1.5px solid rgba(13,148,136,0.2);
+    background: linear-gradient(170deg, #0E1220 0%, #0B0F18 50%, #0D1020 100%);
+    overflow: hidden;
+  }
+
+  /* ── Title bar ── */
+  .c-title-bar {
+    position: absolute;
+    top: 2.5%;
+    left: 5%;
+    right: 5%;
+    height: 6%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 3%;
+    border-bottom: 1px solid rgba(30,45,61,0.15);
+  }
+
+  .c-title-text {
+    font-size: clamp(7px, 2.8vw, 14px);
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: 0.3px;
+  }
+
+  .c-mana-row { display: flex; gap: 3px; }
+
+  .c-mana {
+    width: clamp(8px, 3vw, 16px);
+    height: clamp(8px, 3vw, 16px);
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  .c-mana-u { background: radial-gradient(circle at 35% 35%, #60A5FA, #1E40AF); }
+  .c-mana-r { background: radial-gradient(circle at 35% 35%, #FCA5A5, #991B1B); }
+  .c-mana-g { background: radial-gradient(circle at 35% 35%, #86EFAC, #14532D); }
+
+  /* ── Art box ── */
+  .c-art {
+    position: absolute;
+    top: 10%;
+    left: 5%;
+    right: 5%;
+    height: 42%;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(40,55,75,0.3);
+    background: #060810;
+  }
+
+  /* Secret Lair style foil — multiple layers */
+  .c-art-base {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 30%, rgba(13,148,136,0.5) 0%, transparent 45%),
+      radial-gradient(ellipse at 75% 50%, rgba(236,72,153,0.35) 0%, transparent 45%),
+      radial-gradient(ellipse at 50% 80%, rgba(14,165,233,0.4) 0%, transparent 40%),
+      radial-gradient(ellipse at 30% 70%, rgba(139,92,246,0.3) 0%, transparent 40%),
+      radial-gradient(ellipse at 80% 20%, rgba(251,191,36,0.25) 0%, transparent 35%),
+      radial-gradient(ellipse at 60% 40%, rgba(251,113,133,0.2) 0%, transparent 35%);
+    background-size: 200% 200%;
+    animation: foil-sweep 10s ease-in-out infinite;
+  }
+
+  .c-art-holo {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      rgba(13,148,136,0.2),
+      rgba(14,165,233,0.15),
+      rgba(139,92,246,0.2),
+      rgba(236,72,153,0.15),
+      rgba(251,191,36,0.12),
+      rgba(251,113,133,0.15),
+      rgba(13,148,136,0.2)
+    );
+    animation: rainbow-drift 16s linear infinite;
+    mix-blend-mode: color-dodge;
+    opacity: 0.6;
+  }
+
+  .c-art-specular {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      transparent 30%,
+      rgba(255,255,255,0.06) 45%,
+      rgba(255,255,255,0.12) 50%,
+      rgba(255,255,255,0.06) 55%,
+      transparent 70%
+    );
+    background-size: 200% 200%;
+    animation: foil-sweep 6s ease-in-out infinite reverse;
+  }
+
+  /* Sparkle dots */
+  .c-sparkle {
+    position: absolute;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 6px white, 0 0 12px rgba(255,255,255,0.5);
+  }
+
+  .cs1 { top: 18%; left: 22%; animation: sparkle-1 2.5s ease-in-out infinite; }
+  .cs2 { top: 35%; right: 18%; animation: sparkle-2 3s ease-in-out 0.5s infinite; width: 3px; height: 3px; }
+  .cs3 { top: 55%; left: 40%; animation: sparkle-3 2.8s ease-in-out 1s infinite; }
+  .cs4 { top: 25%; right: 35%; animation: sparkle-1 3.2s ease-in-out 1.5s infinite; width: 3px; height: 3px; }
+  .cs5 { top: 65%; left: 25%; animation: sparkle-2 2.2s ease-in-out 0.8s infinite; width: 2px; height: 2px; }
+  .cs6 { top: 45%; right: 25%; animation: sparkle-3 2.6s ease-in-out 2s infinite; width: 3px; height: 3px; }
+  .cs7 { top: 75%; right: 40%; animation: sparkle-1 3.5s ease-in-out 0.3s infinite; width: 2px; height: 2px; }
+  .cs8 { top: 15%; left: 55%; animation: sparkle-2 2.9s ease-in-out 1.2s infinite; }
+  .cs9 { top: 80%; left: 60%; animation: sparkle-3 2.4s ease-in-out 1.8s infinite; width: 3px; height: 3px; }
+
+  /* Light sweep across art */
+  .c-art-sweep {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), rgba(255,255,255,0.02), transparent);
+    animation: light-sweep 5s ease-in-out infinite;
+    transform: skewX(-15deg);
+  }
+
+  /* CE logo in art */
+  .c-art-logo {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(28px, 12vw, 72px);
+    font-weight: 900;
+    letter-spacing: -2px;
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 40px rgba(13,148,136,0.3);
+    z-index: 5;
+  }
+
+  /* ── Type line ── */
+  .c-type-line {
+    position: absolute;
+    top: 54%;
+    left: 5%;
+    right: 5%;
+    height: 5%;
+    display: flex;
+    align-items: center;
+    padding: 0 3%;
+    border-top: 1px solid rgba(30,45,61,0.2);
+    border-bottom: 1px solid rgba(30,45,61,0.2);
+    background: rgba(13,148,136,0.03);
+  }
+
+  .c-type-text {
+    font-size: clamp(5px, 2vw, 10px);
+    font-weight: 700;
+    color: #94A3B8;
+    letter-spacing: 0.5px;
+  }
+
+  /* Set symbol area */
+  .c-set-symbol {
+    margin-left: auto;
+    width: clamp(8px, 3vw, 14px);
+    height: clamp(8px, 3vw, 14px);
+    border-radius: 2px;
+    background: radial-gradient(circle, #FB923C, #EA580C);
+    box-shadow: 0 0 6px rgba(251,146,60,0.5);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  }
+
+  /* ── Text box ── */
+  .c-text-box {
+    position: absolute;
+    top: 61%;
+    left: 5%;
+    right: 5%;
+    bottom: 12%;
+    border-radius: 4px;
+    background: rgba(8,11,18,0.7);
+    border: 1px solid rgba(30,45,61,0.12);
+    padding: 5%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .c-rules {
+    font-size: clamp(5px, 1.8vw, 10px);
+    color: #94A3B8;
+    line-height: 1.7;
+    text-align: center;
+  }
+
+  .c-rules em {
+    color: #2DD4BF;
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  .c-flavor {
+    font-size: clamp(4px, 1.5vw, 8px);
+    color: #475569;
+    font-style: italic;
+    text-align: center;
+    margin-top: 6%;
+    padding-top: 6%;
+    border-top: 1px solid rgba(30,45,61,0.1);
+  }
+
+  /* ── Footer ── */
+  .c-footer {
+    position: absolute;
+    bottom: 3%;
+    left: 5%;
+    right: 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 3%;
+  }
+
+  .c-collector {
+    font-size: clamp(4px, 1.2vw, 7px);
+    color: #475569;
+    letter-spacing: 0.3px;
+  }
+
+  .c-rarity {
+    width: clamp(6px, 2vw, 10px);
+    height: clamp(6px, 2vw, 10px);
+    border-radius: 50%;
+    background: radial-gradient(circle, #FB923C, #F97316);
+    box-shadow: 0 0 6px rgba(251,146,60,0.5);
+  }
+
+  /* Edge glow */
+  .c-edge-top {
+    position: absolute;
+    top: 0; left: 15%; right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(13,148,136,0.5), transparent);
+    animation: edge-breathe 3s ease-in-out infinite;
+    z-index: 5;
+  }
+
+  /* Foil border shimmer */
+  .c-border-foil {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid transparent;
+    background: linear-gradient(90deg, rgba(13,148,136,0.1), rgba(14,165,233,0.1), rgba(139,92,246,0.1), rgba(236,72,153,0.1), rgba(13,148,136,0.1));
+    background-size: 300% 100%;
+    animation: border-flow 5s linear infinite;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1px;
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     BRAND TEXT (appears after card shrinks)
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .brand-area {
+    position: absolute;
+    top: 200px;
+    left: 0; right: 0;
+    text-align: center;
+    z-index: 5;
+    animation: brand-reveal 0.6s ease-out 3.2s both;
+  }
+
+  .brand-name {
+    font-size: 22px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.5px;
+    margin-bottom: 2px;
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    color: #475569;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     FORM
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .form-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    z-index: 5;
+    padding: 0 24px 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    animation: form-slide-up 0.8s ease-out 2.8s both;
+  }
+
+  .input-wrap { position: relative; margin-bottom: 10px; }
+
+  .input-field {
+    width: 100%;
+    padding: 15px 18px 15px 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(30,45,61,0.3);
+    background: rgba(10,13,20,0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .input-field:focus {
+    border-color: rgba(13,148,136,0.4);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.08), 0 0 24px rgba(13,148,136,0.04);
+    background: rgba(10,13,20,0.7);
+  }
+
+  .input-field::placeholder { color: #1E2D3D; }
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #2D4059;
+    font-weight: 600;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .input-wrap:focus-within .input-icon { color: #0D9488; }
+
+  .meta-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+    margin-top: 2px;
+  }
+
+  .forgot { font-size: 11px; color: #0D9488; font-weight: 600; cursor: pointer; }
+
+  .btn-wrap { position: relative; margin-bottom: 14px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488, #14B8A6, #0EA5E9);
+    box-shadow: 0 4px 24px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: transform 0.15s;
+  }
+
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .btn-glow {
+    position: absolute;
+    bottom: -1px;
+    left: 8%; right: 8%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #0D9488, #2DD4BF, #0EA5E9, #EC4899, #0D9488);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(8px);
+    opacity: 0.35;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(30,45,61,0.4), transparent); }
+  .div-text { font-size: 9px; color: #2D4059; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .social-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .social-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid rgba(30,45,61,0.25);
+    background: rgba(10,13,20,0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94A3B8;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .social-btn:hover {
+    border-color: rgba(45,68,89,0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    color: #E2E8F0;
+  }
+
+  .guest-row {
+    text-align: center;
+    font-size: 12px;
+    color: #283040;
+  }
+
+  .guest-row span {
+    color: #384158;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 1px solid #1E2D3D;
+    padding-bottom: 1px;
+  }
+
+  .guest-row span:hover { color: #94A3B8; }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 18px;
+    max-width: 420px;
+  }
+  .demo-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone">
+
+    <!-- Neon background -->
+    <div class="neon-layer">
+      <div class="neon-orb n1"></div>
+      <div class="neon-orb n2"></div>
+      <div class="neon-orb n3"></div>
+      <div class="neon-orb n4"></div>
+      <div class="neon-orb n5"></div>
+      <div class="neon-line nl1"></div>
+      <div class="neon-line nl2"></div>
+      <div class="neon-line nl3"></div>
+      <div class="neon-particle np1"></div>
+      <div class="neon-particle np2"></div>
+      <div class="neon-particle np3"></div>
+      <div class="neon-particle np4"></div>
+      <div class="neon-particle np5"></div>
+      <div class="neon-particle np6"></div>
+      <div class="neon-noise"></div>
+    </div>
+
+    <!-- MTG Card — starts full screen, shrinks to top -->
+    <div class="card-wrapper">
+      <div class="card-3d">
+        <div class="mtg-card">
+          <div class="card-outer">
+            <div class="card-inner">
+              <div class="c-edge-top"></div>
+              <div class="c-border-foil"></div>
+
+              <!-- Title bar -->
+              <div class="c-title-bar">
+                <div class="c-title-text">Card Engine</div>
+                <div class="c-mana-row">
+                  <div class="c-mana c-mana-u"></div>
+                  <div class="c-mana c-mana-r"></div>
+                  <div class="c-mana c-mana-g"></div>
+                </div>
+              </div>
+
+              <!-- Art box — Secret Lair foil -->
+              <div class="c-art">
+                <div class="c-art-base"></div>
+                <div class="c-art-holo"></div>
+                <div class="c-art-specular"></div>
+                <div class="c-sparkle cs1"></div>
+                <div class="c-sparkle cs2"></div>
+                <div class="c-sparkle cs3"></div>
+                <div class="c-sparkle cs4"></div>
+                <div class="c-sparkle cs5"></div>
+                <div class="c-sparkle cs6"></div>
+                <div class="c-sparkle cs7"></div>
+                <div class="c-sparkle cs8"></div>
+                <div class="c-sparkle cs9"></div>
+                <div class="c-art-sweep"></div>
+                <div class="c-art-logo">CE</div>
+              </div>
+
+              <!-- Type line -->
+              <div class="c-type-line">
+                <div class="c-type-text">Legendary Artifact -- Collection Engine</div>
+                <div class="c-set-symbol"></div>
+              </div>
+
+              <!-- Text box -->
+              <div class="c-text-box">
+                <div class="c-rules">
+                  <em>Scan</em> -- Identify any card instantly with your camera.<br/><br/>
+                  <em>Collect</em> -- Track your collection with real-time pricing.<br/><br/>
+                  <em>Master</em> -- Build winning decks with AI-powered tools.
+                </div>
+                <div class="c-flavor">"Every collection tells a story."</div>
+              </div>
+
+              <!-- Footer -->
+              <div class="c-footer">
+                <div class="c-collector">CE v1.0 -- 001/001 M</div>
+                <div class="c-rarity"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Brand text -->
+    <div class="brand-area">
+      <div class="brand-name">Card Engine</div>
+      <div class="brand-sub">Scan . Collect . Master</div>
+    </div>
+
+    <!-- Form -->
+    <div class="form-layer">
+      <div class="input-wrap">
+        <input class="input-field" placeholder="Email address" />
+        <div class="input-icon">@</div>
+      </div>
+      <div class="input-wrap">
+        <input class="input-field" type="password" placeholder="Password" />
+        <div class="input-icon" style="font-size:12px;">*</div>
+      </div>
+
+      <div class="meta-row">
+        <div class="forgot">Forgot password?</div>
+      </div>
+
+      <div class="btn-wrap">
+        <button class="btn-primary">
+          <span class="btn-shimmer"></span>
+          <span style="position:relative;z-index:1;">Sign In</span>
+        </button>
+        <div class="btn-glow"></div>
+      </div>
+
+      <div class="divider">
+        <div class="div-line"></div>
+        <div class="div-text">or continue with</div>
+        <div class="div-line"></div>
+      </div>
+
+      <div class="social-row">
+        <div class="social-btn"><span style="font-size:17px;font-weight:500;"></span> Apple</div>
+        <div class="social-btn"><span style="font-size:14px;font-weight:700;color:#4285F4;">G</span> Google</div>
+      </div>
+
+      <div class="guest-row">or <span>explore as guest</span></div>
+    </div>
+
+  </div>
+
+  <div class="demo-label">
+    <h3>Full Screen MTG Card Entrance</h3>
+    <p>The card fills the entire screen on load — full MTG layout with Secret Lair-style foil art (multi-layer radial gradients, conic rainbow holo rotation, sparkle dots that blink in and out, specular light sweep). Mana pips, type line with mythic set symbol, rules text, flavor text, collector info. After 1.5s the card zooms out and floats to the top while the form slides up. Background has drifting neon orbs (teal, hot pink, electric blue, purple, gold) with subtle line accents, floating particles, and noise texture. Reload to replay.</p>
+  </div>
+</div>
+
+</body>
+</html>
