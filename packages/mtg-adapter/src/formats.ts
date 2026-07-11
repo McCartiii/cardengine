@@ -135,6 +135,50 @@ export const MTG_FORMATS: Record<string, FormatBundle> = {
       special: { commanderIdentity: true, requireCommander: true },
     },
   },
+  oathbreaker: {
+    id: "oathbreaker",
+    game: "mtg",
+    name: "Oathbreaker",
+    updatedAt: "2026-01-01T00:00:00Z",
+    rules: {
+      exactMain: 60,
+      maxCopiesPerCard: 1,
+      special: { commanderIdentity: true, requireCommander: true },
+    },
+  },
+  brawl: {
+    id: "brawl",
+    game: "mtg",
+    name: "Brawl",
+    updatedAt: "2026-01-01T00:00:00Z",
+    rules: {
+      exactMain: 60,
+      maxCopiesPerCard: 1,
+      special: { commanderIdentity: true, requireCommander: true },
+    },
+  },
+  historic: {
+    id: "historic",
+    game: "mtg",
+    name: "Historic",
+    updatedAt: "2026-01-01T00:00:00Z",
+    rules: {
+      minMain: 60,
+      maxSide: 15,
+      maxCopiesPerCard: 4,
+    },
+  },
+  explorer: {
+    id: "explorer",
+    game: "mtg",
+    name: "Explorer",
+    updatedAt: "2026-01-01T00:00:00Z",
+    rules: {
+      minMain: 60,
+      maxSide: 15,
+      maxCopiesPerCard: 4,
+    },
+  },
   pauper: {
     id: "pauper",
     game: "mtg",
