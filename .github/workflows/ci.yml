@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20.19.0"
+
+jobs:
+  # ── Blocking gates ──────────────────────────────────────────────────────────
+  # These are known-green today. Keep them green: a red required check is the
+  # whole point of this file.
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm test
+
+  api:
+    name: API typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - name: Typecheck
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+      - name: Build (prisma generate + bundle)
+        run: npm run build:api
+
+  web:
+    name: Web typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - name: Typecheck
+        run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+  # ── Informational (non-blocking) ────────────────────────────────────────────
+  # These have known pre-existing failures (web: 14 lint errors; mobile: ~15 type
+  # errors). They run so the debt stays visible and can be burned down, but they
+  # do NOT block merges. Once a lane is clean, delete `continue-on-error` to make
+  # it a required gate.
+
+  web-lint:
+    name: "Web lint (informational)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --workspace=apps/web
+
+  mobile-typecheck:
+    name: "Mobile typecheck (informational)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      # Mobile is NOT part of the root npm workspace, so it installs on its own.
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.json

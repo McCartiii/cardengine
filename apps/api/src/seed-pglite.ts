@@ -123,7 +123,9 @@ async function main() {
   // Verify
   const count = await pglite.query('SELECT count(*) FROM "CardVariant"');
   const priceCount = await pglite.query('SELECT count(*) FROM "PriceCache"');
-  console.log(`[seed] Done! Cards: ${count.rows[0].count}, Prices: ${priceCount.rows[0].count}`);
+  const cardCount = (count.rows[0] as { count: number }).count;
+  const priceRowCount = (priceCount.rows[0] as { count: number }).count;
+  console.log(`[seed] Done! Cards: ${cardCount}, Prices: ${priceRowCount}`);
 
   await pglite.close();
 }

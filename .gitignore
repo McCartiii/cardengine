@@ -7,6 +7,12 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 
+# Agent tooling (local-only, can be large)
+.claude/
+.omc/
+apps/*/.omc/
+apps/web/src/.omc/
+
 # Environment files with secrets
 .env
 .env.local
