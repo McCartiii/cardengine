@@ -61,8 +61,10 @@ export default function MapPage() {
     });
   }, []);
 
+  // Pure fetcher: returns the shops (or null when offline) and leaves state
+  // updates to the caller, so effects can set state in a callback.
   const fetchShops = useCallback(
-    async (lat?: number, lng?: number) => {
+    async (lat?: number, lng?: number): Promise<Shop[] | null> => {
       try {
         const params = new URLSearchParams();
         if (lat != null && lng != null) {
@@ -74,22 +76,30 @@ export default function MapPage() {
 
         const res = await fetch(`${API_URL}/v1/shops?${params}`);
         const data = await res.json();
-        setShops(data.shops ?? []);
+        return data.shops ?? [];
       } catch {
-        // Offline
+        // Offline — keep whatever is currently shown
+        return null;
       }
     },
     [radiusMi]
   );
 
   useEffect(() => {
-    fetchShops();
+    let cancelled = false;
+    fetchShops().then((shops) => {
+      if (shops && !cancelled) setShops(shops);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchShops]);
 
   // Geocode city search
   const handleSearch = async () => {
     if (!searchCity.trim()) {
-      fetchShops();
+      const shops = await fetchShops();
+      if (shops) setShops(shops);
       return;
     }
 
@@ -101,7 +111,9 @@ export default function MapPage() {
       if (data.results?.length > 0) {
         const { lat, lng } = data.results[0];
         setViewState({ latitude: lat, longitude: lng, zoom: 11 });
-        fetchShops(lat, lng);
+        fetchShops(lat, lng).then((shops) => {
+          if (shops) setShops(shops);
+        });
       } else {
         const params = new URLSearchParams();
         params.set("city", searchCity);
@@ -180,7 +192,8 @@ export default function MapPage() {
         category: "card_shop",
       });
       setTab("shops");
-      fetchShops();
+      const shops = await fetchShops();
+      if (shops) setShops(shops);
     } catch {
       // Error
     }

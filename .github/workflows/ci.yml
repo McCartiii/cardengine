@@ -61,16 +61,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit -p apps/web/tsconfig.json
 
-  # ── Informational (non-blocking) ────────────────────────────────────────────
-  # These have known pre-existing failures (web: 14 lint errors; mobile: ~15 type
-  # errors). They run so the debt stays visible and can be burned down, but they
-  # do NOT block merges. Once a lane is clean, delete `continue-on-error` to make
-  # it a required gate.
-
   web-lint:
-    name: "Web lint (informational)"
+    name: Web lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -80,6 +73,9 @@ jobs:
       - run: npm ci
       - run: npm run lint --workspace=apps/web
 
+  # ── Informational (non-blocking) ────────────────────────────────────────────
+  # Known pre-existing failures (~15 type errors). Runs so the debt stays
+  # visible; delete `continue-on-error` once clean to make it a required gate.
   mobile-typecheck:
     name: "Mobile typecheck (informational)"
     runs-on: ubuntu-latest

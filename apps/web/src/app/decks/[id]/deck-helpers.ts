@@ -264,10 +264,10 @@ export function analyzeDeckHealth(cards: RichCard[], format: string): DeckIssue[
 
   // Count types
   const typeSet = (typeLine: string | null | undefined) => typeLine?.toLowerCase() ?? "";
-  let boardWipes = 0;
+  const boardWipes = 0;
   let removal = 0;
-  let rampCount = 0;
-  let drawCount = 0;
+  const rampCount = 0;
+  const drawCount = 0;
   let landCount = 0;
 
   for (const card of cards) {
