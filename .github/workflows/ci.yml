@@ -73,13 +73,9 @@ jobs:
       - run: npm ci
       - run: npm run lint --workspace=apps/web
 
-  # ── Informational (non-blocking) ────────────────────────────────────────────
-  # Known pre-existing failures (~15 type errors). Runs so the debt stays
-  # visible; delete `continue-on-error` once clean to make it a required gate.
   mobile-typecheck:
-    name: "Mobile typecheck (informational)"
+    name: Mobile typecheck
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: apps/mobile

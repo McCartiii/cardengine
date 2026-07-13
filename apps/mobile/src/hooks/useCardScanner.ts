@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
-import { runOnJS } from "react-native-reanimated";
+import { runOnJS, useSharedValue } from "react-native-reanimated";
 import { useFrameProcessor } from "react-native-vision-camera";
-import TextRecognition from "react-native-vision-camera-text-recognition";
+import { useTextRecognition } from "react-native-vision-camera-text-recognition";
 import * as Haptics from "expo-haptics";
 import { scanIdentify } from "../lib/api";
 import { useScanStore } from "../store/scanStore";
@@ -45,8 +45,11 @@ function extractCardName(rawText: string): string | null {
 export function useCardScanner() {
   const { addPending, setDetectedName, setDetectedPrice } = useScanStore();
 
+  // Shared value, not a ref: the frame processor runs as a worklet on the
+  // camera thread, where React refs don't persist between frames.
+  const frameCount = useSharedValue(0);
+
   // Refs live on the JS thread and survive renders without causing them
-  const frameCount = useRef(0);
   const lastSeenText = useRef<{ text: string; since: number } | null>(null);
   const recentlyScanned = useRef<Map<string, number>>(new Map()); // name → timestamp
   const identifying = useRef(false); // prevent overlapping API calls
@@ -118,21 +121,26 @@ export function useCardScanner() {
     [addPending, setDetectedName, setDetectedPrice]
   );
 
+  const { scanText } = useTextRecognition({ language: "latin" });
+
   // Frame processor — runs as a worklet on the camera thread (no JS bridge)
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
 
       // Throttle: only process every FRAME_INTERVAL frames
-      frameCount.value = (frameCount.value ?? 0) + 1;
+      frameCount.value = frameCount.value + 1;
       if (frameCount.value % SCANNER.FRAME_INTERVAL !== 0) return;
 
-      const result = TextRecognition.recognize(frame);
-      if (result?.text) {
-        runOnJS(onOCRResult)(result.text);
+      const result = scanText(frame);
+      const text = Array.isArray(result)
+        ? result.map((t) => t.resultText).filter(Boolean).join("\n")
+        : "";
+      if (text) {
+        runOnJS(onOCRResult)(text);
       }
     },
-    [onOCRResult]
+    [onOCRResult, scanText]
   );
 
   return { frameProcessor };

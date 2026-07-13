@@ -133,9 +133,13 @@ export async function downloadHashBundle(
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Hash bundle fetch failed: ${res.status}`);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Parameters<typeof insertHashBundle>[1];
+      hasMore?: boolean;
+      nextCursor?: string | null;
+    };
 
-    if (data.items?.length > 0) {
+    if (data.items && data.items.length > 0) {
       await insertHashBundle(database, data.items);
       totalDownloaded += data.items.length;
       onProgress?.(totalDownloaded);
@@ -144,7 +148,7 @@ export async function downloadHashBundle(
     if (!data.hasMore || !data.nextCursor) {
       hasMore = false;
     } else {
-      cursor = data.nextCursor;
+      cursor = data.nextCursor ?? null;
     }
   }
 

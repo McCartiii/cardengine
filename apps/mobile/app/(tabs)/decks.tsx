@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../src/lib/constants";
 import { listDecks, createDeck, deleteDeck, type Deck } from "../../src/lib/api";
 
-const FORMATS = ["commander", "standard", "modern", "pioneer", "legacy", "vintage", "pauper"] as const;
+const FORMATS = ["commander", "oathbreaker", "brawl", "standard", "modern", "pioneer", "legacy", "vintage", "pauper"] as const;
 const FORMAT_COLORS: Record<string, string> = {
   commander: "#9B59B6",
   standard: "#27AE60",

@@ -410,10 +410,11 @@ export function PlayerCard({
             fontSize: deltaFontSize,
             color: (displayDelta ?? 0) < 0 ? LC.danger : LC.success,
             top: "25%",
+            // style.pointerEvents — the prop form isn't in Reanimated's types
+            pointerEvents: "none",
           },
           deltaStyle,
         ]}
-        pointerEvents="none"
       >
         {displayDelta !== null
           ? displayDelta > 0
