@@ -95,9 +95,8 @@ npx tsc --noEmit -p apps/web/tsconfig.json  # Web typecheck
 npm run lint --workspace=apps/web           # Web lint
 ```
 
-CI runs on every PR (`.github/workflows/ci.yml`). Blocking gates: unit tests, API
-typecheck + build, web typecheck, package builds. Web lint and mobile typecheck run as
-**informational** (non-blocking) jobs — see [Known debt](#known-debt).
+CI runs on every PR (`.github/workflows/ci.yml`). All lanes block merges: unit tests,
+API typecheck + build, web typecheck + lint, package builds, and mobile typecheck.
 
 ## Deployment
 
@@ -115,12 +114,7 @@ via the Railway dashboard and the EAS CLI.
 
 Tracked so it stays visible (see the assessment in `docs/` for detail):
 
-- **Orphaned packages** — `packages/engine` and `packages/mtg-adapter` are well-built
-  but not imported by the apps; app code duplicates their logic (e.g. deck validation
-  in `apps/api/src/routes/decks.ts`). Decide: integrate or sunset.
-- **Web lint** — 14 errors (mostly `react-hooks`), runs non-blocking in CI.
-- **Mobile typecheck** — ~15 errors (a dead `"oathbreaker"` comparison in `decks.tsx`,
-  self-referential `any`s in `src/lib/sync.ts`, life-store types), runs non-blocking.
-- **No web/mobile tests** — coverage is API + packages only.
+- **No web/mobile tests** — coverage is API + packages only; the web and mobile UIs
+  have no automated tests (E2E smoke tests are the next step).
 - **Oversized files** — `apps/web/src/app/deck/page.tsx` (~1500 lines) and the card
   detail page (~1200) are prime candidates for decomposition.
