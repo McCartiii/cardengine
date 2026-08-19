@@ -2,6 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { tavily } from "@tavily/core";
 import { prisma } from "../db.js";
 import { fetchEdhrecCommander } from "./edhrec.js";
+import { lintCommanderProposal } from "./commanderBracketLint.js";
+import { validateDeckProposal } from "./deckValidator.js";
+import type { DeckBlueprint, DeckFormat } from "./deckAgentPrompts.js";
+import type { CommanderBracket } from "./commanderBracketProfile.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -145,7 +149,8 @@ export function buildSearchWeb() {
 export const AGENT_TOOLS: Anthropic.Tool[] = [
   {
     name: "fetch_edhrec",
-    description: "Fetch EDHREC commander page data: synergy scores, inclusion rates, popular cards, themes, and similar commanders. Always call this first for any commander deck.",
+    description:
+      "Commander-only: fetch EDHREC commander page data (synergy, inclusion, themes, similar commanders). Do not call for Standard/Pioneer/Modern/etc. For those formats use get_meta_snapshot + search_web.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -171,7 +176,10 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        format: { type: "string", enum: ["commander", "standard", "modern", "pioneer", "legacy"] },
+        format: {
+          type: "string",
+          enum: ["commander", "standard", "modern", "pioneer", "legacy", "vintage", "pauper"],
+        },
         bracket: { type: "number", description: "1-5 for commander, 0 for non-commander" },
       },
       required: ["format", "bracket"],
@@ -189,6 +197,54 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "lint_commander_deck",
+    description:
+      "Commander-only heuristic: checks proposed card names against the RC bracket (turbo mana density, compact combos like Oracle+Consult). Prefer validate_deck when possible — it includes bracket lint plus legality, size, color identity, budget, and blueprint checks.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        bracket: { type: "number", description: "RC bracket 1–5 (must match the user request)" },
+        cardNames: {
+          type: "array",
+          items: { type: "string" },
+          description: "Card names to evaluate (max 150)",
+          maxItems: 150,
+        },
+      },
+      required: ["bracket", "cardNames"],
+    },
+  },
+  {
+    name: "validate_deck",
+    description:
+      "Deterministic deck validator. Checks list size, singleton/4-of rules, banned cards (format bundle), commander color identity, budget, blueprint must-include/avoid, and Commander bracket lint. Call once before STATUS: Done with the full intended list. Returns valid, issues, metrics, and repairHints.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        format: {
+          type: "string",
+          enum: ["commander", "standard", "pioneer", "modern", "legacy", "vintage", "pauper"],
+        },
+        bracket: { type: "number", description: "RC bracket 1–5 for Commander" },
+        commander: { type: "string", description: "Commander name (Commander format)" },
+        budget: { type: "number", description: "Total deck budget in USD" },
+        cardNames: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 200,
+          description: "Main deck / full list (one entry per copy in constructed, one per card in Commander)",
+        },
+        sideboardNames: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 20,
+          description: "Sideboard card names (constructed)",
+        },
+      },
+      required: ["format", "cardNames"],
+    },
+  },
+  {
     name: "get_collection",
     description: "Get the user's owned cards. Only call if a userId is provided.",
     input_schema: {
@@ -203,7 +259,15 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
 
 // ── Tool executor ─────────────────────────────────────────────────────────────
 
-export function buildToolExecutor(userId?: string) {
+export interface AgentToolContext {
+  format: DeckFormat;
+  bracket: 1 | 2 | 3 | 4 | 5;
+  budget: number;
+  commander?: string;
+  blueprint?: DeckBlueprint;
+}
+
+export function buildToolExecutor(userId?: string, agentCtx?: AgentToolContext) {
   const getCardDetails = buildGetCardDetails();
   const getCollection = buildGetCollection();
   const getMetaSnapshot = buildGetMetaSnapshot();
@@ -214,14 +278,47 @@ export function buildToolExecutor(userId?: string) {
     input: Record<string, unknown>
   ): Promise<unknown> {
     switch (name) {
-      case "fetch_edhrec":
-        return fetchEdhrecCommander(input.commanderName as string);
+      case "fetch_edhrec": {
+        const commanderName = (input.commanderName as string | undefined)?.trim();
+        if (!commanderName) {
+          return { error: "commanderName is required for fetch_edhrec (Commander format only)." };
+        }
+        return fetchEdhrecCommander(commanderName);
+      }
       case "search_web":
         return searchWeb(input.query as string);
       case "get_meta_snapshot":
         return getMetaSnapshot(input.format as string, input.bracket as number);
       case "get_card_details":
         return getCardDetails(input.cardNames as string[]);
+      case "lint_commander_deck": {
+        const rawBracket = Number(input.bracket);
+        const bracket = Math.min(5, Math.max(1, Math.round(rawBracket))) as 1 | 2 | 3 | 4 | 5;
+        const rawNames = (input.cardNames as string[] | undefined) ?? [];
+        const cardNames = rawNames.slice(0, 150);
+        return lintCommanderProposal({ bracket, cardNames });
+      }
+      case "validate_deck": {
+        const format = (input.format as DeckFormat | undefined) ?? agentCtx?.format ?? "commander";
+        const rawBracket = Number(input.bracket ?? agentCtx?.bracket ?? 3);
+        const bracket = Math.min(5, Math.max(1, Math.round(rawBracket))) as CommanderBracket;
+        const commander = (input.commander as string | undefined)?.trim() || agentCtx?.commander;
+        const budget =
+          typeof input.budget === "number" && Number.isFinite(input.budget)
+            ? input.budget
+            : agentCtx?.budget;
+        const cardNames = ((input.cardNames as string[] | undefined) ?? []).slice(0, 200);
+        const sideboardNames = ((input.sideboardNames as string[] | undefined) ?? []).slice(0, 20);
+        return validateDeckProposal({
+          format,
+          bracket: format === "commander" ? bracket : undefined,
+          commander,
+          budget,
+          blueprint: agentCtx?.blueprint,
+          cardNames,
+          sideboardNames,
+        });
+      }
       case "get_collection":
         return getCollection((input.userId as string | undefined) ?? userId ?? "");
       default:

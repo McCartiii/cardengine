@@ -3,17 +3,26 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { streamDeckAgent, type AgentEvent, type AgentMode, type ParsedCard, type ParsedSwap } from "@/lib/deckAgentStream";
+import { streamDeckAgent, type AgentEvent, type AgentMode, type AgentSessionContext, type DeckValidationResult, type ParsedCard, type ParsedSwap } from "@/lib/deckAgentStream";
 import { StatusPills, type ToolState } from "./components/StatusPills";
 import { CardGallery } from "./components/CardGallery";
 import { UpgradeDiff } from "./components/UpgradeDiff";
 import { InputPanel } from "./components/InputPanel";
+import { ValidationPanel } from "./components/ValidationPanel";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { CardImage } from "@/components/ui/CardImage";
+import { api, setToken } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const SESSION_STORAGE_KEY = "deck-ai-session-id";
+
+interface SavedDeckOption {
+  id: string;
+  name: string;
+  commander?: string | null;
+}
 
 interface SearchResult {
   variantId: string;
@@ -157,6 +166,11 @@ export default function DeckEditorPage() {
   const [cardDetails] = useState<Map<string, { priceUsd?: number | null; imageUri?: string | null }>>(new Map());
   const [addedByAi, setAddedByAi] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionContext, setSessionContext] = useState<AgentSessionContext | null>(null);
+  const [validationResult, setValidationResult] = useState<DeckValidationResult | null>(null);
+  const [savedDecks, setSavedDecks] = useState<SavedDeckOption[]>([]);
+  const [applyingAll, setApplyingAll] = useState(false);
+  const [applyResult, setApplyResult] = useState<{ resolved: number; unresolved: string[] } | null>(null);
   const [escalateMessage, setEscalateMessage] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -198,14 +212,38 @@ export default function DeckEditorPage() {
     }));
   }, [mainCards]);
 
-  // Load user for NavBar
+  // Load user for NavBar + saved decks
   useEffect(() => {
     async function loadUser() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      if (user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          setToken(session.access_token);
+          try {
+            const { decks } = await api.decks.list();
+            setSavedDecks(
+              decks.map((d) => ({
+                id: d.id,
+                name: d.name,
+                commander: d.commander,
+              }))
+            );
+          } catch {
+            // offline or unauthenticated API
+          }
+        }
+      }
     }
     loadUser();
+  }, []);
+
+  // Restore AI session id from local storage
+  useEffect(() => {
+    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (stored) setSessionId(stored);
   }, []);
 
   // Search with debounce
@@ -235,12 +273,15 @@ export default function DeckEditorPage() {
   const addCard = useCallback(
     (result: SearchResult, board: "main" | "side" | "commander" = "main") => {
       setCards((prev) => {
-        const existing = prev.find(
-          (c) => c.variantId === result.variantId && c.board === board
-        );
+        const existing = prev.find((c) => {
+          if (result.variantId) return c.variantId === result.variantId && c.board === board;
+          return c.name.toLowerCase() === result.name.toLowerCase() && c.board === board;
+        });
         if (existing) {
           return prev.map((c) =>
-            c.variantId === result.variantId && c.board === board
+            ((result.variantId && c.variantId === result.variantId) ||
+              (!result.variantId && c.name.toLowerCase() === result.name.toLowerCase())) &&
+            c.board === board
               ? { ...c, quantity: c.quantity + 1 }
               : c
           );
@@ -268,11 +309,22 @@ export default function DeckEditorPage() {
 
   const runAi = useCallback(async (params: {
     instruction: string;
+    format: "commander" | "standard" | "pioneer" | "modern" | "legacy" | "vintage" | "pauper";
     bracket: 1 | 2 | 3 | 4 | 5;
     budget: number;
     deckText?: string;
     deckUrl?: string;
     deckId?: string;
+    blueprint?: {
+      goals?: string[];
+      keyCards?: string[];
+      avoidCards?: string[];
+      modelAfter?: string;
+      playSpeed?: "slow" | "balanced" | "fast";
+      comboTolerance?: "none" | "low" | "medium" | "high";
+      tablePressure?: "low" | "medium" | "high";
+      notes?: string;
+    };
   }) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -285,6 +337,8 @@ export default function DeckEditorPage() {
     setAiSwaps([]);
     setEscalateMessage(null);
     setAiError(null);
+    setValidationResult(null);
+    setApplyResult(null);
 
     let currentTier = "";
 
@@ -293,16 +347,25 @@ export default function DeckEditorPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? undefined;
 
+      const hasExplicitImport = Boolean(params.deckUrl || params.deckText || params.deckId);
+      const deckCardsForAgent = hasExplicitImport
+        ? undefined
+        : cards.flatMap((c) => Array.from({ length: c.quantity }, () => c.name));
+
       await streamDeckAgent(
         {
           instruction: params.instruction,
+          format: params.format,
           bracket: params.bracket,
           budget: params.budget,
+          commander: commanderCards[0]?.name,
+          deckCards: deckCardsForAgent?.length ? deckCardsForAgent : undefined,
           deckText: params.deckText,
           deckUrl: params.deckUrl,
           deckId: params.deckId,
           sessionId: sessionId ?? undefined,
           token,
+          blueprint: params.blueprint,
         },
         (event: AgentEvent) => {
           switch (event.type) {
@@ -316,6 +379,11 @@ export default function DeckEditorPage() {
               setToolStates((prev) =>
                 prev.map((t) => t.tool === event.tool && t.status === "running" ? { ...t, status: "done" } : t)
               );
+              break;
+            case "tool_result":
+              if (event.tool === "validate_deck" && event.result) {
+                setValidationResult(event.result as DeckValidationResult);
+              }
               break;
             case "status":
               setStatusMessage(event.message);
@@ -345,6 +413,10 @@ export default function DeckEditorPage() {
               break;
             case "session_id":
               setSessionId(event.id);
+              localStorage.setItem(SESSION_STORAGE_KEY, event.id);
+              break;
+            case "session_context":
+              setSessionContext(event.context);
               break;
             case "done":
               setAiLoading(false);
@@ -361,14 +433,47 @@ export default function DeckEditorPage() {
       }
       setAiLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, commanderCards, cards]);
 
-  const handleAddFromAi = useCallback((cardName: string) => {
+  const handleAddFromAi = useCallback(async (cardName: string) => {
     setAddedByAi((prev) => new Set(prev).add(cardName));
-    // Find if card exists in search results — if not, add by name only
-    const syntheticResult = { variantId: "", cardId: "", name: cardName };
+    try {
+      const res = await fetch(`${API_URL}/v1/search?q=${encodeURIComponent(cardName)}&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        const exact = (data.cards ?? []).find(
+          (c: SearchResult) => c.name.toLowerCase() === cardName.toLowerCase()
+        );
+        if (exact) {
+          addCard(exact, "main");
+          return;
+        }
+      }
+    } catch {
+      // fallback below
+    }
+    const syntheticResult = {
+      variantId: `ai:${cardName.toLowerCase().replace(/\s+/g, "-")}`,
+      cardId: "",
+      name: cardName,
+    };
     addCard(syntheticResult as SearchResult, "main");
   }, [addCard]);
+
+  const removeCardByName = useCallback((cardName: string, board: "main" | "side" | "commander" = "main") => {
+    setCards((prev) => {
+      const idx = prev.findIndex((c) => c.board === board && c.name.toLowerCase() === cardName.toLowerCase());
+      if (idx === -1) return prev;
+      const next = [...prev];
+      const item = next[idx];
+      if (item.quantity > 1) {
+        next[idx] = { ...item, quantity: item.quantity - 1 };
+      } else {
+        next.splice(idx, 1);
+      }
+      return next;
+    });
+  }, []);
 
   const removeCard = useCallback((variantId: string, board: string) => {
     setCards((prev) => {
@@ -437,7 +542,7 @@ export default function DeckEditorPage() {
   // ─── Import ─────────────────────────────────────────────────────────────────
 
   const parseAndImport = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { replace?: boolean }) => {
       setImporting(true);
       setImportError(null);
       setImportResult(null);
@@ -450,7 +555,7 @@ export default function DeckEditorPage() {
       if (lines.length === 0) {
         setImportError("No card lines found. Paste a decklist in standard format.");
         setImporting(false);
-        return;
+        return { resolved: 0, unresolved: [] as string[] };
       }
 
       try {
@@ -464,7 +569,6 @@ export default function DeckEditorPage() {
 
         const data = await res.json();
 
-        // Add resolved cards to the deck
         const newCards: DeckCard[] = [];
         const unresolvedNames: string[] = [];
         for (const card of data.cards) {
@@ -487,36 +591,85 @@ export default function DeckEditorPage() {
           }
         }
 
-        // Merge with existing cards
         setCards((prev) => {
-          const merged = [...prev];
+          const base = options?.replace ? [] : [...prev];
           for (const nc of newCards) {
-            const existing = merged.find(
+            const existing = base.find(
               (c) => c.name.toLowerCase() === nc.name.toLowerCase() && c.board === nc.board
             );
             if (existing) {
               existing.quantity += nc.quantity;
             } else {
-              merged.push(nc);
+              base.push(nc);
             }
           }
-          return merged;
+          return base;
         });
 
-        setImportResult({
+        const result = {
           total: data.total,
           resolved: data.resolved,
           unresolved: data.unresolved,
           unresolvedNames,
-        });
+        };
+        setImportResult(result);
+        return { resolved: data.resolved as number, unresolved: unresolvedNames };
       } catch (e: unknown) {
         setImportError(e instanceof Error ? e.message : "Import failed");
+        return { resolved: 0, unresolved: [] as string[] };
       } finally {
         setImporting(false);
       }
     },
     []
   );
+
+  const proposedCardNames = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const tier of tierGroups) {
+      for (const card of tier.cards) {
+        const key = card.name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          names.push(card.name);
+        }
+      }
+    }
+    return names;
+  }, [tierGroups]);
+
+  const applyFullDeckFromAi = useCallback(async () => {
+    if (proposedCardNames.length === 0) return;
+    const confirmed = window.confirm(
+      `Replace the current deck with ${proposedCardNames.length} AI-proposed cards? This cannot be undone from here.`
+    );
+    if (!confirmed) return;
+
+    setApplyingAll(true);
+    setApplyResult(null);
+
+    const commanderName = commanderCards[0]?.name ?? sessionContext?.commander ?? undefined;
+    const lines: string[] = [];
+
+    if (format === "commander" && commanderName) {
+      lines.push("// Commander");
+      lines.push(`1 ${commanderName}`);
+    }
+
+    for (const name of proposedCardNames) {
+      if (commanderName && name.toLowerCase() === commanderName.toLowerCase()) continue;
+      lines.push(`1 ${name}`);
+    }
+
+    const { resolved, unresolved } = await parseAndImport(lines.join("\n"), { replace: true });
+    setApplyResult({ resolved, unresolved });
+    setApplyingAll(false);
+
+    if (resolved > 0) {
+      setAddedByAi(new Set(proposedCardNames));
+    }
+  }, [proposedCardNames, commanderCards, sessionContext?.commander, format, parseAndImport]);
 
   const handleImportPaste = () => {
     parseAndImport(importText);
@@ -1388,15 +1541,30 @@ export default function DeckEditorPage() {
 
       {/* ── AI Deck Builder Panel ── */}
       {showAiPanel && (
-        <div className="fixed inset-y-0 right-0 w-[420px] z-40 flex flex-col bg-slate-900 border-l border-slate-700/50 shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
-            <h2 className="font-bold text-slate-100 text-sm">✦ Deck AI</h2>
+        <div className="fixed inset-y-0 right-0 w-[440px] z-40 flex flex-col bg-slate-950/95 border-l border-teal-900/35 shadow-2xl overflow-hidden backdrop-blur-md">
+          <div className="relative flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/50 to-transparent" />
+            <div>
+              <h2 className="font-bold text-slate-100 text-sm tracking-tight">Deck Intelligence</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Build, tune, and pilot with AI</p>
+            </div>
             <button onClick={() => setShowAiPanel(false)} className="text-slate-400 hover:text-slate-200 text-lg leading-none">✕</button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-6">
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-6 bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.12),transparent_35%)]">
             <InputPanel
-              savedDecks={[]}
+              key={sessionId ?? "new-session"}
+              format={format as "commander" | "standard" | "pioneer" | "modern" | "legacy" | "vintage" | "pauper"}
+              savedDecks={savedDecks}
+              initialValues={
+                sessionContext
+                  ? {
+                      bracket: sessionContext.bracket,
+                      budget: sessionContext.budget,
+                      blueprint: sessionContext.blueprint ?? undefined,
+                    }
+                  : undefined
+              }
               onSubmit={runAi}
               loading={aiLoading}
             />
@@ -1415,10 +1583,27 @@ export default function DeckEditorPage() {
 
             <StatusPills tools={toolStates} statusMessage={statusMessage} />
 
+            {validationResult && <ValidationPanel result={validationResult} />}
+
+            {applyResult && (
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-xs text-teal-200">
+                Applied {applyResult.resolved} cards to the editor.
+                {applyResult.unresolved.length > 0 && (
+                  <span className="block mt-1 text-teal-200/70">
+                    Unresolved: {applyResult.unresolved.slice(0, 5).join(", ")}
+                    {applyResult.unresolved.length > 5 ? "…" : ""}
+                  </span>
+                )}
+              </div>
+            )}
+
             {aiMode === "upgrade" && aiSwaps.length > 0 && (
               <UpgradeDiff
                 swaps={aiSwaps}
-                onAccept={(swap) => handleAddFromAi(swap.add.name)}
+                onAccept={(swap) => {
+                  removeCardByName(swap.cut.name, "main");
+                  void handleAddFromAi(swap.add.name);
+                }}
                 onReject={() => {}}
               />
             )}
@@ -1427,8 +1612,11 @@ export default function DeckEditorPage() {
               <CardGallery
                 tiers={tierGroups}
                 cardDetails={cardDetails}
-                onAddCard={handleAddFromAi}
+                onAddCard={(cardName) => void handleAddFromAi(cardName)}
+                onApplyAll={aiMode === "build" ? () => void applyFullDeckFromAi() : undefined}
+                applyingAll={applyingAll}
                 addedCards={addedByAi}
+                totalCards={proposedCardNames.length}
               />
             )}
           </div>

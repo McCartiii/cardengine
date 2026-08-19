@@ -18,16 +18,47 @@ export interface ParsedSwap {
   netSynergy: number;
 }
 
+export interface DeckValidationIssue {
+  severity: "error" | "warn";
+  code: string;
+  message: string;
+  cards?: string[];
+}
+
+export interface DeckValidationResult {
+  valid: boolean;
+  issues: DeckValidationIssue[];
+  metrics: {
+    mainCount: number;
+    sideCount: number;
+    deckSizeIncludingCommander: number;
+    estimatedPriceUsd: number | null;
+    unknownCards: string[];
+    duplicateCards: string[];
+  };
+  repairHints: string[];
+}
+
+export interface AgentSessionContext {
+  format: AgentStreamRequest["format"];
+  bracket: 1 | 2 | 3 | 4 | 5;
+  budget: number;
+  commander: string | null;
+  blueprint: AgentStreamRequest["blueprint"] | null;
+}
+
 export type AgentEvent =
   | { type: "mode"; mode: AgentMode }
   | { type: "tool_start"; tool: string }
   | { type: "tool_done"; tool: string }
+  | { type: "tool_result"; tool: string; result: unknown }
   | { type: "status"; message: string }
   | { type: "tier"; name: string }
   | { type: "card"; card: ParsedCard; tier: string }
   | { type: "swap"; swap: ParsedSwap }
   | { type: "escalate"; message: string }
   | { type: "session_id"; id: string }
+  | { type: "session_context"; context: AgentSessionContext }
   | { type: "done" };
 
 // ── Stream parser ─────────────────────────────────────────────────────────────
@@ -160,14 +191,27 @@ class StreamParser {
 
 export interface AgentStreamRequest {
   instruction: string;
+  format: "commander" | "standard" | "pioneer" | "modern" | "legacy" | "vintage" | "pauper";
   bracket: 1 | 2 | 3 | 4 | 5;
   budget: number;
   commander?: string;
+  /** Editor list (one name per copy). Ignored by API if deckUrl/deckText/deckId is sent. */
+  deckCards?: string[];
   deckText?: string;
   deckUrl?: string;
   deckId?: string;
   sessionId?: string;
   token?: string;
+  blueprint?: {
+    goals?: string[];
+    keyCards?: string[];
+    avoidCards?: string[];
+    modelAfter?: string;
+    playSpeed?: "slow" | "balanced" | "fast";
+    comboTolerance?: "none" | "low" | "medium" | "high";
+    tablePressure?: "low" | "medium" | "high";
+    notes?: string;
+  };
 }
 
 /**
@@ -223,8 +267,19 @@ export async function streamDeckAgent(
             onEvent({ type: "tool_start", tool: parsed.tool as string });
           } else if (parsed.type === "tool_done") {
             onEvent({ type: "tool_done", tool: parsed.tool as string });
+          } else if (parsed.type === "tool_result") {
+            onEvent({
+              type: "tool_result",
+              tool: parsed.tool as string,
+              result: parsed.result,
+            });
           } else if (parsed.type === "session_id") {
             onEvent({ type: "session_id", id: parsed.id as string });
+          } else if (parsed.type === "session_context") {
+            onEvent({
+              type: "session_context",
+              context: parsed.context as AgentSessionContext,
+            });
           } else if (parsed.type === "text") {
             const evts = parser.parse(parsed.text as string);
             for (const evt of evts) onEvent(evt);
