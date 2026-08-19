@@ -79,6 +79,7 @@ async function upsertPlacesResults(places: PlacesResult[]): Promise<void> {
     const stateZip = parts[2] ?? "";
     const stateParts = stateZip.trim().split(" ");
     const state = stateParts[0] ?? null;
+    const zip = stateParts[1] ?? null;
 
     // Fetch details (website, phone, hours) — each place requires a separate API call
     const details = await fetchPlaceDetails(place.place_id);
