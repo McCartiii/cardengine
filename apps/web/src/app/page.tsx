@@ -173,8 +173,6 @@ export default async function Home() {
                 border: "1px solid rgba(34,211,238,0.06)", borderRadius: 16,
                 padding: "28px 24px",
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = `rgba(${f.rgb},0.18)`; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(34,211,238,0.06)"; (e.currentTarget as HTMLDivElement).style.transform = "none"; }}
             >
               <div style={{
                 width: 44, height: 44, borderRadius: 12, marginBottom: 16,
