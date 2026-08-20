@@ -1,0 +1,14 @@
+# Keep Docker build context small but include API + workspace packages
+**/node_modules
+**/dist
+**/.next
+**/.expo
+**/.git
+**/.omc
+**/pglite-data
+**/pglite-test
+apps/web
+apps/mobile
+docs
+*.md
+!README.md
