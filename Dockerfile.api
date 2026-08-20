@@ -14,11 +14,8 @@ COPY packages/engine ./packages/engine
 COPY packages/mtg-adapter ./packages/mtg-adapter
 RUN npm run build:packages
 
-# Build the API
-COPY apps/api/prisma ./apps/api/prisma
-COPY apps/api/prisma.config.ts ./apps/api/
-COPY apps/api/src ./apps/api/src
-COPY apps/api/tsconfig.json ./apps/api/
+# Copy the full API package (source, prisma, configs) in one layer
+COPY apps/api ./apps/api
 RUN npm run build:api
 
 # Remove dev deps to shrink image
