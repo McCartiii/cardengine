@@ -1,4 +1,6 @@
-# Keep Docker build context small but include API + workspace packages
+# Keep build context smaller without breaking npm workspaces / Railpack.
+# Do NOT ignore apps/web or apps/mobile entirely — root workspaces need their package.json.
+
 **/node_modules
 **/dist
 **/.next
@@ -7,8 +9,7 @@
 **/.omc
 **/pglite-data
 **/pglite-test
-apps/web
-apps/mobile
+apps/api/src/generated
 docs
 *.md
 !README.md
