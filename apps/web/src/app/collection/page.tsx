@@ -111,11 +111,17 @@ export default function CollectionPage() {
     init();
   }, []);
 
+  // Clear stale results the moment the query is emptied. Adjusting state
+  // during render (not in an effect) avoids an extra pass:
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  if (prevSearchQuery !== searchQuery) {
+    setPrevSearchQuery(searchQuery);
+    if (!searchQuery) setCards([]);
+  }
+
   useEffect(() => {
-    if (!searchQuery) {
-      setCards([]);
-      return;
-    }
+    if (!searchQuery) return;
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(

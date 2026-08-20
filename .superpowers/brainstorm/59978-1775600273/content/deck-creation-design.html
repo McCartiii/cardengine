@@ -1,0 +1,96 @@
+<h2>Deck creation — what should the flow look like?</h2>
+<p class="subtitle">Right now the deck editor loads immediately as "Untitled Deck" with no setup step. Which creation flow feels right?</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Creation modal before entering the editor</h3>
+      <p>Clicking "New Deck" opens a focused modal: enter a name, pick a format, optionally add a commander search. Confirm → drop into the full editor. Clean separation between "creating" and "building."</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8">
+        <div style="background:#161B27;border:1px solid #2D4059;border-radius:12px;padding:16px;max-width:280px;margin:0 auto">
+          <div style="color:#E2E8F0;font-weight:700;font-size:13px;margin-bottom:12px">New Deck</div>
+          <div style="margin-bottom:10px">
+            <div style="color:#94A3B8;font-size:10px;margin-bottom:4px">DECK NAME</div>
+            <div style="background:#0d1420;border:1px solid #0D9488;border-radius:8px;padding:7px 10px;color:#E2E8F0">My EDH Deck</div>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="color:#94A3B8;font-size:10px;margin-bottom:4px">FORMAT</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <span style="background:#0D9488;color:white;padding:4px 10px;border-radius:6px;font-size:11px">Commander</span>
+              <span style="background:#1E2535;color:#94A3B8;padding:4px 10px;border-radius:6px;font-size:11px">Standard</span>
+              <span style="background:#1E2535;color:#94A3B8;padding:4px 10px;border-radius:6px;font-size:11px">Modern</span>
+              <span style="background:#1E2535;color:#94A3B8;padding:4px 10px;border-radius:6px;font-size:11px">Legacy</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <span style="color:#94A3B8;padding:6px 12px;cursor:pointer">Cancel</span>
+            <span style="background:linear-gradient(135deg,#0D9488,#14B8A6);color:white;padding:6px 16px;border-radius:8px;font-weight:600">Create →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Inline header setup in the editor</h3>
+      <p>The editor opens immediately, but the deck name is a big editable field at the top, with format chips right below it. Everything is inline — click the name to rename, click a format chip to change. Less ceremony, more direct.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8">
+        <div style="border-bottom:1px solid #1E2D3D;padding-bottom:10px;margin-bottom:10px">
+          <div style="color:#E2E8F0;font-size:18px;font-weight:700;margin-bottom:4px">
+            Untitled Deck <span style="font-size:11px;color:#475569;font-weight:400">✏️ click to rename</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="background:#0D9488;color:white;padding:3px 8px;border-radius:5px;font-size:10px">Commander</span>
+            <span style="background:#1E2535;color:#94A3B8;padding:3px 8px;border-radius:5px;font-size:10px;border:1px solid #2D4059">Standard</span>
+            <span style="background:#1E2535;color:#94A3B8;padding:3px 8px;border-radius:5px;font-size:10px;border:1px solid #2D4059">Modern</span>
+            <span style="color:#0D9488;font-size:10px">+ more</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="background:#1E2535;border:1px solid #1E2D3D;border-radius:8px;padding:8px;flex:1;text-align:center;color:#475569">Search cards...</div>
+          <div style="background:linear-gradient(135deg,#0D9488,#14B8A6);color:white;border-radius:8px;padding:8px 12px;font-size:11px">Import</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Decks list page → creation card</h3>
+      <p>The <strong>/decks</strong> landing page shows all your saved decks as cards. A prominent "New Deck" card is first in the grid. Clicking it opens a compact creation sheet (name + format). Your decks are browseable before you dive into one.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8">
+        <div style="color:#E2E8F0;font-weight:700;font-size:13px;margin-bottom:10px">My Decks</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:#0d2020;border:1.5px dashed #0D9488;border-radius:10px;padding:14px;text-align:center;cursor:pointer">
+            <div style="font-size:22px;margin-bottom:4px">✚</div>
+            <div style="color:#0D9488;font-weight:600;font-size:11px">New Deck</div>
+          </div>
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:10px;padding:10px">
+            <div style="font-size:18px;margin-bottom:4px">⚔️</div>
+            <div style="color:#E2E8F0;font-size:11px;font-weight:600">Aggro Red</div>
+            <div style="color:#475569;font-size:10px">Standard · 60 cards</div>
+            <div style="color:#0D9488;font-size:10px;margin-top:2px">$42</div>
+          </div>
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:10px;padding:10px">
+            <div style="font-size:18px;margin-bottom:4px">🌊</div>
+            <div style="color:#E2E8F0;font-size:11px;font-weight:600">Control Blue</div>
+            <div style="color:#475569;font-size:10px">Modern · 60 cards</div>
+            <div style="color:#0D9488;font-size:10px;margin-top:2px">$180</div>
+          </div>
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:10px;padding:10px">
+            <div style="font-size:18px;margin-bottom:4px">🧙</div>
+            <div style="color:#E2E8F0;font-size:11px;font-weight:600">Atraxa EDH</div>
+            <div style="color:#475569;font-size:10px">Commander · 100 cards</div>
+            <div style="color:#0D9488;font-size:10px;margin-top:2px">$320</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

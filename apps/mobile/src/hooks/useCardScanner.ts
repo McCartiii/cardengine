@@ -1,21 +1,22 @@
-import { useCallback, useRef } from "react";
-import { runOnJS } from "react-native-reanimated";
+import { useCallback, useEffect, useRef } from "react";
+import { runOnJS, useSharedValue } from "react-native-reanimated";
 import { useFrameProcessor } from "react-native-vision-camera";
-import TextRecognition from "react-native-vision-camera-text-recognition";
+import { useTextRecognition } from "react-native-vision-camera-text-recognition";
+import { useResizePlugin } from "vision-camera-resize-plugin";
 import * as Haptics from "expo-haptics";
 import { scanIdentify } from "../lib/api";
+import { resolveVariantToCandidate } from "../lib/resolveVariant";
 import { useScanStore } from "../store/scanStore";
 import { SCANNER } from "../lib/constants";
+import { computeDHashFromRGB9x8 } from "../scanner/hashUtils";
+import {
+  ensureHashIndexReady,
+  isHashIndexReady,
+  lookupHash,
+} from "../scanner/hashIndexManager";
 
 // ── OCR text → card name extraction ─────────────────────────────────────────
 
-/**
- * Given raw OCR output from a card frame, extract the most likely card name.
- *
- * MTG card names appear at the top of the card in large title-case text.
- * We take the first line that looks like a name (letters/spaces/apostrophes,
- * no digits, no mana-symbol-only strings, reasonable length).
- */
 function extractCardName(rawText: string): string | null {
   const lines = rawText
     .split("\n")
@@ -23,37 +24,118 @@ function extractCardName(rawText: string): string | null {
     .filter(Boolean);
 
   for (const line of lines) {
-    // Must be within length bounds
     if (line.length < SCANNER.MIN_NAME_LEN || line.length > SCANNER.MAX_NAME_LEN) continue;
-    // Must start with a letter
     if (!/^[A-Za-z]/.test(line)) continue;
-    // Only letters, spaces, apostrophes, commas, hyphens
     if (!/^[A-Za-z][A-Za-z ',\-]*$/.test(line)) continue;
-    // Skip obvious non-names: pure mana colors, "Instant", "Sorcery" alone, etc.
     if (/^(Instant|Sorcery|Artifact|Enchantment|Land|Creature|Planeswalker|Battle)$/i.test(line)) continue;
-    // Skip power/toughness patterns like "2/2"
     if (/^\d+\/\d+$/.test(line)) continue;
-
     return line;
   }
 
   return null;
 }
 
+const HASH_RING_SIZE = 8;
+const HASH_CONFIRM_COUNT = 3;
+
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useCardScanner() {
-  const { addPending, setDetectedName, setDetectedPrice } = useScanStore();
+  const { addPending, setDetectedName, setDetectedPrice, setHashIndexReady } = useScanStore();
 
-  // Refs live on the JS thread and survive renders without causing them
-  const frameCount = useRef(0);
+  const frameCount = useSharedValue(0);
+  const hashReady = useSharedValue(false);
+
   const lastSeenText = useRef<{ text: string; since: number } | null>(null);
-  const recentlyScanned = useRef<Map<string, number>>(new Map()); // name → timestamp
-  const identifying = useRef(false); // prevent overlapping API calls
+  const recentlyScanned = useRef<Map<string, number>>(new Map());
+  const identifying = useRef(false);
 
-  // Runs on JS thread — called from worklet via runOnJS
+  const hashRing = useRef<Array<string | null>>(new Array(HASH_RING_SIZE).fill(null));
+  const hashRingIdx = useRef(0);
+  const lastHashVariant = useRef<string | null>(null);
+
+  useEffect(() => {
+    ensureHashIndexReady().then((ok) => {
+      hashReady.value = ok;
+      setHashIndexReady(ok);
+    });
+  }, [hashReady, setHashIndexReady]);
+
+  const confirmCandidate = useCallback(
+    async (
+      candidate: Awaited<ReturnType<typeof resolveVariantToCandidate>>,
+      matchMethod: "hash" | "ocr" | "api"
+    ) => {
+      if (!candidate) return;
+
+      const nameLower = candidate.name.toLowerCase();
+      const now = Date.now();
+      const lastScan = recentlyScanned.current.get(nameLower);
+      if (lastScan && now - lastScan < SCANNER.DEDUP_WINDOW_MS) {
+        setDetectedName(candidate.name);
+        return;
+      }
+
+      recentlyScanned.current.set(nameLower, now);
+      lastSeenText.current = null;
+      lastHashVariant.current = candidate.variantId;
+
+      await addPending(candidate, matchMethod);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const usdPrice = candidate.prices.find((p) => p.currency === "USD" && p.kind === "market");
+      setDetectedPrice(usdPrice ? `$${usdPrice.amount.toFixed(2)}` : null);
+      setDetectedName(candidate.name);
+    },
+    [addPending, setDetectedName, setDetectedPrice]
+  );
+
+  const onHashFrame = useCallback(
+    async (dHashHex: string) => {
+      if (!isHashIndexReady() || identifying.current) return;
+
+      const match = lookupHash(dHashHex);
+      const variantId = match?.variantId ?? null;
+
+      hashRing.current[hashRingIdx.current % HASH_RING_SIZE] = variantId;
+      hashRingIdx.current++;
+
+      if (!variantId) return;
+
+      const counts: Record<string, number> = {};
+      for (const id of hashRing.current) {
+        if (id) counts[id] = (counts[id] ?? 0) + 1;
+      }
+
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      if (!top || top[1] < HASH_CONFIRM_COUNT) return;
+
+      const matchedId = top[0];
+      if (matchedId === lastHashVariant.current) return;
+
+      identifying.current = true;
+      hashRing.current = new Array(HASH_RING_SIZE).fill(null);
+      hashRingIdx.current = 0;
+
+      try {
+        const score = match?.confidence === "high" ? 95 : 85;
+        const candidate = await resolveVariantToCandidate(
+          matchedId,
+          `hash:${match?.matchType ?? "dHash"}`,
+          score
+        );
+        await confirmCandidate(candidate, "hash");
+      } finally {
+        identifying.current = false;
+      }
+    },
+    [confirmCandidate]
+  );
+
   const onOCRResult = useCallback(
     async (rawText: string) => {
+      if (identifying.current) return;
+
       const cardName = extractCardName(rawText);
 
       if (!cardName) {
@@ -66,14 +148,12 @@ export function useCardScanner() {
       const now = Date.now();
       const nameLower = cardName.toLowerCase();
 
-      // Dedup: skip if we scanned this card recently
       const lastScan = recentlyScanned.current.get(nameLower);
       if (lastScan && now - lastScan < SCANNER.DEDUP_WINDOW_MS) {
-        setDetectedName(cardName); // still show the name as feedback
+        setDetectedName(cardName);
         return;
       }
 
-      // Stability: the same text must appear for STABILITY_MS before triggering
       if (lastSeenText.current?.text !== cardName) {
         lastSeenText.current = { text: cardName, since: now };
         setDetectedName(cardName);
@@ -85,11 +165,7 @@ export function useCardScanner() {
         return;
       }
 
-      // Guard against concurrent calls
-      if (identifying.current) return;
       identifying.current = true;
-
-      // Reset stability tracker so the same card doesn't double-trigger
       lastSeenText.current = null;
       recentlyScanned.current.set(nameLower, now);
 
@@ -98,42 +174,55 @@ export function useCardScanner() {
         const best = result.candidates[0];
 
         if (best && best.score >= SCANNER.MIN_CONFIDENCE_SCORE) {
-          addPending(best);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          const usdPrice = best.prices.find(
-            (p) => p.currency === "USD" && p.kind === "market"
-          );
-          setDetectedPrice(usdPrice ? `$${usdPrice.amount.toFixed(2)}` : null);
+          await confirmCandidate(best, "ocr");
         } else {
-          // Low confidence — clear dedup so it can try again sooner
           recentlyScanned.current.delete(nameLower);
         }
       } catch {
-        // Network error — clear dedup so it retries
         recentlyScanned.current.delete(nameLower);
       } finally {
         identifying.current = false;
       }
     },
-    [addPending, setDetectedName, setDetectedPrice]
+    [confirmCandidate, setDetectedName, setDetectedPrice]
   );
 
-  // Frame processor — runs as a worklet on the camera thread (no JS bridge)
+  const { scanText } = useTextRecognition({ language: "latin" });
+  const { resize } = useResizePlugin();
+
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
 
-      // Throttle: only process every FRAME_INTERVAL frames
-      frameCount.value = (frameCount.value ?? 0) + 1;
-      if (frameCount.value % SCANNER.FRAME_INTERVAL !== 0) return;
+      frameCount.value = frameCount.value + 1;
+      const n = frameCount.value;
 
-      const result = TextRecognition.recognize(frame);
-      if (result?.text) {
-        runOnJS(onOCRResult)(result.text);
+      if (hashReady.value && n % 3 === 0) {
+        try {
+          const resized = resize(frame, {
+            scale: { width: 9, height: 8 },
+            pixelFormat: "rgb",
+            dataType: "uint8",
+          });
+          const dHash = computeDHashFromRGB9x8(new Uint8Array(resized.buffer));
+          runOnJS(onHashFrame)(dHash);
+        } catch {
+          // ignore resize errors
+        }
+      }
+
+      if (n % SCANNER.FRAME_INTERVAL === 0) {
+        const result = scanText(frame);
+        const text = Array.isArray(result)
+          ? result.map((t) => t.resultText).filter(Boolean).join("\n")
+          : "";
+        if (text) {
+          runOnJS(onOCRResult)(text);
+        }
       }
     },
-    [onOCRResult]
+    [onHashFrame, onOCRResult, scanText, resize, hashReady]
   );
 
-  return { frameProcessor };
+  return { frameProcessor, hashIndexReady: isHashIndexReady() };
 }

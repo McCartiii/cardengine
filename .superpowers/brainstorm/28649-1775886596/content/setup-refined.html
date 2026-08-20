@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Counter — Refined Setup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060609; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; color: white; }
+
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    margin: 30px auto;
+    background: #08080e;
+    border-radius: 44px;
+    border: 3px solid #1a1a25;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.03);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .phone-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 56px 20px 30px;
+    scrollbar-width: none;
+  }
+  .phone-scroll::-webkit-scrollbar { display: none; }
+
+  /* ── Header ── */
+  .setup-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .setup-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 12px rgba(124,58,237,0.4));
+  }
+
+  .setup-header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.8px;
+    color: white;
+  }
+
+  .setup-header p {
+    font-size: 12px;
+    color: #3a3a50;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* ── Sections ── */
+  .section {
+    margin-bottom: 20px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    color: #2a2a40;
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  /* ── Format pills ── */
+  .format-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .format-pill {
+    padding: 10px 0;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .format-pill:hover { border-color: rgba(255,255,255,0.08); }
+
+  .format-pill.active {
+    background: rgba(124,58,237,0.1);
+    border-color: rgba(124,58,237,0.25);
+    box-shadow: 0 0 16px rgba(124,58,237,0.08);
+  }
+
+  .format-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2a2a40;
+    transition: color 0.25s;
+  }
+
+  .format-pill.active .format-name { color: #c4b5fd; }
+
+  .format-life {
+    font-size: 9px;
+    color: #1a1a30;
+    margin-top: 1px;
+    font-weight: 600;
+    transition: color 0.25s;
+  }
+
+  .format-pill.active .format-life { color: rgba(167,139,250,0.5); }
+
+  /* ── Player count ── */
+  .count-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .count-btn {
+    flex: 1;
+    padding: 16px 0 12px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .count-btn.active {
+    background: rgba(59,130,246,0.1);
+    border-color: rgba(59,130,246,0.25);
+    box-shadow: 0 0 16px rgba(59,130,246,0.08);
+  }
+
+  .count-num {
+    font-size: 22px;
+    font-weight: 900;
+    color: #1e1e30;
+    letter-spacing: -0.5px;
+    transition: color 0.25s;
+  }
+
+  .count-btn.active .count-num { color: #93c5fd; }
+
+  /* ── Player names ── */
+  .names-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 4px 4px 4px 14px;
+    transition: border-color 0.2s;
+  }
+
+  .name-row:focus-within {
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  .name-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .name-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    outline: none;
+    font-family: inherit;
+  }
+
+  .name-input::placeholder { color: rgba(255,255,255,0.15); }
+
+  /* Color picker dots */
+  .color-picker {
+    display: flex;
+    gap: 4px;
+    padding-right: 6px;
+  }
+
+  .color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    opacity: 0.4;
+  }
+
+  .color-dot:hover { opacity: 0.7; }
+  .color-dot.picked { opacity: 1; border-color: rgba(255,255,255,0.3); transform: scale(1.15); }
+
+  /* ── Timer ── */
+  .timer-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .timer-chip {
+    padding: 10px 0;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.02);
+    color: #2a2a40;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    flex: 1;
+    min-width: 52px;
+  }
+
+  .timer-chip.active {
+    background: rgba(245,158,11,0.1);
+    border-color: rgba(245,158,11,0.25);
+    color: #fbbf24;
+    box-shadow: 0 0 14px rgba(245,158,11,0.06);
+  }
+
+  .timer-chip.no-timer {
+    flex: none;
+    width: 100%;
+    margin-top: 2px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .timer-chip.no-timer.active {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.1);
+    color: #555;
+    box-shadow: none;
+  }
+
+  .timer-meta {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #1e1e30;
+    font-weight: 500;
+  }
+
+  .timer-meta span {
+    color: #f59e0b;
+    font-weight: 700;
+  }
+
+  /* ── Start button ── */
+  .start-wrap {
+    padding: 0 20px 36px;
+    flex-shrink: 0;
+  }
+
+  .start-btn {
+    width: 100%;
+    padding: 18px;
+    border-radius: 16px;
+    border: none;
+    font-size: 15px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 50%, #06b6d4 100%);
+    box-shadow: 0 4px 24px rgba(124,58,237,0.25), 0 0 60px rgba(59,130,246,0.1);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .start-btn:active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 16px rgba(124,58,237,0.3);
+  }
+
+  .start-shimmer {
+    position: absolute;
+    top: 0; left: -100%; right: 0; bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shimmer 3s ease-in-out infinite;
+    width: 200%;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(50%); }
+  }
+
+  /* ── Separator ── */
+  .sep {
+    height: 1px;
+    background: rgba(255,255,255,0.03);
+    margin: 4px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="phone-scroll">
+
+    <div class="setup-header">
+      <div class="setup-icon">⚔️</div>
+      <h1>New Game</h1>
+      <p>Configure your battle</p>
+    </div>
+
+    <!-- Format -->
+    <div class="section">
+      <div class="section-label">Format</div>
+      <div class="format-grid">
+        <div class="format-pill">
+          <div class="format-name">Standard</div>
+          <div class="format-life">20 life</div>
+        </div>
+        <div class="format-pill">
+          <div class="format-name">Modern</div>
+          <div class="format-life">20 life</div>
+        </div>
+        <div class="format-pill active">
+          <div class="format-name">Commander</div>
+          <div class="format-life">40 life</div>
+        </div>
+        <div class="format-pill">
+          <div class="format-name">Brawl</div>
+          <div class="format-life">25 life</div>
+        </div>
+        <div class="format-pill">
+          <div class="format-name">Legacy</div>
+          <div class="format-life">20 life</div>
+        </div>
+        <div class="format-pill">
+          <div class="format-name">Vintage</div>
+          <div class="format-life">20 life</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Players -->
+    <div class="section">
+      <div class="section-label">Players</div>
+      <div class="count-row">
+        <div class="count-btn"><div class="count-num">2</div></div>
+        <div class="count-btn"><div class="count-num">3</div></div>
+        <div class="count-btn active"><div class="count-num">4</div></div>
+        <div class="count-btn"><div class="count-num">5</div></div>
+        <div class="count-btn"><div class="count-num">6</div></div>
+      </div>
+    </div>
+
+    <!-- Names -->
+    <div class="section">
+      <div class="section-label">Names</div>
+      <div class="names-list">
+        <div class="name-row">
+          <div class="name-dot" style="background:#7c3aed;box-shadow:0 0 6px #7c3aed;"></div>
+          <input class="name-input" value="Player 1" />
+        </div>
+        <div class="name-row">
+          <div class="name-dot" style="background:#3b82f6;box-shadow:0 0 6px #3b82f6;"></div>
+          <input class="name-input" value="Player 2" />
+        </div>
+        <div class="name-row">
+          <div class="name-dot" style="background:#15803d;box-shadow:0 0 6px #15803d;"></div>
+          <input class="name-input" value="Player 3" />
+        </div>
+        <div class="name-row">
+          <div class="name-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div>
+          <input class="name-input" value="Player 4" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Timer -->
+    <div class="section">
+      <div class="section-label">Game Clock</div>
+      <div class="timer-row">
+        <div class="timer-chip">15m</div>
+        <div class="timer-chip">25m</div>
+        <div class="timer-chip">30m</div>
+        <div class="timer-chip">45m</div>
+        <div class="timer-chip active">60m</div>
+        <div class="timer-chip">90m</div>
+      </div>
+      <div class="timer-row" style="margin-top:6px;">
+        <div class="timer-chip no-timer">No Timer — Casual</div>
+      </div>
+      <div class="timer-meta">= <span>15 min</span> per player</div>
+    </div>
+
+  </div>
+
+  <!-- Fixed start button -->
+  <div class="start-wrap">
+    <button class="start-btn">
+      <span class="start-shimmer"></span>
+      Start Game
+    </button>
+  </div>
+</div>
+
+</body>
+</html>

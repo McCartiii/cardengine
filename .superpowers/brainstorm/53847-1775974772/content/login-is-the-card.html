@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login IS The Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; display: flex; justify-content: center; padding: 30px; }
+
+  @keyframes nebula-1 { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(12px,-8px) scale(1.06); } 66% { transform: translate(-8px,6px) scale(0.96); } 100% { transform: translate(0,0) scale(1); } }
+  @keyframes nebula-2 { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(-10px,10px) scale(1.04); } 66% { transform: translate(8px,-10px) scale(1.06); } 100% { transform: translate(0,0) scale(1); } }
+  @keyframes star-twinkle { 0%,100% { opacity: 0.2; } 50% { opacity: 1; } }
+  @keyframes holo-spin { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+  @keyframes foil-flow { 0% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } 100% { background-position: 0% 0%; } }
+  @keyframes sweep { 0% { left: -50%; opacity: 0; } 20% { opacity: 0.6; } 80% { opacity: 0.6; } 100% { left: 150%; opacity: 0; } }
+  @keyframes sparkle { 0%,100% { opacity: 0; transform: scale(0) rotate(0); } 15% { opacity: 1; transform: scale(1) rotate(20deg); } 30% { opacity: 0; } }
+  @keyframes ring-glow { 0%,100% { box-shadow: 0 0 15px rgba(0,255,200,0.15), 0 0 30px rgba(0,255,200,0.05); } 50% { box-shadow: 0 0 25px rgba(0,255,200,0.25), 0 0 50px rgba(0,255,200,0.08); } }
+  @keyframes ring-rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes text-glow { 0%,100% { text-shadow: 0 0 8px rgba(0,255,200,0.3); } 50% { text-shadow: 0 0 18px rgba(0,255,200,0.5), 0 0 36px rgba(0,255,200,0.15); } }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  @keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+  @keyframes slide-up { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+    background: #000;
+  }
+
+  /* ═══════════════════════════════════════════════════
+     THE ENTIRE SCREEN IS THE CARD
+     ═══════════════════════════════════════════════════ */
+
+  /* Black border — fills the screen */
+  .card-border {
+    position: absolute;
+    inset: 0;
+    background: #080808;
+    border-radius: 44px;
+  }
+
+  /* Card frame */
+  .card-frame {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    border-radius: 36px;
+    background: linear-gradient(180deg, #1A1A1A 0%, #131313 8%, #101010 50%, #131313 92%, #1A1A1A 100%);
+    border: 1px solid #222;
+    overflow: hidden;
+  }
+
+  /* Frame texture */
+  .card-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='1.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    opacity: 0.6;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* ── Title Bar ── */
+  .title-bar {
+    position: absolute;
+    top: 48px;
+    left: 16px;
+    right: 16px;
+    height: 38px;
+    border-radius: 6px 6px 0 0;
+    background: linear-gradient(180deg, #1E1E1E, #161616);
+    border: 1px solid #282828;
+    border-bottom-color: #111;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    z-index: 5;
+  }
+
+  .card-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #E0E0E0;
+    letter-spacing: 0.2px;
+  }
+
+  .mana-row { display: flex; gap: 3px; }
+
+  .mana-pip {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.5);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.15), 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  .mp-c { background: radial-gradient(circle at 35% 30%, #BBB, #666); }
+  .mp-u { background: radial-gradient(circle at 35% 30%, #5CADF5, #1860A0); }
+  .mp-g { background: radial-gradient(circle at 35% 30%, #6ECF6E, #1A6B1A); }
+
+  /* ── Art Box — the top portion ── */
+  .art-box {
+    position: absolute;
+    top: 88px;
+    left: 16px;
+    right: 16px;
+    height: 260px;
+    border: 2px solid #0A0A0A;
+    overflow: hidden;
+    background: #040406;
+    z-index: 4;
+  }
+
+  /* Nebula art */
+  .nebula { position: absolute; inset: 0; }
+
+  .neb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(25px);
+  }
+
+  .nb1 { width: 75%; height: 70%; top: -5%; left: -10%; background: radial-gradient(ellipse, rgba(0,255,200,0.4) 0%, rgba(0,200,160,0.12) 45%, transparent 70%); animation: nebula-1 18s ease-in-out infinite; }
+  .nb2 { width: 65%; height: 65%; bottom: -10%; right: -15%; background: radial-gradient(ellipse, rgba(0,100,255,0.35) 0%, rgba(0,60,200,0.1) 45%, transparent 70%); animation: nebula-2 15s ease-in-out infinite; }
+  .nb3 { width: 50%; height: 55%; top: 25%; left: 35%; background: radial-gradient(ellipse, rgba(180,0,255,0.22) 0%, transparent 65%); animation: nebula-1 20s ease-in-out 3s infinite; }
+  .nb4 { width: 40%; height: 40%; top: 5%; right: 5%; background: radial-gradient(ellipse, rgba(255,0,140,0.14) 0%, transparent 60%); animation: nebula-2 14s ease-in-out 2s infinite; }
+  .nb5 { width: 35%; height: 35%; bottom: 10%; left: 10%; background: radial-gradient(ellipse, rgba(255,180,0,0.1) 0%, transparent 60%); animation: nebula-1 22s ease-in-out 5s infinite; }
+
+  .stars { position: absolute; inset: 0; }
+  .st { position: absolute; width: 1px; height: 1px; background: white; border-radius: 50%; }
+  .st1 { top: 8%; left: 15%; box-shadow: 0 0 2px white; animation: star-twinkle 2.2s infinite; }
+  .st2 { top: 18%; left: 50%; box-shadow: 0 0 1px white; animation: star-twinkle 3s 0.5s infinite; }
+  .st3 { top: 12%; right: 20%; box-shadow: 0 0 2px white; animation: star-twinkle 2.5s 1s infinite; }
+  .st4 { top: 30%; left: 28%; box-shadow: 0 0 1px white; animation: star-twinkle 3.5s 0.3s infinite; }
+  .st5 { top: 45%; right: 32%; box-shadow: 0 0 1px white; animation: star-twinkle 2.8s 1.5s infinite; }
+  .st6 { top: 55%; left: 60%; box-shadow: 0 0 2px white; animation: star-twinkle 3.2s 0.8s infinite; }
+  .st7 { top: 70%; left: 12%; box-shadow: 0 0 1px white; animation: star-twinkle 2s 2s infinite; }
+  .st8 { top: 80%; right: 18%; box-shadow: 0 0 1px white; animation: star-twinkle 3s 1.2s infinite; }
+  .st9 { top: 88%; left: 42%; box-shadow: 0 0 2px white; animation: star-twinkle 2.6s 0.7s infinite; }
+  .st10 { top: 38%; left: 75%; box-shadow: 0 0 1px white; }
+  .st11 { top: 62%; left: 38%; box-shadow: 0 0 1px white; }
+  .st12 { top: 22%; left: 82%; box-shadow: 0 0 1px white; animation: star-twinkle 4s 1.8s infinite; }
+
+  /* Center emblem */
+  .emblem-wrap {
+    position: absolute;
+    top: 50%; left: 50%;
+    z-index: 6;
+  }
+
+  .emblem-orbit {
+    position: absolute;
+    width: 170px; height: 170px;
+    top: 50%; left: 50%;
+    margin: -85px 0 0 -85px;
+    border-radius: 50%;
+    animation: ring-rotate 30s linear infinite;
+  }
+
+  .orb-dot {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .od1 { width: 5px; height: 5px; background: #00FFC8; box-shadow: 0 0 10px #00FFC8; top: -2px; left: 50%; margin-left: -2px; }
+  .od2 { width: 3px; height: 3px; background: #0096FF; box-shadow: 0 0 8px #0096FF; bottom: -1px; left: 50%; margin-left: -1px; }
+  .od3 { width: 3px; height: 3px; background: #A050FF; box-shadow: 0 0 6px #A050FF; top: 50%; right: -1px; margin-top: -1px; }
+
+  .emblem-ring-outer {
+    position: absolute;
+    width: 150px; height: 150px;
+    top: 50%; left: 50%;
+    margin: -75px 0 0 -75px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0,255,200,0.2);
+    animation: ring-glow 4s ease-in-out infinite;
+  }
+
+  .emblem-ring-outer::before {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,255,200,0.06);
+  }
+
+  .emblem-circle {
+    position: absolute;
+    width: 120px; height: 120px;
+    top: 50%; left: 50%;
+    margin: -60px 0 0 -60px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(16,16,22,0.95), rgba(6,6,10,0.98));
+    border: 1.5px solid rgba(0,255,200,0.2);
+    box-shadow: 0 0 30px rgba(0,255,200,0.08), inset 0 0 25px rgba(0,255,200,0.02);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 7;
+  }
+
+  .emblem-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #00FFC8;
+    text-align: center;
+    line-height: 1.15;
+    letter-spacing: 0.3px;
+    animation: text-glow 4s ease-in-out infinite;
+  }
+
+  .emblem-sub {
+    font-size: 5.5px;
+    font-weight: 600;
+    color: rgba(0,255,200,0.4);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* Holo + sweep over art */
+  .art-holo {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 0deg, rgba(0,255,200,0.04), rgba(0,140,255,0.03), rgba(180,0,255,0.04), rgba(255,0,140,0.03), rgba(0,255,200,0.04));
+    animation: holo-spin 22s linear infinite;
+    mix-blend-mode: color-dodge;
+    z-index: 8;
+  }
+
+  .art-sweep {
+    position: absolute;
+    top: -10%; bottom: -10%;
+    width: 25%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+    transform: skewX(-18deg);
+    animation: sweep 7s ease-in-out infinite;
+    z-index: 9;
+  }
+
+  /* Sparkles */
+  .sk { position: absolute; z-index: 10; }
+  .sk::before, .sk::after { content: ''; position: absolute; background: white; border-radius: 1px; box-shadow: 0 0 3px white, 0 0 6px rgba(255,255,255,0.3); }
+  .sk::before { width: 1px; height: var(--s,8px); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .sk::after { width: var(--s,8px); height: 1px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+  .sk1 { --s: 10px; top: 8%; left: 12%; animation: sparkle 3s infinite; }
+  .sk2 { --s: 7px; top: 22%; right: 10%; animation: sparkle 2.5s 0.7s infinite; }
+  .sk3 { --s: 8px; top: 75%; left: 18%; animation: sparkle 2.8s 1.3s infinite; }
+  .sk4 { --s: 6px; top: 80%; right: 14%; animation: sparkle 3.2s 0.4s infinite; }
+  .sk5 { --s: 9px; top: 12%; right: 35%; animation: sparkle 2.6s 1.8s infinite; }
+  .sk6 { --s: 6px; top: 65%; left: 65%; animation: sparkle 3.4s 0.9s infinite; }
+
+  /* ── Type Line ── */
+  .type-bar {
+    position: absolute;
+    top: 350px;
+    left: 16px;
+    right: 16px;
+    height: 28px;
+    background: linear-gradient(180deg, #1C1C1C, #141414);
+    border: 1px solid #222;
+    border-top-color: #282828;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    z-index: 5;
+  }
+
+  .type-text {
+    font-size: 9px;
+    font-weight: 600;
+    color: #AAA;
+    letter-spacing: 0.3px;
+  }
+
+  .set-sym {
+    width: 12px; height: 12px;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    background: radial-gradient(circle, #FF9020, #CC6000);
+    box-shadow: 0 0 4px rgba(255,144,32,0.5);
+  }
+
+  /* ── Text Box = Login Form ── */
+  .text-box {
+    position: absolute;
+    top: 380px;
+    left: 16px;
+    right: 16px;
+    bottom: 68px;
+    background: linear-gradient(180deg, #111, #0C0C0C);
+    border: 1px solid #1A1A1A;
+    border-radius: 0 0 4px 4px;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    z-index: 5;
+    overflow: hidden;
+  }
+
+  /* Rules-style header */
+  .tb-header {
+    margin-bottom: 14px;
+    animation: slide-up 0.5s ease-out 0.3s both;
+  }
+
+  .tb-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #00FFC8;
+    text-shadow: 0 0 12px rgba(0,255,200,0.2);
+    margin-bottom: 2px;
+  }
+
+  .tb-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.2);
+    line-height: 1.4;
+  }
+
+  /* Input fields styled like rules text area */
+  .tb-input {
+    width: 100%;
+    padding: 13px 14px;
+    border-radius: 10px;
+    border: 1px solid #1E1E1E;
+    background: rgba(8,8,12,0.8);
+    color: #E0E0E0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    margin-bottom: 8px;
+    transition: all 0.3s;
+    animation: slide-up 0.5s ease-out var(--d, 0.4s) both;
+  }
+
+  .tb-input:focus {
+    border-color: rgba(0,255,200,0.25);
+    box-shadow: 0 0 0 2px rgba(0,255,200,0.04), 0 0 16px rgba(0,255,200,0.03);
+  }
+
+  .tb-input::placeholder { color: rgba(255,255,255,0.1); }
+
+  .tb-forgot {
+    text-align: right;
+    font-size: 10px;
+    color: #00FFC8;
+    font-weight: 600;
+    margin-bottom: 12px;
+    cursor: pointer;
+    text-shadow: 0 0 6px rgba(0,255,200,0.1);
+    animation: slide-up 0.5s ease-out 0.6s both;
+  }
+
+  .tb-btn-wrap {
+    position: relative;
+    margin-bottom: 10px;
+    animation: slide-up 0.5s ease-out 0.7s both;
+  }
+
+  .tb-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 800;
+    color: #000;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #00FFC8, #00E6B0);
+    box-shadow: 0 3px 18px rgba(0,255,200,0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+    transition: transform 0.15s;
+    letter-spacing: 0.3px;
+  }
+
+  .tb-btn:active { transform: scale(0.98); }
+
+  .tb-shim {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .tb-btn-glow {
+    position: absolute;
+    bottom: -2px;
+    left: 10%; right: 10%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #00FFC8, #00B8FF, #A050FF, #FF00C8, #00FFC8);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(8px);
+    opacity: 0.25;
+  }
+
+  .tb-div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    animation: slide-up 0.5s ease-out 0.8s both;
+  }
+
+  .tb-div-l { flex: 1; height: 1px; background: #1A1A1A; }
+  .tb-div-t { font-size: 8px; color: rgba(255,255,255,0.12); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .tb-soc {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    animation: slide-up 0.5s ease-out 0.9s both;
+  }
+
+  .tb-soc-btn {
+    flex: 1;
+    padding: 11px;
+    border-radius: 10px;
+    border: 1px solid #1A1A1A;
+    background: rgba(8,8,12,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.35);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .tb-soc-btn:hover { border-color: #282828; transform: translateY(-1px); color: #E0E0E0; }
+
+  .tb-guest {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.08);
+    animation: slide-up 0.5s ease-out 1s both;
+  }
+
+  .tb-guest span {
+    color: rgba(0,255,200,0.35);
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0,255,200,0.12);
+    padding-bottom: 1px;
+  }
+
+  /* ── P/T Box ── */
+  .pt-box {
+    position: absolute;
+    bottom: 68px;
+    right: 20px;
+    background: linear-gradient(135deg, #1E1E1E, #151515);
+    border: 1px solid #2A2A2A;
+    border-radius: 4px;
+    padding: 3px 10px;
+    z-index: 6;
+  }
+
+  .pt-val {
+    font-size: 14px;
+    font-weight: 800;
+    color: #E0E0E0;
+  }
+
+  /* ── Footer ── */
+  .card-footer {
+    position: absolute;
+    bottom: 38px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 5;
+  }
+
+  .card-footer span {
+    font-size: 6px;
+    color: rgba(255,255,255,0.15);
+    letter-spacing: 0.3px;
+  }
+
+  /* Flavor text between form and footer */
+  .flavor {
+    position: absolute;
+    bottom: 48px;
+    left: 24px;
+    right: 24px;
+    text-align: center;
+    z-index: 5;
+  }
+
+  .flavor p {
+    font-size: 7px;
+    color: rgba(255,255,255,0.12);
+    font-style: italic;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone">
+
+    <!-- The whole screen IS the card -->
+    <div class="card-border">
+      <div class="card-frame">
+
+        <!-- Title Bar -->
+        <div class="title-bar">
+          <div class="card-name">Card Engine</div>
+          <div class="mana-row">
+            <div class="mana-pip mp-c"></div>
+            <div class="mana-pip mp-u"></div>
+            <div class="mana-pip mp-g"></div>
+          </div>
+        </div>
+
+        <!-- Art Box — cosmic nebula with center emblem -->
+        <div class="art-box">
+          <div class="nebula">
+            <div class="neb nb1"></div>
+            <div class="neb nb2"></div>
+            <div class="neb nb3"></div>
+            <div class="neb nb4"></div>
+            <div class="neb nb5"></div>
+          </div>
+
+          <div class="stars">
+            <div class="st st1"></div><div class="st st2"></div><div class="st st3"></div>
+            <div class="st st4"></div><div class="st st5"></div><div class="st st6"></div>
+            <div class="st st7"></div><div class="st st8"></div><div class="st st9"></div>
+            <div class="st st10"></div><div class="st st11"></div><div class="st st12"></div>
+          </div>
+
+          <div class="emblem-wrap">
+            <div class="emblem-orbit">
+              <div class="orb-dot od1"></div>
+              <div class="orb-dot od2"></div>
+              <div class="orb-dot od3"></div>
+            </div>
+            <div class="emblem-ring-outer"></div>
+            <div class="emblem-circle">
+              <div class="emblem-title">Card<br/>Engine</div>
+              <div class="emblem-sub">Scan.Collect.Master</div>
+            </div>
+          </div>
+
+          <div class="sk sk1"></div>
+          <div class="sk sk2"></div>
+          <div class="sk sk3"></div>
+          <div class="sk sk4"></div>
+          <div class="sk sk5"></div>
+          <div class="sk sk6"></div>
+
+          <div class="art-holo"></div>
+          <div class="art-sweep"></div>
+        </div>
+
+        <!-- Type Line -->
+        <div class="type-bar">
+          <div class="type-text">Legendary Artifact — Collection Engine</div>
+          <div class="set-sym"></div>
+        </div>
+
+        <!-- Text Box = The Login Form -->
+        <div class="text-box">
+          <div class="tb-header">
+            <div class="tb-title">Jump In</div>
+            <div class="tb-sub">Your collection awaits, Planeswalker.</div>
+          </div>
+
+          <input class="tb-input" placeholder="Email" style="--d:0.4s;" />
+          <input class="tb-input" type="password" placeholder="Password" style="--d:0.5s;" />
+
+          <div class="tb-forgot">Forgot password?</div>
+
+          <div class="tb-btn-wrap">
+            <button class="tb-btn">
+              <span class="tb-shim"></span>
+              <span style="position:relative;z-index:1;">Let's Go</span>
+            </button>
+            <div class="tb-btn-glow"></div>
+          </div>
+
+          <div class="tb-div">
+            <div class="tb-div-l"></div>
+            <div class="tb-div-t">or jump in with</div>
+            <div class="tb-div-l"></div>
+          </div>
+
+          <div class="tb-soc">
+            <div class="tb-soc-btn"><span style="font-size:15px;font-weight:500;"></span> Apple</div>
+            <div class="tb-soc-btn"><span style="font-size:12px;font-weight:700;color:#4285F4;">G</span> Google</div>
+          </div>
+
+          <div class="tb-guest">or <span>explore as guest</span></div>
+        </div>
+
+        <!-- P/T Box -->
+        <div class="pt-box">
+          <div class="pt-val">*/∞</div>
+        </div>
+
+        <!-- Flavor text -->
+        <div class="flavor">
+          <p>"The multiverse bends to those who collect it."</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="card-footer">
+          <span>001/001 M — CE</span>
+          <span>Card Engine v1.0</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

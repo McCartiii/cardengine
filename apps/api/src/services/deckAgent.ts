@@ -1,17 +1,19 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildSystemPrompt, detectMode, type AgentContext, type AgentMode } from "./deckAgentPrompts.js";
+import { buildSystemPrompt, detectMode, type AgentContext, type AgentMode, type DeckBlueprint, type DeckFormat } from "./deckAgentPrompts.js";
 import { AGENT_TOOLS, buildToolExecutor } from "./deckAgentTools.js";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface AgentRequest {
   instruction: string;
+  format: DeckFormat;
   bracket: 1 | 2 | 3 | 4 | 5;
   budget: number;
   commander?: string;
   deckCards?: string[];
   userId?: string;
   sessionMessages?: Anthropic.MessageParam[];
+  blueprint?: DeckBlueprint;
 }
 
 /**
@@ -23,16 +25,24 @@ export async function* runDeckAgent(req: AgentRequest): AsyncGenerator<string> {
   const mode: AgentMode = detectMode(req.instruction, hasDeck);
 
   const ctx: AgentContext = {
+    format: req.format,
     bracket: req.bracket,
     budget: req.budget,
     commander: req.commander,
     deckCards: req.deckCards,
     userId: req.userId,
     instruction: req.instruction,
+    blueprint: req.blueprint,
   };
 
   const systemPrompt = buildSystemPrompt(mode, ctx);
-  const executeTool = buildToolExecutor(req.userId);
+  const executeTool = buildToolExecutor(req.userId, {
+    format: req.format,
+    bracket: req.bracket,
+    budget: req.budget,
+    commander: req.commander,
+    blueprint: req.blueprint,
+  });
 
   const messages: Anthropic.MessageParam[] = [
     ...(req.sessionMessages ?? []),
@@ -43,7 +53,7 @@ export async function* runDeckAgent(req: AgentRequest): AsyncGenerator<string> {
   yield sseJson({ type: "mode", mode });
 
   let iterations = 0;
-  const MAX_ITERATIONS = 10;
+  const MAX_ITERATIONS = 12;
 
   while (iterations < MAX_ITERATIONS) {
     iterations++;
@@ -97,6 +107,9 @@ export async function* runDeckAgent(req: AgentRequest): AsyncGenerator<string> {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const { block, result } of results) {
         yield sseJson({ type: "tool_done", tool: block.name });
+        if (block.name === "validate_deck" || block.name === "lint_commander_deck") {
+          yield sseJson({ type: "tool_result", tool: block.name, result });
+        }
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,

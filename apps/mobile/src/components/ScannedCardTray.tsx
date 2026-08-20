@@ -9,13 +9,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { addCollectionEvents } from "../lib/api";
+import { commitScanToCollection } from "../lib/scanCommit";
 import { useScanStore, type PendingScan } from "../store/scanStore";
 import { COLORS } from "../lib/constants";
-
-function generateEventId(): string {
-  return `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 interface TrayProps {
   onClose?: () => void;
@@ -36,22 +32,10 @@ export function ScannedCardTray({ onClose }: TrayProps) {
     adding.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    const events = unadded.flatMap((p) => {
-      const events = [];
-      for (let i = 0; i < p.quantity; i++) {
-        events.push({
-          id: generateEventId(),
-          at: new Date().toISOString(),
-          type: "add" as const,
-          variantId: p.candidate.variantId,
-          payload: { quantity: 1 },
-        });
-      }
-      return events;
-    });
-
     try {
-      await addCollectionEvents(events);
+      for (const p of unadded) {
+        await commitScanToCollection(p.candidate.variantId, p.quantity);
+      }
       unadded.forEach((p) => markAdded(p.key));
       // Clear added entries after a brief delay so the user sees the ✓
       setTimeout(() => {

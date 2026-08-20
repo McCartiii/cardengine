@@ -1,89 +1,86 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   Card Engine — Dark Slate + Teal Design Tokens
+   Card Engine — The Gallery Design Tokens (Tactile Light Theme)
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Surfaces */
-  --bg:             #0F1117;
-  --surface:        #161B27;
-  --surface-raised: #1E2535;
-  --surface-sunken: #0A0D13;
+  /* Surfaces - Minimal, Paper-like */
+  --bg:             #FFFFFF;
+  --surface:        #F9FAFB;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #F3F4F6;
 
-  /* Text */
-  --text-primary:   #E2E8F0;
-  --text-secondary: #94A3B8;
-  --text-muted:     #475569;
-  --text-inverse:   #0F1117;
+  /* Text - High contrast Editorial */
+  --text-primary:   #111827;
+  --text-secondary: #4B5563;
+  --text-muted:     #9CA3AF;
+  --text-inverse:   #FFFFFF;
 
-  /* Borders */
-  --border:        #1E2D3D;
-  --border-strong: #2D4059;
-  --border-focus:  #0D9488;
+  /* Borders - Very crisp and subtle */
+  --border:        #E5E7EB;
+  --border-strong: #D1D5DB;
+  --border-focus:  #111827;
 
-  /* Teal accent */
-  --accent:       #0D9488;
-  --accent-hover: #14B8A6;
-  --accent-light: #0D3330;
-  --accent-text:  #2DD4BF;
+  /* Accent - Pure black for starkness */
+  --accent:       #111827;
+  --accent-hover: #374151;
+  --accent-light: #F3F4F6;
+  --accent-text:  #111827;
 
-  /* Per-tab colors */
-  --tab-collection: #22C55E;  --tab-collection-bg: #0C2018;
-  --tab-scan:       #F43F5E;  --tab-scan-bg:       #2A0A12;
-  --tab-deck:       #818CF8;  --tab-deck-bg:       #1A1B3A;
-  --tab-map:        #38BDF8;  --tab-map-bg:        #082030;
-  --tab-watchlist:  #FB923C;  --tab-watchlist-bg:  #2A1608;
-  --tab-settings:   #94A3B8;  --tab-settings-bg:   #141C28;
+  /* Per-tab colors - Flat, muted elegant tones */
+  --tab-collection: #059669;  --tab-collection-bg: #ECFDF5;
+  --tab-scan:       #DC2626;  --tab-scan-bg:       #FEF2F2;
+  --tab-deck:       #4F46E5;  --tab-deck-bg:       #EEF2FF;
+  --tab-map:        #0284C7;  --tab-map-bg:        #F0F9FF;
+  --tab-watchlist:  #EA580C;  --tab-watchlist-bg:  #FFF7ED;
+  --tab-settings:   #4B5563;  --tab-settings-bg:   #F3F4F6;
 
-  /* Semantic */
-  --success:      #22C55E;
-  --success-light: #0C2018;
-  --success-text:  #86EFAC;
-  --danger:       #F43F5E;
-  --danger-light:  #2A0A12;
-  --danger-text:   #FDA4AF;
-  --warning:      #FB923C;
-  --warning-light: #2A1608;
-  --warning-text:  #FED7AA;
+  /* Semantic - Accessible and flat */
+  --success:      #10B981;
+  --success-light: #ECFDF5;
+  --success-text:  #065F46;
+  --danger:       #EF4444;
+  --danger-light:  #FEF2F2;
+  --danger-text:   #991B1B;
+  --warning:      #F59E0B;
+  --warning-light: #FFFBEB;
+  --warning-text:  #92400E;
 
-  /* Mana colors */
-  --mana-W: #2A2510; --mana-W-text: #FDE68A;
-  --mana-U: #0F1E35; --mana-U-text: #93C5FD;
-  --mana-B: #1A1225; --mana-B-text: #C4B5D4;
-  --mana-R: #2A0E0E; --mana-R-text: #FCA5A5;
-  --mana-G: #0A1F0E; --mana-G-text: #86EFAC;
+  /* Mana colors - Solid graphic tones, no glow */
+  --mana-W: #FDFCE8; --mana-W-text: #171717;
+  --mana-U: #DDBEFB; --mana-U-text: #1E3A8A; /* Slightly muted blue to offset the starkness */
+  --mana-B: #27272A; --mana-B-text: #FAFAFA;
+  --mana-R: #FECACA; --mana-R-text: #991B1B;
+  --mana-G: #C6F6D5; --mana-G-text: #065F46;
 
-  /* Identity tints — card container backgrounds by color identity */
-  --id-W-tint:      #1A1810; --id-W-border:      #4A4020; --id-W-glow:      rgba(253,230,138,0.15);
-  --id-U-tint:      #0D1824; --id-U-border:      #1E3A5F; --id-U-glow:      rgba(147,197,253,0.15);
-  --id-B-tint:      #110E1C; --id-B-border:      #2D1B4E; --id-B-glow:      rgba(196,181,212,0.12);
-  --id-R-tint:      #1C0E0E; --id-R-border:      #5C1A1A; --id-R-glow:      rgba(252,165,165,0.15);
-  --id-G-tint:      #0A160D; --id-G-border:      #14532D; --id-G-glow:      rgba(134,239,172,0.15);
-  --id-multi-tint:  #1A1508; --id-multi-border:  #5C4A1A; --id-multi-glow:  rgba(253,230,138,0.15);
-  --id-C-tint:      #111520; --id-C-border:      #1E2D3D; --id-C-glow:      rgba(148,163,184,0.10);
+  /* Identity tints — physical paper backing colors */
+  --id-W-tint:      #FDFDFB; --id-W-border:      #E5E7EB;
+  --id-U-tint:      #F8FAFC; --id-U-border:      #E2E8F0;
+  --id-B-tint:      #F4F4F5; --id-B-border:      #E4E4E7;
+  --id-R-tint:      #FEF2F2; --id-R-border:      #FEE2E2;
+  --id-G-tint:      #F0FDF4; --id-G-border:      #DCFCE7;
+  --id-multi-tint:  #FFFBED; --id-multi-border:  #FEF08A;
+  --id-C-tint:      #F9FAFB; --id-C-border:      #E5E7EB;
 
   /* Market colors */
-  --market-tcg:  #FB923C; --market-tcg-bg:  #2A1608;
-  --market-mkm:  #22C55E; --market-mkm-bg:  #0C2018;
-  --market-ck:   #60A5FA; --market-ck-bg:   #0C1C38;
-  --market-ebay: #F43F5E; --market-ebay-bg: #2A0A12;
-  --market-mtgo: #A78BFA; --market-mtgo-bg: #1A1030;
+  --market-tcg:  #EA580C; --market-tcg-bg:  #FFF7ED;
+  --market-mkm:  #059669; --market-mkm-bg:  #ECFDF5;
+  --market-ck:   #2563EB; --market-ck-bg:   #EFF6FF;
+  --market-ebay: #E11D48; --market-ebay-bg: #FFF1F2;
+  --market-mtgo: #7C3AED; --market-mtgo-bg: #F5F3FF;
 
-  /* Rarity */
-  --rarity-mythic:       #FB923C; --rarity-mythic-bg:    #2A1206;
-  --rarity-rare:         #FBBF24; --rarity-rare-bg:      #261E06;
-  --rarity-uncommon:     #94A3B8; --rarity-uncommon-bg:  #141C28;
-  --rarity-common:       #475569; --rarity-common-bg:    #0E1420;
+  /* Rarity - Solid metallic flat equivalents */
+  --rarity-mythic:       #D97706; --rarity-mythic-bg:    #FFFBEB;
+  --rarity-rare:         #D4AF37; --rarity-rare-bg:      #FEFCE8;
+  --rarity-uncommon:     #64748B; --rarity-uncommon-bg:  #F8FAFC;
+  --rarity-common:       #111827; --rarity-common-bg:    #F3F4F6;
 
-  /* Shadows */
-  --shadow-card:       0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-card-hover: 0 20px 40px rgba(0,0,0,0.7), 0 8px 16px rgba(0,0,0,0.5);
-  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
-  --shadow-modal:      0 24px 64px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5);
-
-  /* Surface overlay for frosted glass */
-  --surface-overlay: rgba(22,27,39,0.92);
+  /* Physical Shadows - No glowing, pure structural drops */
+  --shadow-card-rest:  0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-card-lift:  0 10px 30px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.06);
+  --shadow-elevated:   0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.03);
+  --shadow-modal:      0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
 }
 
 /* ─── Tailwind theme inline ─── */
@@ -123,167 +120,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* ─── @property for animatable custom properties ─── */
-@property --hue-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@property --spin-a {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-/* ─── New keyframes ─── */
-@keyframes spin-hue {
-  from { --hue-angle: 0deg; }
-  to   { --hue-angle: 360deg; }
-}
-
-@keyframes conic-spin {
-  from { --spin-a: 0deg; }
-  to   { --spin-a: 360deg; }
-}
-
-@keyframes btn-sweep {
-  from { background-position: -100% 0; }
-  to   { background-position: 200% 0; }
-}
-
-/* ─── Rainbow foil hover effect (applied to card image wrappers) ─── */
-.card-foil-hover {
-  position: relative;
-  border-radius: inherit;
-  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
-              box-shadow 0.22s cubic-bezier(0.34,1.56,0.64,1);
-}
-.card-foil-hover::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--hue-angle) at 50% 50%,
-    rgba(255,0,128,0.22),
-    rgba(255,180,0,0.22),
-    rgba(0,255,128,0.22),
-    rgba(0,180,255,0.22),
-    rgba(128,0,255,0.22),
-    rgba(255,0,128,0.22)
-  );
-  opacity: 0;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-  z-index: 1;
-}
-.card-foil-hover::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    115deg,
-    transparent 35%,
-    rgba(255,255,255,0.2) 50%,
-    transparent 65%
-  );
-  background-size: 200% 100%;
-  background-position: -100% 0;
-  opacity: 0;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-  z-index: 2;
-}
-.card-foil-hover:hover {
-  transform: translateY(-6px) scale(1.04);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 24px rgba(200,100,255,0.25);
-}
-.card-foil-hover:hover::before {
-  opacity: 1;
-  animation: spin-hue 4s linear infinite;
-}
-.card-foil-hover:hover::after {
-  opacity: 1;
-  animation: btn-sweep 1.2s ease-in-out infinite alternate;
-}
-
-/* ─── Button shimmer sweep (applied to primary/danger buttons) ─── */
-.btn-shimmer {
-  position: relative;
-}
-.btn-shimmer::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 35%,
-    rgba(255,255,255,0.18) 50%,
-    transparent 65%
-  );
-  background-size: 200% 100%;
-  background-position: -100% 0;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-  border-radius: inherit;
-}
-.btn-shimmer:hover::after {
-  opacity: 1;
-  animation: btn-sweep 0.6s ease forwards;
-}
-
-/* ─── Foil overlay (pseudo-elements only, no lift transform — for use inside positioned containers) ─── */
-.card-foil-overlay::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--hue-angle) at 50% 50%,
-    rgba(255,0,128,0.22),
-    rgba(255,180,0,0.22),
-    rgba(0,255,128,0.22),
-    rgba(0,180,255,0.22),
-    rgba(128,0,255,0.22),
-    rgba(255,0,128,0.22)
-  );
-  opacity: 0;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-  animation: spin-hue 4s linear infinite;
-  z-index: 1;
-}
-.card-foil-overlay::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    115deg,
-    transparent 35%,
-    rgba(255,255,255,0.2) 50%,
-    transparent 65%
-  );
-  background-size: 200% 100%;
-  background-position: -100% 0;
-  opacity: 0;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-  z-index: 2;
-}
-.card-foil-overlay.foil-visible::before { opacity: 1; }
-.card-foil-overlay.foil-visible::after {
-  opacity: 1;
-  animation: btn-sweep 1.2s ease-in-out infinite alternate;
-}
-
 /* ─── Base styles ─── */
 body {
   background: var(--bg);
@@ -293,72 +129,39 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Keyframe Animations ─── */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
-}
-
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.6; }
-}
-
-@keyframes mythic-pulse {
-  0%, 100% { filter: drop-shadow(0 0 3px rgba(251,146,60,0.6)); }
-  50%       { filter: drop-shadow(0 0 7px rgba(251,146,60,1)) drop-shadow(0 0 14px rgba(251,146,60,0.5)); }
-}
-
-/* ─── Utility animation classes ─── */
-.animate-fade-in   { animation: fadeIn  0.3s ease-out both; }
-.animate-slide-up  { animation: slideUp 0.4s ease-out both; }
-.animate-scale-in  { animation: scaleIn 0.3s ease-out both; }
-
-.animate-shimmer {
-  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--surface) 50%, var(--surface-sunken) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
-.animate-pulse-soft  { animation: pulse-soft   2s ease-in-out infinite; }
-.animate-mythic-pulse { animation: mythic-pulse 2s ease-in-out infinite; }
-
-/* Staggered animation delays */
-.stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.10s; }
-.stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.20s; }
-.stagger-5 { animation-delay: 0.25s; }
-.stagger-6 { animation-delay: 0.30s; }
-
-/* ─── Card hover lift ─── */
-.card-hover {
-  transition: box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-              transform   0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.card-hover:hover {
-  box-shadow: var(--shadow-card-hover), 0 0 0 1px var(--border-strong);
-  transform: translateY(-3px) scale(1.015);
-}
-
 /* ─── Typography utilities ─── */
 .font-stat {
   font-family: var(--font-geist-mono), 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
+
+/* ─── Physical Interactive Lift Elements ─── */
+.card-hover-physical {
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: var(--shadow-card-rest);
+}
+
+.card-hover-physical:hover {
+  transform: translateY(-8px) scale(1.02) rotate(-1deg);
+  box-shadow: var(--shadow-card-lift);
+}
+
+/* ─── Essential layout keyframes (No glowing, just layout shifting) ─── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fadeIn 0.4s ease-out both; }
+.animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }

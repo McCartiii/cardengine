@@ -209,7 +209,9 @@ export const useLifeStore = create<LifeState>((set, get) => ({
 
       let activeIndex = s.activePlayerIndex;
       let phase: GamePhase = s.phase;
-      let clockRunning = s.isClockRunning;
+      // Annotated: the guard above narrows s.isClockRunning to literal `true`,
+      // which would otherwise make `clockRunning = false` a type error.
+      let clockRunning: boolean = s.isClockRunning;
 
       if (newTime <= 0) {
         players = players.map((p, i) =>

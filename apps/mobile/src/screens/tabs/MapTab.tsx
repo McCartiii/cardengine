@@ -31,6 +31,9 @@ try {
   // Maps not available
 }
 
+// Const alias: TS can't narrow the mutable `let` inside JSX map callbacks.
+const Marker = RNMarker;
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 
 interface Shop {
@@ -169,11 +172,11 @@ export function MapTab() {
             longitudeDelta: 0.5,
           }}
         >
-          {RNMarker &&
+          {Marker &&
             shops
               .filter((s) => s.lat != null && s.lng != null)
               .map((shop) => (
-                <RNMarker
+                <Marker
                   key={shop.id}
                   coordinate={{ latitude: shop.lat!, longitude: shop.lng! }}
                   title={shop.name}
@@ -312,7 +315,6 @@ const styles = StyleSheet.create({
   },
   searchButtonText: {
     color: t.textInverse,
-    fontWeight: "600",
     ...typography.caption,
   },
   map: { flex: 1 },

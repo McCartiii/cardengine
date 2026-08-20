@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Loading — Snappy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1117; color: #E2E8F0;
+    font-family: -apple-system, system-ui, sans-serif;
+    padding: 32px 24px; min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 8px; }
+  .note { color: #475569; font-size: 12px; margin-bottom: 36px; padding: 10px 14px; background: #161B27; border-radius: 8px; border-left: 3px solid #0D9488; }
+
+  .options-grid { display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; }
+  .option-row {
+    background: #161B27; border: 1.5px solid #1E2D3D; border-radius: 14px;
+    padding: 20px 24px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .option-row:hover { border-color: #2D4059; background: #1a2030; }
+  .option-row.selected { border-color: #0D9488; background: #0d2020; }
+  .option-letter {
+    width: 28px; height: 28px; border-radius: 7px; background: #1E2535;
+    border: 1px solid #2D4059; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #94A3B8; flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .option-row.selected .option-letter { background: #0D9488; border-color: #0D9488; color: white; }
+  .option-content { flex: 1; }
+  .option-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .option-desc { font-size: 12px; color: #475569; line-height: 1.5; margin-bottom: 16px; }
+  .preview { display: flex; gap: 16px; align-items: flex-end; }
+  .card-col { display: flex; flex-direction: column; gap: 4px; }
+  .preview-label { font-size: 10px; color: #475569; text-align: center; }
+  .demo-btn {
+    font-size: 10px; color: #0D9488; background: none; border: none;
+    cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; margin-bottom: 2px;
+  }
+
+  /* BASE CARD */
+  .card-slot {
+    width: 72px; height: 100px; border-radius: 6px;
+    overflow: hidden; position: relative; flex-shrink: 0;
+  }
+  .card-face {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .card-face.shown { opacity: 1; }
+
+  /* ─────────────────────────────────
+     A: TEAL CONIC SPIN (placeholder)
+     → fast fade reveal
+  ───────────────────────────────── */
+  .conic-placeholder {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: conic-gradient(
+      from var(--a, 0deg) at 50% 50%,
+      #0d2020 0deg, #0D9488 60deg, #2DD4BF 90deg, #0D9488 120deg, #0d2020 180deg,
+      #0d2020 360deg
+    );
+    opacity: 1;
+    transition: opacity 0.12s ease;
+    animation: conic-spin 1.2s linear infinite;
+  }
+  .conic-placeholder.done { opacity: 0; }
+  .conic-overlay {
+    position: absolute; inset: 3px; border-radius: 4px;
+    background: #0d1117;
+  }
+  @property --a {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
+  @keyframes conic-spin {
+    from { --a: 0deg; }
+    to   { --a: 360deg; }
+  }
+
+  /* ─────────────────────────────────
+     B: CARD BACK SHIMMER (placeholder)
+     → flip reveal
+  ───────────────────────────────── */
+  .back-placeholder {
+    position: absolute; inset: 0; border-radius: 5px;
+    background:
+      repeating-linear-gradient(
+        45deg,
+        #1a1f2e 0px, #1a1f2e 4px,
+        #141824 4px, #141824 8px
+      );
+    border: 1px solid #2D4059;
+    overflow: hidden;
+    transition: opacity 0.12s ease;
+  }
+  .back-placeholder.done { opacity: 0; }
+  .back-shimmer {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgba(13,148,136,0.25) 50%,
+      transparent 70%
+    );
+    background-size: 200% 100%;
+    animation: back-sweep 1.6s ease-in-out infinite;
+  }
+  .back-inner-border {
+    position: absolute; inset: 5px; border-radius: 3px;
+    border: 1px solid rgba(13,148,136,0.3);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(13,148,136,0.4); font-size: 22px;
+  }
+  @keyframes back-sweep {
+    0%   { background-position: -100% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* ─────────────────────────────────
+     C: ORBITAL RING (placeholder)
+     → snap reveal
+  ───────────────────────────────── */
+  .orbit-placeholder {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: #0d1117;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.12s ease;
+  }
+  .orbit-placeholder.done { opacity: 0; }
+  .orbit-ring {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: #0D9488;
+    border-right-color: rgba(13,148,136,0.3);
+    animation: orbit 0.8s linear infinite;
+    box-shadow: 0 0 10px rgba(13,148,136,0.3);
+  }
+  .orbit-ring::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 1.5px solid transparent;
+    border-bottom-color: #2DD4BF;
+    border-left-color: rgba(45,212,191,0.2);
+    animation: orbit 1.2s linear infinite reverse;
+  }
+  @keyframes orbit {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ─────────────────────────────────
+     D: PARTICLE FLOAT (placeholder)
+     → fade reveal
+  ───────────────────────────────── */
+  .particle-placeholder {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: #0d1420;
+    overflow: hidden;
+    transition: opacity 0.12s ease;
+  }
+  .particle-placeholder.done { opacity: 0; }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    background: #0D9488;
+    opacity: 0;
+    animation: float-up var(--dur, 2s) ease-in var(--delay, 0s) infinite;
+  }
+  @keyframes float-up {
+    0%   { opacity: 0; transform: translateY(0) scale(1); }
+    20%  { opacity: 0.7; }
+    80%  { opacity: 0.4; }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.4); }
+  }
+</style>
+</head>
+<body>
+<h2>Card loading — snappy + animated</h2>
+<p class="note">Each option shows what plays <strong>while the image loads</strong> (left), then the fast snap when it arrives (right). The wait animation loops cleanly — no jank.</p>
+
+<div class="options-grid">
+
+  <!-- A: Conic spin -->
+  <div class="option-row" id="opt-a" onclick="sel('a')">
+    <div class="option-letter">A</div>
+    <div class="option-content">
+      <div class="option-name">Teal conic spin → fade</div>
+      <div class="option-desc">A rotating teal arc sweeps around the card border while loading. Image fades in at ~120ms once ready. The spin ties visually to the rainbow foil hover effect.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot" id="conic-slot">
+            <div class="conic-placeholder" id="conic-ph">
+              <div class="conic-overlay"></div>
+            </div>
+            <div class="card-face" id="conic-face">🌊</div>
+          </div>
+          <div class="preview-label">While loading</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div style="position:absolute;inset:0;border-radius:5px;background:linear-gradient(160deg,#1a2535,#0d1420);display:flex;align-items:center;justify-content:center;font-size:26px;">🌊</div>
+          </div>
+          <div class="preview-label">Loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoConic()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: Card back shimmer -->
+  <div class="option-row" id="opt-b" onclick="sel('b')">
+    <div class="option-letter">B</div>
+    <div class="option-content">
+      <div class="option-name">Card back with shimmer → fade</div>
+      <div class="option-desc">Shows a proper card-back texture with a slow teal shimmer sweeping across it. Feels like a face-down card sitting on the table. Very thematic, immediately readable as "loading."</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot" id="back-slot">
+            <div class="back-placeholder" id="back-ph">
+              <div class="back-shimmer"></div>
+              <div class="back-inner-border">⚜</div>
+            </div>
+            <div class="card-face" id="back-face">🌊</div>
+          </div>
+          <div class="preview-label">While loading</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div style="position:absolute;inset:0;border-radius:5px;background:linear-gradient(160deg,#1a2535,#0d1420);display:flex;align-items:center;justify-content:center;font-size:26px;">🌊</div>
+          </div>
+          <div class="preview-label">Loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoBack()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Orbital ring -->
+  <div class="option-row" id="opt-c" onclick="sel('c')">
+    <div class="option-letter">C</div>
+    <div class="option-content">
+      <div class="option-name">Dual orbital rings → snap</div>
+      <div class="option-desc">Two concentric teal rings spin in opposite directions inside the dark card slot. Very clean, immediately communicates "loading" without looking broken. Image snaps in at full speed.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot" id="orbit-slot">
+            <div class="orbit-placeholder" id="orbit-ph">
+              <div class="orbit-ring"></div>
+            </div>
+            <div class="card-face" id="orbit-face">🌊</div>
+          </div>
+          <div class="preview-label">While loading</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div style="position:absolute;inset:0;border-radius:5px;background:linear-gradient(160deg,#1a2535,#0d1420);display:flex;align-items:center;justify-content:center;font-size:26px;">🌊</div>
+          </div>
+          <div class="preview-label">Loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoOrbit()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Particle float -->
+  <div class="option-row" id="opt-d" onclick="sel('d')">
+    <div class="option-letter">D</div>
+    <div class="option-content">
+      <div class="option-name">Floating particles → fade</div>
+      <div class="option-desc">Tiny teal particles drift upward inside the dark card slot — like magic dust or embers. Subtle, atmospheric. Feels alive without being distracting.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="card-slot" id="particle-slot">
+            <div class="particle-placeholder" id="particle-ph"></div>
+            <div class="card-face" id="particle-face">🌊</div>
+          </div>
+          <div class="preview-label">While loading</div>
+        </div>
+        <div class="card-col">
+          <div class="card-slot">
+            <div style="position:absolute;inset:0;border-radius:5px;background:linear-gradient(160deg,#1a2535,#0d1420);display:flex;align-items:center;justify-content:center;font-size:26px;">🌊</div>
+          </div>
+          <div class="preview-label">Loaded</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoParticle()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(c) {
+  document.querySelectorAll('.option-row').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + c).classList.add('selected');
+  if (window.recordChoice) window.recordChoice(c, document.getElementById('opt-' + c).querySelector('.option-name').textContent);
+}
+
+function reveal(ph, face, delay) {
+  ph.classList.remove('done');
+  face.classList.remove('shown');
+  setTimeout(() => {
+    ph.classList.add('done');
+    face.classList.add('shown');
+  }, delay);
+}
+
+function demoConic() { reveal(document.getElementById('conic-ph'), document.getElementById('conic-face'), 1800); }
+function demoBack()   { reveal(document.getElementById('back-ph'),  document.getElementById('back-face'),  1800); }
+function demoOrbit()  { reveal(document.getElementById('orbit-ph'), document.getElementById('orbit-face'), 1800); }
+
+/* particles */
+function buildParticles() {
+  const ph = document.getElementById('particle-ph');
+  ph.innerHTML = '';
+  const sizes = [2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 3, 2];
+  const xs = [10, 18, 25, 35, 45, 55, 62, 70, 30, 50, 40, 20];
+  sizes.forEach((s, i) => {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `width:${s}px;height:${s}px;left:${xs[i]}%;bottom:5px;--dur:${1.4 + Math.random()}s;--delay:${Math.random() * 1.2}s;box-shadow:0 0 ${s*2}px rgba(13,148,136,0.6)`;
+    ph.appendChild(p);
+  });
+}
+function demoParticle() {
+  buildParticles();
+  reveal(document.getElementById('particle-ph'), document.getElementById('particle-face'), 2200);
+}
+
+// auto-demo on load
+setTimeout(demoConic, 400);
+setTimeout(demoBack, 600);
+setTimeout(demoOrbit, 500);
+buildParticles();
+setTimeout(demoParticle, 700);
+</script>
+</body>
+</html>

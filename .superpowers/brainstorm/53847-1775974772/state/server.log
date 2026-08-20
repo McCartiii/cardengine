@@ -1,0 +1,14 @@
+{"type":"server-started","port":51185,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:51185","screen_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content","state_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/state"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-mtg-card.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-fullscreen-card.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-showcase-card.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-real-mtg.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-custom-art.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-is-the-card.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-premium.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-clean.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-designed.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-final.html"}
+{"type":"screen-updated","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-final.html"}
+{"type":"screen-updated","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/53847-1775974772/content/login-final.html"}
+{"type":"server-stopped","reason":"idle timeout"}

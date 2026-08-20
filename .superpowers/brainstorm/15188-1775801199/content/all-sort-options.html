@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Sort & Group Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: #090D14;
+    color: #e2e8f0;
+    padding: 28px 32px;
+  }
+
+  h1 { font-size: 20px; font-weight: 800; color: #F8FAFC; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+
+  /* ── Toggle Bar ── */
+  .toggle-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 14px 18px;
+    background: #161B27;
+    border: 1px solid #1E2535;
+    border-radius: 14px;
+  }
+  .toggle-group { display: flex; flex-direction: column; gap: 4px; }
+  .toggle-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #475569; }
+  .toggle-pills { display: flex; gap: 3px; background: #0F1117; border-radius: 8px; padding: 3px; }
+  .pill {
+    padding: 5px 11px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .pill.active { background: #1E2535; color: #CBD5E1; }
+  .pill.accent { background: #0D9488; color: white; }
+  .toggle-sep { width: 1px; height: 36px; background: #1E2535; flex-shrink: 0; }
+
+  /* ── Preview Grid ── */
+  .previews { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .preview-panel {
+    background: #0F1117;
+    border: 1px solid #1E2535;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .preview-header {
+    padding: 10px 16px;
+    background: #161B27;
+    border-bottom: 1px solid #1E2535;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .preview-title { font-size: 12px; font-weight: 700; color: #CBD5E1; }
+  .preview-badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(13,148,136,0.15); color: #2DD4BF; }
+  .preview-body { padding: 12px 16px; }
+
+  /* ── Card rows ── */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    margin-top: 14px;
+  }
+  .sec-head:first-child { margin-top: 0; }
+  .sec-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .sec-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+  .sec-cnt { font-size: 9px; color: #334155; }
+  .sec-line { flex: 1; height: 1px; }
+
+  .cr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    transition: background 0.1s;
+  }
+  .cr:hover { background: #161B27; }
+  .cr-q { width: 14px; text-align: center; font-weight: 700; color: #475569; flex-shrink: 0; }
+  .cr-n { flex: 1; color: #CBD5E1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cr-m { color: #334155; font-family: monospace; font-size: 10px; flex-shrink: 0; }
+  .cr-p { color: #334155; font-variant-numeric: tabular-nums; flex-shrink: 0; width: 42px; text-align: right; }
+  .cr:hover .cr-p, .cr:hover .cr-m { color: #64748b; }
+  .teal { color: #0D9488 !important; }
+
+  .color-row { border-left: 2.5px solid transparent; padding-left: 10px; }
+
+  .note {
+    margin-top: 28px;
+    background: rgba(13,148,136,0.06);
+    border: 1px solid rgba(13,148,136,0.15);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.7;
+  }
+  .note strong { color: #2DD4BF; }
+  .note code { background: #1E2535; padding: 1px 5px; border-radius: 4px; font-size: 11px; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<h1>Complete Sort & Group Controls</h1>
+<p class="sub">Every grouping + view mode + sort order combo available from the action bar</p>
+
+<!-- ── Toggle Bar Mockup ── -->
+<div class="toggle-bar">
+  <div class="toggle-group">
+    <span class="toggle-label">Group by</span>
+    <div class="toggle-pills">
+      <span class="pill">Section</span>
+      <span class="pill active">Type</span>
+      <span class="pill">Color</span>
+      <span class="pill accent">CMC</span>
+    </div>
+  </div>
+  <div class="toggle-sep"></div>
+  <div class="toggle-group">
+    <span class="toggle-label">View</span>
+    <div class="toggle-pills">
+      <span class="pill active">List</span>
+      <span class="pill">Art</span>
+      <span class="pill">Art+Name</span>
+    </div>
+  </div>
+  <div class="toggle-sep"></div>
+  <div class="toggle-group">
+    <span class="toggle-label">Sort</span>
+    <div class="toggle-pills">
+      <span class="pill active">Name</span>
+      <span class="pill">Price ↓</span>
+      <span class="pill">Price ↑</span>
+      <span class="pill">CMC ↓</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── 4 Group-By Previews ── -->
+<div class="previews">
+
+  <!-- 1: By Section -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <span class="preview-title">Group: Section</span>
+      <span class="preview-badge">Default</span>
+    </div>
+    <div class="preview-body">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#a855f7;"></div>
+        <span class="sec-label" style="color:#a855f7;">Commander</span>
+        <span class="sec-cnt">(1)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(168,85,247,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Atraxa, Praetors' Voice</span><span class="cr-m">WUBG</span><span class="cr-p teal">$18</span></div>
+
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#0D9488;"></div>
+        <span class="sec-label" style="color:#0D9488;">Mainboard</span>
+        <span class="sec-cnt">(63)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(13,148,136,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Elspeth, Sun's Champion</span><span class="cr-m">4WW</span><span class="cr-p">$4</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Jace, the Mind Sculptor</span><span class="cr-m">2UU</span><span class="cr-p teal">$36</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Sol Ring</span><span class="cr-m">1</span><span class="cr-p">$3</span></div>
+      <div style="font-size:10px;color:#334155;padding:3px 8px;">+ 60 more…</div>
+
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#475569;"></div>
+        <span class="sec-label" style="color:#475569;">Sideboard</span>
+        <span class="sec-cnt">(0)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(71,85,105,0.3),transparent);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2: By Type -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <span class="preview-title">Group: Type</span>
+    </div>
+    <div class="preview-body">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#f59e0b;"></div>
+        <span class="sec-label" style="color:#f59e0b;">Planeswalkers</span>
+        <span class="sec-cnt">(12)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(245,158,11,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Jace, the Mind Sculptor</span><span class="cr-m">2UU</span><span class="cr-p teal">$36</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Liliana of the Veil</span><span class="cr-m">1BB</span><span class="cr-p teal">$24</span></div>
+
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#22c55e;"></div>
+        <span class="sec-label" style="color:#22c55e;">Creatures</span>
+        <span class="sec-cnt">(22)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(34,197,94,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Deepglow Skate</span><span class="cr-m">4U</span><span class="cr-p">$3.50</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Vorinclex, Voice of Hunger</span><span class="cr-m">6GG</span><span class="cr-p">$9</span></div>
+
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#78716c;"></div>
+        <span class="sec-label" style="color:#78716c;">Lands</span>
+        <span class="sec-cnt">(35)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(120,113,108,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Command Tower</span><span class="cr-m">—</span><span class="cr-p">$0.50</span></div>
+      <div style="font-size:10px;color:#334155;padding:3px 8px;">+ 34 more…</div>
+    </div>
+  </div>
+
+  <!-- 3: By Color -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <span class="preview-title">Group: Color</span>
+    </div>
+    <div class="preview-body">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#FDE68A;"></div>
+        <span class="sec-label" style="color:#FDE68A;">White</span>
+        <span class="sec-cnt">(14)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(253,230,138,0.3),transparent);"></div>
+      </div>
+      <div class="cr color-row" style="border-left-color:rgba(253,230,138,0.4);"><span class="cr-q">1</span><span class="cr-n">Elspeth, Sun's Champion</span><span class="cr-m">4WW</span><span class="cr-p">$4</span></div>
+      <div class="cr color-row" style="border-left-color:rgba(253,230,138,0.4);"><span class="cr-q">1</span><span class="cr-n">Swords to Plowshares</span><span class="cr-m">W</span><span class="cr-p">$2</span></div>
+
+      <div class="sec-head">
+        <div class="sec-dot" style="background:#93C5FD;"></div>
+        <span class="sec-label" style="color:#93C5FD;">Blue</span>
+        <span class="sec-cnt">(18)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(147,197,253,0.3),transparent);"></div>
+      </div>
+      <div class="cr color-row" style="border-left-color:rgba(147,197,253,0.4);"><span class="cr-q">1</span><span class="cr-n">Jace, the Mind Sculptor</span><span class="cr-m">2UU</span><span class="cr-p teal">$36</span></div>
+      <div class="cr color-row" style="border-left-color:rgba(147,197,253,0.4);"><span class="cr-q">1</span><span class="cr-n">Cyclonic Rift</span><span class="cr-m">1U</span><span class="cr-p teal">$12</span></div>
+
+      <div class="sec-head">
+        <div style="display:flex;gap:1px;"><div class="sec-dot" style="background:#FDE68A;"></div><div class="sec-dot" style="background:#93C5FD;margin-left:-3px;"></div></div>
+        <span class="sec-label" style="color:#FCD34D;">Multicolor</span>
+        <span class="sec-cnt">(8)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(252,211,77,0.3),transparent);"></div>
+      </div>
+      <div class="cr color-row" style="border-left-color:rgba(252,211,77,0.35);"><span class="cr-q">1</span><span class="cr-n">Atraxa, Praetors' Voice</span><span class="cr-m">WUBG</span><span class="cr-p teal">$18</span></div>
+    </div>
+  </div>
+
+  <!-- 4: By CMC (new) -->
+  <div class="preview-panel" style="border-color: rgba(13,148,136,0.3);">
+    <div class="preview-header" style="border-bottom-color: rgba(13,148,136,0.2);">
+      <span class="preview-title">Group: Mana Value</span>
+      <span class="preview-badge">New</span>
+    </div>
+    <div class="preview-body">
+      <div class="sec-head">
+        <div style="width:16px;height:16px;border-radius:5px;background:#1E2535;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0D9488;flex-shrink:0;">1</div>
+        <span class="sec-label" style="color:#0D9488;">1-drops</span>
+        <span class="sec-cnt">(8)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(13,148,136,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Sol Ring</span><span class="cr-m">1</span><span class="cr-p">$3</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Swords to Plowshares</span><span class="cr-m">W</span><span class="cr-p">$2</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Path to Exile</span><span class="cr-m">W</span><span class="cr-p">$1.50</span></div>
+
+      <div class="sec-head">
+        <div style="width:16px;height:16px;border-radius:5px;background:#1E2535;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0D9488;flex-shrink:0;">2</div>
+        <span class="sec-label" style="color:#0D9488;">2-drops</span>
+        <span class="sec-cnt">(15)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(13,148,136,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Arcane Signet</span><span class="cr-m">2</span><span class="cr-p">$1</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Counterspell</span><span class="cr-m">UU</span><span class="cr-p">$1.50</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Cyclonic Rift</span><span class="cr-m">1U</span><span class="cr-p teal">$12</span></div>
+
+      <div class="sec-head">
+        <div style="width:16px;height:16px;border-radius:5px;background:#1E2535;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0D9488;flex-shrink:0;">3</div>
+        <span class="sec-label" style="color:#0D9488;">3-drops</span>
+        <span class="sec-cnt">(18)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(13,148,136,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Liliana of the Veil</span><span class="cr-m">1BB</span><span class="cr-p teal">$24</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Toxic Deluge</span><span class="cr-m">2B</span><span class="cr-p">$16</span></div>
+
+      <div class="sec-head">
+        <div style="width:16px;height:16px;border-radius:5px;background:#1E2535;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0D9488;flex-shrink:0;">4</div>
+        <span class="sec-label" style="color:#0D9488;">4-drops</span>
+        <span class="sec-cnt">(12)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(13,148,136,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Jace, the Mind Sculptor</span><span class="cr-m">2UU</span><span class="cr-p teal">$36</span></div>
+
+      <div class="sec-head">
+        <div style="width:16px;height:16px;border-radius:5px;background:#1E2535;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0D9488;flex-shrink:0;">5+</div>
+        <span class="sec-label" style="color:#0D9488;">5+ drops</span>
+        <span class="sec-cnt">(11)</span>
+        <div class="sec-line" style="background:linear-gradient(to right,rgba(13,148,136,0.3),transparent);"></div>
+      </div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Deepglow Skate</span><span class="cr-m">4U</span><span class="cr-p">$3.50</span></div>
+      <div class="cr"><span class="cr-q">1</span><span class="cr-n">Doubling Season</span><span class="cr-m">4G</span><span class="cr-p teal">$42</span></div>
+      <div style="font-size:10px;color:#334155;padding:3px 8px;">+ 9 more…</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  <strong>Three independent controls:</strong><br>
+  <code>Group by</code> — Section · Type · Color · CMC — determines how cards are bucketed into sections<br>
+  <code>View</code> — List · Art · Art+Name — applies to any grouping (art grid shows card images instead of rows)<br>
+  <code>Sort</code> — Name · Price ↓ · Price ↑ · CMC ↓ — sorts cards <em>within</em> each group<br><br>
+  All 3 are independent and composable. You can group by Color, view as Art, and sort by Price descending — any combo works. Lands always appear last regardless of grouping.
+</div>
+
+</body>
+</html>

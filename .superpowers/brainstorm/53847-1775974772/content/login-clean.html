@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Enter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; padding: 30px; min-height: 100vh; }
+
+  @keyframes drift-slow {
+    0% { transform: translate(0, 0); }
+    33% { transform: translate(8px, -6px); }
+    66% { transform: translate(-5px, 4px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  @keyframes drift-slow-2 {
+    0% { transform: translate(0, 0); }
+    33% { transform: translate(-7px, 5px); }
+    66% { transform: translate(6px, -8px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  @keyframes sweep-light {
+    0% { transform: translateX(-100%) skewX(-15deg); }
+    100% { transform: translateX(250%) skewX(-15deg); }
+  }
+
+  @keyframes shimmer-btn {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+
+  @keyframes emblem-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13,148,136,0), 0 0 20px rgba(13,148,136,0.06); }
+    50% { box-shadow: 0 0 0 8px rgba(13,148,136,0.03), 0 0 40px rgba(13,148,136,0.1); }
+  }
+
+  @keyframes fade-up {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes star-appear {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 0.8; }
+  }
+
+  @keyframes rotate-slow {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     DEVICE
+     ═══════════════════════════════════════════════════════════════ */
+
+  .device {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 50px 100px rgba(0,0,0,0.8),
+      0 0 0 1px rgba(255,255,255,0.04),
+      inset 0 0 0 1px rgba(255,255,255,0.02);
+    background: #0F1117;
+  }
+
+  /* Card structure */
+  .card {
+    position: absolute;
+    inset: 0;
+    background: #0F1117;
+  }
+
+  .card-inset {
+    position: absolute;
+    inset: 6px;
+    border-radius: 38px;
+    border: 1px solid rgba(255,255,255,0.03);
+    overflow: hidden;
+  }
+
+  .frame {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg,
+        rgba(255,255,255,0.02) 0%,
+        transparent 2%,
+        transparent 98%,
+        rgba(255,255,255,0.015) 100%
+      ),
+      linear-gradient(180deg, #0F1117 0%, #0C0E14 100%);
+  }
+
+  /* Thin structural lines */
+  .rule {
+    position: absolute;
+    left: 20px; right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  }
+
+  .rule-top { top: 370px; }
+  .rule-bot { bottom: 48px; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ART WINDOW — top portion
+     ═══════════════════════════════════════════════════════════════ */
+
+  .art {
+    position: absolute;
+    top: 0;
+    left: 0; right: 0;
+    height: 366px;
+    overflow: hidden;
+    z-index: 3;
+  }
+
+  .art::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-shadow:
+      inset 0 -30px 40px rgba(15,17,23,0.9),
+      inset 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 20;
+    pointer-events: none;
+  }
+
+  .art-base {
+    position: absolute;
+    inset: 0;
+    background: #080A10;
+  }
+
+  .art-cosmos {
+    position: absolute;
+    inset: -20px;
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(13,94,88,0.5) 0%, transparent 50%),
+      radial-gradient(ellipse at 72% 60%, rgba(10,20,50,0.5) 0%, transparent 45%),
+      radial-gradient(ellipse at 50% 85%, rgba(18,8,35,0.4) 0%, transparent 40%),
+      radial-gradient(ellipse at 15% 65%, rgba(8,30,45,0.3) 0%, transparent 40%);
+    animation: drift-slow 24s ease-in-out infinite;
+  }
+
+  .wisp {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(30px);
+    mix-blend-mode: screen;
+  }
+
+  .w1 { width: 200px; height: 120px; top: 15%; left: 5%; background: rgba(13,148,136,0.1); animation: drift-slow 20s ease-in-out infinite; }
+  .w2 { width: 160px; height: 140px; bottom: 20%; right: 0; background: rgba(20,60,140,0.08); animation: drift-slow-2 18s ease-in-out infinite; }
+  .w3 { width: 120px; height: 100px; top: 50%; left: 30%; background: rgba(60,20,90,0.05); animation: drift-slow 22s ease-in-out 5s infinite; }
+
+  .stars { position: absolute; inset: 0; }
+  .s { position: absolute; background: white; border-radius: 50%; }
+
+  .sa { width: 2px; height: 2px; top: 14%; left: 20%; box-shadow: 0 0 4px rgba(200,240,255,0.5); animation: star-appear 4s infinite; }
+  .sb { width: 2px; height: 2px; top: 30%; right: 24%; box-shadow: 0 0 4px rgba(200,240,255,0.5); animation: star-appear 5s 1s infinite; }
+  .sc { width: 2px; height: 2px; top: 62%; left: 65%; box-shadow: 0 0 4px rgba(200,240,255,0.5); animation: star-appear 3.5s 2s infinite; }
+
+  .sd { width: 1px; height: 1px; opacity: 0.35; }
+  .sd1 { top: 8%; left: 45%; } .sd2 { top: 22%; left: 75%; } .sd3 { top: 38%; left: 12%; }
+  .sd4 { top: 52%; right: 18%; } .sd5 { top: 70%; left: 32%; } .sd6 { top: 80%; right: 28%; }
+  .sd7 { top: 44%; left: 55%; opacity: 0.2; } .sd8 { top: 16%; left: 82%; opacity: 0.25; }
+  .sd9 { top: 86%; left: 18%; opacity: 0.2; } .sd10 { top: 56%; left: 8%; opacity: 0.3; }
+
+  /* Emblem — centered, uses app teal */
+  .emblem {
+    position: absolute;
+    top: 48%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+  }
+
+  .emblem-ring {
+    position: absolute;
+    width: 160px; height: 160px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px solid rgba(13,148,136,0.12);
+    animation: emblem-pulse 5s ease-in-out infinite;
+  }
+
+  .emblem-orbit {
+    position: absolute;
+    width: 180px; height: 180px;
+    top: 50%; left: 50%;
+    border-radius: 50%;
+    animation: rotate-slow 40s linear infinite;
+  }
+
+  .orbit-p {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .op1 { width: 3px; height: 3px; background: rgba(13,148,136,0.5); box-shadow: 0 0 6px rgba(13,148,136,0.4); top: -1px; left: 50%; margin-left: -1px; }
+  .op2 { width: 2px; height: 2px; background: rgba(20,184,166,0.35); box-shadow: 0 0 4px rgba(20,184,166,0.3); bottom: -1px; left: 50%; margin-left: -1px; }
+
+  .emblem-disc {
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 45% 40%, rgba(15,17,23,0.97), rgba(8,10,14,0.99));
+    border: 1px solid rgba(13,148,136,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.02);
+  }
+
+  .emblem-name {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(13,148,136,0.85);
+    letter-spacing: 1.5px;
+    text-align: center;
+    line-height: 1.2;
+    text-shadow: 0 0 20px rgba(13,148,136,0.2);
+  }
+
+  .emblem-tag {
+    font-family: 'Outfit', sans-serif;
+    font-size: 6.5px;
+    font-weight: 500;
+    color: rgba(13,148,136,0.3);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  .art-light {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.015), transparent);
+    animation: sweep-light 8s ease-in-out infinite;
+    z-index: 15;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     FORM — below the art
+     ═══════════════════════════════════════════════════════════════ */
+
+  .form-area {
+    position: absolute;
+    top: 390px;
+    left: 20px; right: 20px;
+    bottom: 52px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    padding: 0 6px;
+  }
+
+  .f-intro {
+    text-align: center;
+    margin-bottom: 22px;
+    animation: fade-up 0.6s ease-out 0.2s both;
+  }
+
+  .f-heading {
+    font-family: 'Cinzel', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: rgba(13,148,136,0.9);
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+    text-shadow: 0 0 24px rgba(13,148,136,0.12);
+  }
+
+  .f-sub {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(148,163,184,0.4);
+    letter-spacing: 0.3px;
+  }
+
+  .field {
+    margin-bottom: 10px;
+    animation: fade-up 0.6s ease-out var(--d, 0.3s) both;
+  }
+
+  .field-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(148,163,184,0.25);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    padding-left: 2px;
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(30,45,61,0.3);
+    background: rgba(22,27,39,0.3);
+    color: rgba(226,232,240,0.85);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    outline: none;
+    transition: all 0.3s ease;
+    letter-spacing: 0.2px;
+  }
+
+  .field-input:focus {
+    border-color: rgba(13,148,136,0.2);
+    background: rgba(13,148,136,0.03);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.04);
+  }
+
+  .field-input::placeholder { color: rgba(148,163,184,0.15); font-weight: 300; }
+
+  .f-meta {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+    margin-top: -2px;
+    animation: fade-up 0.6s ease-out 0.5s both;
+  }
+
+  .f-link {
+    font-family: 'Outfit', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(13,148,136,0.45);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .f-link:hover { color: rgba(13,148,136,0.7); }
+
+  /* CTA — app teal */
+  .cta-wrap {
+    position: relative;
+    margin-bottom: 16px;
+    animation: fade-up 0.6s ease-out 0.6s both;
+  }
+
+  .cta {
+    width: 100%;
+    padding: 15px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    box-shadow: 0 4px 20px rgba(13,148,136,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.15s ease;
+  }
+
+  .cta:active { transform: scale(0.98); }
+
+  .cta-shine {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmer-btn 3s ease-in-out infinite;
+  }
+
+  .cta-text { position: relative; z-index: 1; }
+
+  .cta-glow {
+    position: absolute;
+    bottom: -3px;
+    left: 15%; right: 15%;
+    height: 12px;
+    border-radius: 6px;
+    background: rgba(13,148,136,0.2);
+    filter: blur(12px);
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+    animation: fade-up 0.6s ease-out 0.7s both;
+  }
+
+  .div-line { flex: 1; height: 1px; background: rgba(30,45,61,0.25); }
+
+  .div-text {
+    font-family: 'Outfit', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    color: rgba(148,163,184,0.15);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Social */
+  .soc-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    animation: fade-up 0.6s ease-out 0.8s both;
+  }
+
+  .soc-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(30,45,61,0.2);
+    background: rgba(22,27,39,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .soc-btn:hover {
+    border-color: rgba(30,45,61,0.4);
+    background: rgba(22,27,39,0.4);
+  }
+
+  .soc-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(148,163,184,0.35);
+    transition: color 0.25s;
+  }
+
+  .soc-btn:hover .soc-label { color: rgba(148,163,184,0.6); }
+
+  .soc-icon {
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(148,163,184,0.35);
+  }
+
+  /* Guest */
+  .guest {
+    text-align: center;
+    animation: fade-up 0.6s ease-out 0.9s both;
+  }
+
+  .guest-text {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    color: rgba(148,163,184,0.12);
+  }
+
+  .guest-link {
+    color: rgba(13,148,136,0.3);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(13,148,136,0.1);
+    padding-bottom: 1px;
+    transition: color 0.2s;
+  }
+
+  .guest-link:hover { color: rgba(13,148,136,0.5); }
+
+  /* Footer */
+  .footer {
+    position: absolute;
+    bottom: 22px;
+    left: 28px; right: 28px;
+    display: flex;
+    justify-content: center;
+    z-index: 5;
+  }
+
+  .footer span {
+    font-family: 'Outfit', sans-serif;
+    font-size: 8px;
+    font-weight: 400;
+    color: rgba(148,163,184,0.08);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="card">
+    <div class="card-inset">
+      <div class="frame">
+
+        <div class="rule rule-top"></div>
+        <div class="rule rule-bot"></div>
+
+        <!-- Art — no title bar, no mana, no type line -->
+        <div class="art">
+          <div class="art-base"></div>
+          <div class="art-cosmos"></div>
+          <div class="wisp w1"></div>
+          <div class="wisp w2"></div>
+          <div class="wisp w3"></div>
+
+          <div class="stars">
+            <div class="s sa"></div><div class="s sb"></div><div class="s sc"></div>
+            <div class="s sd sd1"></div><div class="s sd sd2"></div><div class="s sd sd3"></div>
+            <div class="s sd sd4"></div><div class="s sd sd5"></div><div class="s sd sd6"></div>
+            <div class="s sd sd7"></div><div class="s sd sd8"></div><div class="s sd sd9"></div>
+            <div class="s sd sd10"></div>
+          </div>
+
+          <!-- Centered emblem — app teal -->
+          <div class="emblem">
+            <div class="emblem-orbit">
+              <div class="orbit-p op1"></div>
+              <div class="orbit-p op2"></div>
+            </div>
+            <div class="emblem-ring"></div>
+            <div class="emblem-disc">
+              <div class="emblem-name">Card<br>Engine</div>
+              <div class="emblem-tag">Scan . Collect . Master</div>
+            </div>
+          </div>
+
+          <div class="art-light"></div>
+        </div>
+
+        <!-- Form — centered heading -->
+        <div class="form-area">
+          <div class="f-intro">
+            <div class="f-heading">Welcome</div>
+            <div class="f-sub">Sign in to your collection</div>
+          </div>
+
+          <div class="field" style="--d: 0.3s;">
+            <div class="field-label">Email</div>
+            <input class="field-input" type="email" placeholder="you@example.com" />
+          </div>
+
+          <div class="field" style="--d: 0.4s;">
+            <div class="field-label">Password</div>
+            <input class="field-input" type="password" placeholder="Enter your password" />
+          </div>
+
+          <div class="f-meta">
+            <a class="f-link">Forgot password?</a>
+          </div>
+
+          <div class="cta-wrap">
+            <button class="cta">
+              <span class="cta-shine"></span>
+              <span class="cta-text">Sign In</span>
+            </button>
+            <div class="cta-glow"></div>
+          </div>
+
+          <div class="divider">
+            <div class="div-line"></div>
+            <div class="div-text">or continue with</div>
+            <div class="div-line"></div>
+          </div>
+
+          <div class="soc-row">
+            <div class="soc-btn">
+              <span class="soc-icon"></span>
+              <span class="soc-label">Apple</span>
+            </div>
+            <div class="soc-btn">
+              <span class="soc-icon" style="color: rgba(66,133,244,0.4); font-size: 14px; font-weight: 700;">G</span>
+              <span class="soc-label">Google</span>
+            </div>
+          </div>
+
+          <div class="guest">
+            <span class="guest-text">or <a class="guest-link">explore as guest</a></span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <span>Card Engine v1.0</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,3 @@
+{"type":"server-started","port":61327,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61327","screen_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/23450-1775540233/content","state_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/23450-1775540233/state"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/23450-1775540233/content/holo-style.html"}
+{"type":"server-stopped","reason":"idle timeout"}

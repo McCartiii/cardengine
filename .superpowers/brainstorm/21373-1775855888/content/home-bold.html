@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Bold Variants</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #060910; color: #e2e8f0; -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+.demo-bar {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 3px; background: rgba(10,10,15,0.97);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 5px; z-index: 300;
+}
+.db { padding: 6px 16px; border-radius: 7px; font-size: 11px; font-weight: 600; color: #555; background: none; border: none; cursor: pointer; }
+.db.active { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+.page { display: none; min-height: 100vh; }
+.page.active { display: block; }
+
+/* ═══ SHARED ═══ */
+.nav-bar {
+  height: 60px; display: flex; align-items: center; padding: 0 32px;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  backdrop-filter: blur(24px);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.mark { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: white; }
+.wordmark { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.nav-sign { font-size: 13px; font-weight: 500; text-decoration: none; transition: color 0.15s; }
+.nav-cta { padding: 8px 22px; border-radius: 9px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; color: #fff; transition: all 0.15s; }
+.nav-cta:hover { transform: translateY(-1px); }
+
+/* ═══════════════════════════════════════════════════
+   A: LAYERED DEPTH — overlapping panels, parallax feel
+   ═══════════════════════════════════════════════════ */
+#page-a { background: #07060f; }
+#page-a .nav-bar { background: rgba(7,6,15,0.7); border-bottom: 1px solid rgba(99,102,241,0.06); }
+#page-a .mark { background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 0 14px rgba(99,102,241,0.3); }
+#page-a .wordmark { color: #f1f0ff; }
+#page-a .nav-sign { color: #5b5780; }
+#page-a .nav-sign:hover { color: #a5b4fc; }
+#page-a .nav-cta { background: linear-gradient(135deg, #6366f1, #7c3aed); box-shadow: 0 0 16px rgba(99,102,241,0.25); }
+
+.hero-a {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden; padding: 80px 40px;
+}
+/* Layered floating panels */
+.layer-panel {
+  position: absolute; border-radius: 20px; border: 1px solid rgba(99,102,241,0.08);
+  background: rgba(15,14,28,0.4); backdrop-filter: blur(8px);
+}
+.lp-1 { width: 300px; height: 200px; top: 12%; right: 8%; transform: rotate(3deg); opacity: 0.6; }
+.lp-2 { width: 250px; height: 160px; bottom: 15%; left: 6%; transform: rotate(-5deg); opacity: 0.4; }
+.lp-3 { width: 200px; height: 140px; top: 30%; left: 12%; transform: rotate(8deg); opacity: 0.3; }
+/* Panel inner content (faux card list) */
+.lp-lines { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.lp-line { height: 6px; border-radius: 3px; background: rgba(99,102,241,0.06); }
+.lp-line:nth-child(1) { width: 80%; }
+.lp-line:nth-child(2) { width: 60%; }
+.lp-line:nth-child(3) { width: 90%; }
+.lp-line:nth-child(4) { width: 45%; }
+.lp-line:nth-child(5) { width: 70%; }
+
+.lp-header { height: 10px; border-radius: 4px; background: rgba(99,102,241,0.1); margin: 14px 16px 10px; width: 40%; }
+
+/* Multiple ambient glows */
+.glow-a1 { position: absolute; top: -100px; right: 10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 60%); pointer-events: none; }
+.glow-a2 { position: absolute; bottom: -100px; left: 5%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 60%); pointer-events: none; }
+
+.hero-a-content { position: relative; z-index: 10; max-width: 560px; }
+.hero-a-content .badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 18px; border-radius: 20px; margin-bottom: 28px;
+  background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15);
+  font-size: 11px; font-weight: 600; color: #818cf8;
+}
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #818cf8; box-shadow: 0 0 8px rgba(129,140,248,0.5); animation: pulse-dot 2s ease infinite; }
+@keyframes pulse-dot { 0%,100%{box-shadow:0 0 8px rgba(129,140,248,0.5)}50%{box-shadow:0 0 16px rgba(129,140,248,0.8)} }
+
+.hero-a-content h1 { font-size: 60px; font-weight: 900; line-height: 1.04; letter-spacing: -0.04em; color: #f1f0ff; margin-bottom: 18px; }
+.hero-a-content h1 .gr { background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-a-content .sub { font-size: 16px; color: #4a4870; line-height: 1.75; margin-bottom: 32px; }
+.hero-a-content .ctas { display: flex; gap: 12px; }
+.cta-a1 {
+  padding: 14px 36px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  background: linear-gradient(135deg, #6366f1, #7c3aed); color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 0 30px rgba(99,102,241,0.3), 0 8px 24px rgba(0,0,0,0.4);
+  position: relative; overflow: hidden; transition: all 0.2s;
+}
+.cta-a1::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%); }
+.cta-a1:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(99,102,241,0.4), 0 10px 28px rgba(0,0,0,0.4); }
+.cta-a2 { padding: 14px 36px; border-radius: 12px; font-size: 15px; font-weight: 600; background: rgba(15,14,28,0.6); border: 1px solid rgba(99,102,241,0.15); color: #818cf8; cursor: pointer; backdrop-filter: blur(8px); transition: all 0.2s; }
+.cta-a2:hover { border-color: rgba(99,102,241,0.35); color: #c4b5fd; }
+
+/* Features A */
+.feat-a { max-width: 1060px; margin: 0 auto; padding: 80px 24px 100px; }
+.feat-a-header { text-align: center; margin-bottom: 48px; }
+.feat-a-header h2 { font-size: 34px; font-weight: 800; color: #f1f0ff; letter-spacing: -0.02em; margin-bottom: 8px; }
+.feat-a-header p { font-size: 14px; color: #4a4870; }
+
+/* Bento grid */
+.bento {
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: auto auto;
+  gap: 10px;
+}
+.bento-card {
+  background: rgba(15,14,28,0.5); backdrop-filter: blur(12px);
+  border: 1px solid rgba(99,102,241,0.07); border-radius: 16px;
+  padding: 28px 24px; position: relative; overflow: hidden;
+  transition: all 0.25s;
+}
+.bento-card:hover { border-color: rgba(99,102,241,0.2); transform: translateY(-2px); }
+.bento-card::before {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bc, rgba(99,102,241,0.2)), transparent);
+  opacity: 0; transition: opacity 0.25s;
+}
+.bento-card:hover::before { opacity: 1; }
+/* Ambient color on hover */
+.bento-card::after {
+  content: ''; position: absolute; top: -30px; left: 20%; right: 20%; height: 70px;
+  background: radial-gradient(ellipse, var(--bc, rgba(99,102,241,0.05)), transparent);
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.bento-card:hover::after { opacity: 1; }
+
+/* Make first card span 2 cols */
+.bento-card.wide { grid-column: span 2; }
+.bento-card.tall { grid-row: span 2; }
+
+.b-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+}
+.b-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.bento-card h3 { font-size: 16px; font-weight: 700; color: #e8e6ff; margin-bottom: 8px; }
+.bento-card p { font-size: 13px; color: #4a4870; line-height: 1.65; }
+
+/* Visual element inside wide card */
+.mini-cards-row { display: flex; gap: 6px; margin-top: 16px; }
+.mini-card {
+  width: 48px; height: 68px; border-radius: 5px;
+  background: linear-gradient(180deg, rgba(99,102,241,0.08), rgba(99,102,241,0.02));
+  border: 1px solid rgba(99,102,241,0.1);
+}
+.mini-card:nth-child(3) { border-color: rgba(99,102,241,0.25); box-shadow: 0 0 10px rgba(99,102,241,0.08); }
+
+/* Color bar mini viz */
+.mini-viz { display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 16px; }
+.mv-seg { border-radius: 2px; }
+
+.bi-1 { background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.18); color: #60a5fa; --bc: rgba(96,165,250,0.15); }
+.bi-2 { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.14); color: #f87171; --bc: rgba(239,68,68,0.15); }
+.bi-3 { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.14); color: #fbbf24; --bc: rgba(251,191,36,0.15); }
+.bi-4 { background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.15); color: #a78bfa; --bc: rgba(168,85,247,0.15); }
+.bi-5 { background: rgba(52,211,153,0.07); border: 1px solid rgba(52,211,153,0.14); color: #34d399; --bc: rgba(52,211,153,0.15); }
+.bi-6 { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15); color: #818cf8; --bc: rgba(99,102,241,0.15); }
+
+#page-a .footer { border-top: 1px solid rgba(99,102,241,0.05); padding: 28px; text-align: center; font-size: 12px; color: #2a2844; }
+
+
+/* ═══════════════════════════════════════════════════
+   B: SPLIT HERO — left text, right floating cards
+   ═══════════════════════════════════════════════════ */
+#page-b { background: #080d18; }
+#page-b .nav-bar { background: rgba(8,13,24,0.7); border-bottom: 1px solid rgba(34,211,238,0.05); }
+#page-b .mark { background: linear-gradient(135deg, #0891b2, #06b6d4); box-shadow: 0 0 14px rgba(8,145,178,0.3); }
+#page-b .wordmark { color: #f0fdff; }
+#page-b .nav-sign { color: #3d5068; }
+#page-b .nav-sign:hover { color: #67e8f9; }
+#page-b .nav-cta { background: linear-gradient(135deg, #0891b2, #0e7490); box-shadow: 0 0 16px rgba(8,145,178,0.25); }
+
+.hero-b {
+  min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr;
+  align-items: center; padding: 80px 48px; gap: 40px;
+  position: relative; overflow: hidden;
+}
+.glow-b { position: absolute; top: 20%; right: 0; width: 600px; height: 600px; background: radial-gradient(circle, rgba(8,145,178,0.08) 0%, transparent 60%); pointer-events: none; }
+
+.hero-b-left { position: relative; z-index: 10; }
+.hero-b-left .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 18px; border-radius: 20px; margin-bottom: 28px; background: rgba(8,145,178,0.06); border: 1px solid rgba(34,211,238,0.12); font-size: 11px; font-weight: 600; color: #22d3ee; }
+.hero-b-left h1 { font-size: 56px; font-weight: 900; line-height: 1.06; letter-spacing: -0.04em; color: #f0fdff; margin-bottom: 18px; }
+.hero-b-left h1 .gr { background: linear-gradient(135deg, #22d3ee, #06b6d4, #67e8f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-b-left .sub { font-size: 16px; color: #3d5068; line-height: 1.75; margin-bottom: 32px; max-width: 420px; }
+.hero-b-left .ctas { display: flex; gap: 12px; }
+.cta-b1 { padding: 14px 36px; border-radius: 12px; font-size: 15px; font-weight: 700; background: linear-gradient(135deg, #0891b2, #0e7490); color: #fff; border: none; cursor: pointer; box-shadow: 0 0 30px rgba(8,145,178,0.3), 0 8px 24px rgba(0,0,0,0.4); transition: all 0.2s; }
+.cta-b1:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(8,145,178,0.4); }
+.cta-b2 { padding: 14px 36px; border-radius: 12px; font-size: 15px; font-weight: 600; background: rgba(12,20,36,0.6); border: 1px solid rgba(34,211,238,0.12); color: #22d3ee; cursor: pointer; transition: all 0.2s; }
+.cta-b2:hover { border-color: rgba(34,211,238,0.3); color: #67e8f9; }
+
+/* Right side — stacked floating cards */
+.hero-b-right { position: relative; z-index: 10; display: flex; justify-content: center; }
+.float-stack { position: relative; width: 280px; height: 400px; }
+.float-card {
+  position: absolute; width: 220px; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(34,211,238,0.1);
+  background: rgba(12,20,36,0.7); backdrop-filter: blur(8px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  transition: transform 0.3s;
+}
+.float-card:nth-child(1) { top: 0; left: 0; z-index: 1; transform: rotate(-4deg); }
+.float-card:nth-child(2) { top: 40px; left: 40px; z-index: 2; transform: rotate(2deg); }
+.float-card:nth-child(3) { top: 80px; left: 20px; z-index: 3; transform: rotate(-1deg); border-color: rgba(34,211,238,0.25); box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 0 20px rgba(8,145,178,0.08); }
+
+.float-card-art { width: 100%; height: 100px; background: linear-gradient(135deg, #0c1a2e, #101828); }
+.float-card-body { padding: 12px 14px; }
+.float-card-title { font-size: 12px; font-weight: 700; color: #e0f7ff; margin-bottom: 3px; }
+.float-card-type { font-size: 10px; color: #3d5068; margin-bottom: 8px; }
+.float-card-text { font-size: 9px; color: #3d5068; line-height: 1.5; }
+.float-card-mana { display: flex; gap: 3px; margin-top: 8px; }
+.fm-pip { width: 14px; height: 14px; border-radius: 50%; font-size: 8px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+
+/* Features B */
+.feat-b { max-width: 1060px; margin: 0 auto; padding: 80px 24px 100px; }
+.feat-b-header { text-align: center; margin-bottom: 48px; }
+.feat-b-header h2 { font-size: 34px; font-weight: 800; color: #f0fdff; letter-spacing: -0.02em; margin-bottom: 8px; }
+.feat-b-header p { font-size: 14px; color: #3d5068; }
+.feat-b-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.fb-card {
+  background: rgba(12,20,36,0.5); backdrop-filter: blur(12px);
+  border: 1px solid rgba(34,211,238,0.06); border-radius: 16px;
+  padding: 28px 24px; position: relative; overflow: hidden; transition: all 0.25s;
+}
+.fb-card:hover { border-color: rgba(34,211,238,0.18); transform: translateY(-2px); }
+.fb-card::before { content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px; background: linear-gradient(90deg, transparent, var(--bc, rgba(34,211,238,0.15)), transparent); opacity: 0; transition: opacity 0.25s; }
+.fb-card:hover::before { opacity: 1; }
+.fb-card::after { content: ''; position: absolute; top: -30px; left: 20%; right: 20%; height: 70px; background: radial-gradient(ellipse, var(--bc, rgba(34,211,238,0.04)), transparent); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.fb-card:hover::after { opacity: 1; }
+.fb-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.fb-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fb-card h3 { font-size: 15px; font-weight: 700; color: #e0f7ff; margin-bottom: 8px; }
+.fb-card p { font-size: 13px; color: #3d5068; line-height: 1.65; }
+.fbi-1 { background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.15); color: #60a5fa; --bc: rgba(96,165,250,0.15); }
+.fbi-2 { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.12); color: #f87171; --bc: rgba(239,68,68,0.12); }
+.fbi-3 { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.12); color: #fbbf24; --bc: rgba(251,191,36,0.12); }
+.fbi-4 { background: rgba(34,211,238,0.06); border: 1px solid rgba(34,211,238,0.12); color: #22d3ee; --bc: rgba(34,211,238,0.12); }
+.fbi-5 { background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.12); color: #34d399; --bc: rgba(52,211,153,0.12); }
+.fbi-6 { background: rgba(8,145,178,0.08); border: 1px solid rgba(8,145,178,0.15); color: #06b6d4; --bc: rgba(8,145,178,0.12); }
+
+#page-b .footer { border-top: 1px solid rgba(34,211,238,0.04); padding: 28px; text-align: center; font-size: 12px; color: #1e2d40; }
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <button class="db active" onclick="show('a')">A · Layered Depth</button>
+  <button class="db" onclick="show('b')">B · Split Hero</button>
+</div>
+
+<!-- ═══ A: LAYERED DEPTH ═══ -->
+<div class="page active" id="page-a">
+  <div class="nav-bar"><div class="logo"><div class="mark">CE</div><div class="wordmark">Card Engine</div></div><div class="nav-right"><a class="nav-sign">Sign in</a><button class="nav-cta">Get started</button></div></div>
+  <div class="hero-a">
+    <div class="glow-a1"></div><div class="glow-a2"></div>
+    <div class="layer-panel lp-1"><div class="lp-header"></div><div class="lp-lines"><div class="lp-line"></div><div class="lp-line"></div><div class="lp-line"></div><div class="lp-line"></div><div class="lp-line"></div></div></div>
+    <div class="layer-panel lp-2"><div class="lp-header"></div><div class="lp-lines"><div class="lp-line"></div><div class="lp-line"></div><div class="lp-line"></div></div></div>
+    <div class="layer-panel lp-3"><div class="lp-header"></div><div class="lp-lines"><div class="lp-line"></div><div class="lp-line"></div></div></div>
+    <div class="hero-a-content">
+      <div class="badge"><div class="badge-dot"></div> MTG Collection Platform</div>
+      <h1>Your deck.<br>Your <span class="gr">engine</span>.</h1>
+      <p class="sub">Build decks with AI-powered recommendations. Scan cards with your camera. Track prices and find local game stores.</p>
+      <div class="ctas"><button class="cta-a1">Get started</button><button class="cta-a2">Sign in</button></div>
+    </div>
+  </div>
+
+  <div class="feat-a">
+    <div class="feat-a-header"><h2>Built for the game</h2><p>Everything you need to collect, build, and compete.</p></div>
+    <div class="bento">
+      <div class="bento-card wide" style="--bc:rgba(96,165,250,0.15)">
+        <div class="b-icon bi-1"><svg viewBox="0 0 24 24"><path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg></div>
+        <h3>Collection Tracking</h3>
+        <p>Add cards, track condition, organize by binder or box. Cloud synced across all your devices.</p>
+        <div class="mini-cards-row"><div class="mini-card"></div><div class="mini-card"></div><div class="mini-card"></div><div class="mini-card"></div><div class="mini-card"></div></div>
+      </div>
+      <div class="bento-card" style="--bc:rgba(239,68,68,0.15)">
+        <div class="b-icon bi-2"><svg viewBox="0 0 24 24"><path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/></svg></div>
+        <h3>Scanner</h3>
+        <p>Point and identify instantly via OCR and ML.</p>
+      </div>
+      <div class="bento-card" style="--bc:rgba(251,191,36,0.15)">
+        <div class="b-icon bi-3"><svg viewBox="0 0 24 24"><path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+        <h3>Live Prices</h3>
+        <p>TCGplayer + Cardmarket, updated daily. Watchlist alerts.</p>
+        <div class="mini-viz"><div class="mv-seg" style="width:30%;background:rgba(251,191,36,0.3);border-radius:2px"></div><div class="mv-seg" style="width:20%;background:rgba(251,191,36,0.2);border-radius:2px"></div><div class="mv-seg" style="width:50%;background:rgba(251,191,36,0.12);border-radius:2px"></div></div>
+      </div>
+      <div class="bento-card" style="--bc:rgba(139,92,246,0.15)">
+        <div class="b-icon bi-4"><svg viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg></div>
+        <h3>AI Advisor</h3>
+        <p>EDHREC data + Scryfall + AI reasoning. Every format.</p>
+      </div>
+      <div class="bento-card wide" style="--bc:rgba(52,211,153,0.15)">
+        <div class="b-icon bi-5"><svg viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg></div>
+        <h3>Shop Finder & Rules Engine</h3>
+        <p>Find local game stores, check in with players. Automatic format validation and ban list enforcement keeps your decks legal.</p>
+      </div>
+    </div>
+  </div>
+  <div class="footer">Card Engine — MTG Collection Platform</div>
+</div>
+
+<!-- ═══ B: SPLIT HERO ═══ -->
+<div class="page" id="page-b">
+  <div class="nav-bar"><div class="logo"><div class="mark">CE</div><div class="wordmark">Card Engine</div></div><div class="nav-right"><a class="nav-sign">Sign in</a><button class="nav-cta">Get started</button></div></div>
+  <div class="hero-b">
+    <div class="glow-b"></div>
+    <div class="hero-b-left">
+      <div class="badge"><div class="badge-dot"></div> MTG Collection Platform</div>
+      <h1>Your deck.<br>Your <span class="gr">engine</span>.</h1>
+      <p class="sub">Build decks with AI-powered recommendations. Scan cards with your camera. Track prices and find local game stores.</p>
+      <div class="ctas"><button class="cta-b1">Get started</button><button class="cta-b2">Sign in</button></div>
+    </div>
+    <div class="hero-b-right">
+      <div class="float-stack">
+        <div class="float-card">
+          <div class="float-card-art"></div>
+          <div class="float-card-body">
+            <div class="float-card-title">Lightning Bolt</div>
+            <div class="float-card-type">Instant</div>
+            <div class="float-card-text">Lightning Bolt deals 3 damage to any target.</div>
+            <div class="float-card-mana"><div class="fm-pip" style="background:#ef4444;color:#fff">R</div></div>
+          </div>
+        </div>
+        <div class="float-card">
+          <div class="float-card-art"></div>
+          <div class="float-card-body">
+            <div class="float-card-title">Counterspell</div>
+            <div class="float-card-type">Instant</div>
+            <div class="float-card-text">Counter target spell.</div>
+            <div class="float-card-mana"><div class="fm-pip" style="background:#60a5fa;color:#1a1a1a">U</div><div class="fm-pip" style="background:#60a5fa;color:#1a1a1a">U</div></div>
+          </div>
+        </div>
+        <div class="float-card">
+          <div class="float-card-art"></div>
+          <div class="float-card-body">
+            <div class="float-card-title">Sol Ring</div>
+            <div class="float-card-type">Artifact</div>
+            <div class="float-card-text">Tap: Add two colorless mana.</div>
+            <div class="float-card-mana"><div class="fm-pip" style="background:#94a3b8;color:#1a1a1a">1</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="feat-b">
+    <div class="feat-b-header"><h2>Built for the game</h2><p>Everything you need to collect, build, and compete.</p></div>
+    <div class="feat-b-grid">
+      <div class="fb-card" style="--bc:rgba(96,165,250,0.15)"><div class="fb-icon fbi-1"><svg viewBox="0 0 24 24"><path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg></div><h3>Collection</h3><p>Track cards, condition, organize by binder. Cloud synced.</p></div>
+      <div class="fb-card" style="--bc:rgba(239,68,68,0.12)"><div class="fb-icon fbi-2"><svg viewBox="0 0 24 24"><path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/></svg></div><h3>Scanner</h3><p>Point and identify instantly via OCR and ML.</p></div>
+      <div class="fb-card" style="--bc:rgba(251,191,36,0.12)"><div class="fb-icon fbi-3"><svg viewBox="0 0 24 24"><path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><h3>Live Prices</h3><p>TCGplayer + Cardmarket, daily updates. Alerts.</p></div>
+      <div class="fb-card" style="--bc:rgba(34,211,238,0.12)"><div class="fb-icon fbi-4"><svg viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg></div><h3>AI Advisor</h3><p>EDHREC + Scryfall powered. Every format.</p></div>
+      <div class="fb-card" style="--bc:rgba(52,211,153,0.12)"><div class="fb-icon fbi-5"><svg viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg></div><h3>Shop Finder</h3><p>Local game stores on the map. Check in.</p></div>
+      <div class="fb-card" style="--bc:rgba(8,145,178,0.12)"><div class="fb-icon fbi-6"><svg viewBox="0 0 24 24"><path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg></div><h3>Rules Engine</h3><p>Format validation. Always current ban lists.</p></div>
+    </div>
+  </div>
+  <div class="footer">Card Engine — MTG Collection Platform</div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.db').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

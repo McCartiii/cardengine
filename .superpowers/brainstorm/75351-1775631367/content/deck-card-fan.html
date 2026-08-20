@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Cards — Real Art Fan</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0A0D13; color: #E2E8F0; font-family: -apple-system, system-ui, sans-serif; padding: 36px 28px; }
+
+.page { max-width: 860px; margin: 0 auto; }
+.page-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+.page-sub { color: #475569; font-size: 13px; margin-bottom: 28px; }
+
+.deck-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+/* ── New Deck ── */
+.new-deck-card {
+  border: 2px dashed #1E2D3D; border-radius: 20px;
+  min-height: 220px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  cursor: pointer; transition: all 0.2s;
+}
+.new-deck-card:hover { border-color: #0D9488; background: rgba(13,148,136,0.04); }
+.new-deck-plus {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: rgba(13,148,136,0.1); border: 1.5px solid rgba(13,148,136,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: #0D9488; transition: all 0.2s;
+}
+.new-deck-card:hover .new-deck-plus { background: rgba(13,148,136,0.18); border-color: #0D9488; }
+.new-deck-label { font-size: 14px; font-weight: 700; color: #0D9488; }
+.new-deck-sub { font-size: 11px; color: #475569; }
+
+/* ── Deck Card ── */
+.deck-card {
+  border-radius: 20px; overflow: hidden;
+  border: 1.5px solid #1E2D3D; cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s, border-color 0.2s;
+  position: relative;
+}
+.deck-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: #2D4059;
+  box-shadow: 0 20px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+/* Hero */
+.deck-hero {
+  height: 150px; position: relative; overflow: hidden;
+}
+
+/* Fan of actual card images */
+.card-fan {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; z-index: 2;
+}
+.fan-card {
+  width: 72px; height: 100px; border-radius: 7px;
+  overflow: hidden; position: absolute;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  box-shadow: -2px 2px 16px rgba(0,0,0,0.8);
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.deck-card:hover .fan-card { transform: var(--hover-transform); }
+.fan-card img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+/* fallback for failed images */
+.fan-card-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 8px);
+}
+.fan-card-fallback::after {
+  content: ''; position: absolute; inset: 5px;
+  border-radius: 3px; border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Gradient overlay */
+.hero-gradient {
+  position: absolute; inset: 0; z-index: 3;
+  pointer-events: none;
+}
+.hero-content {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 14px 16px 12px; z-index: 5;
+}
+.deck-format-badge {
+  display: inline-flex; padding: 2px 8px; border-radius: 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  margin-bottom: 5px; text-transform: uppercase;
+}
+.deck-name {
+  font-size: 17px; font-weight: 800; color: #F8FAFC;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9); line-height: 1.2;
+}
+.color-pips { display: flex; gap: 4px; margin-top: 5px; }
+.pip { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.5); box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+
+/* Body */
+.deck-body {
+  padding: 10px 16px 13px; background: #161B27;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.deck-commander { font-size: 11px; color: #64748B; margin-bottom: 6px; }
+.deck-meta { display: flex; justify-content: space-between; align-items: center; }
+.deck-stat { font-size: 11px; color: #475569; }
+.deck-value { font-size: 13px; font-weight: 700; color: #0D9488; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-title">My Decks</div>
+  <div class="page-sub">4 decks · $726 total value</div>
+
+  <div class="deck-grid">
+
+    <!-- New Deck -->
+    <div class="new-deck-card">
+      <div class="new-deck-plus">+</div>
+      <div class="new-deck-label">New Deck</div>
+      <div class="new-deck-sub">Import or build from scratch</div>
+    </div>
+
+    <!-- Atraxa Superfriends (WUBG) -->
+    <div class="deck-card">
+      <div class="deck-hero" style="background: linear-gradient(135deg, #1A1225 0%, #2D1B4E 50%, #0A1F0E 100%)">
+        <div class="card-fan">
+          <div class="fan-card" style="right:128px;transform:rotate(-16deg);z-index:1;--hover-transform:rotate(-20deg) translateX(-6px)">
+            <img src="https://cards.scryfall.io/small/front/4/6/46b0a5c2-ac85-448e-9e87-12fc74fd4147.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#1A1225>⚗️</div>'">
+          </div>
+          <div class="fan-card" style="right:84px;transform:rotate(-8deg);z-index:2;--hover-transform:rotate(-10deg) translateX(-3px)">
+            <img src="https://cards.scryfall.io/small/front/0/1/01217c2b-e1bc-4a0b-858f-2346a2aeac52.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#2D1B4E>🛡️</div>'">
+          </div>
+          <div class="fan-card" style="right:42px;transform:rotate(0deg);z-index:3;--hover-transform:rotate(0deg)">
+            <img src="https://cards.scryfall.io/small/front/b/b/bb3b89f6-0b18-4e7f-8ce8-21820e1a445e.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#0A1F0E>🧙</div>'">
+          </div>
+          <div class="fan-card" style="right:0px;transform:rotate(8deg);z-index:2;--hover-transform:rotate(10deg) translateX(3px)">
+            <img src="https://cards.scryfall.io/small/front/d/0/d0a2c867-8191-4a2e-87ef-cbea5b258e03.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#14532D>✨</div>'">
+          </div>
+        </div>
+        <div class="hero-gradient" style="background: linear-gradient(to right, #1A1225 20%, rgba(26,18,37,0.7) 50%, rgba(26,18,37,0.2) 80%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 40%)"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(129,140,248,0.18);color:#818CF8">Commander</div>
+          <div class="deck-name">Atraxa Superfriends</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FDE68A"></div>
+            <div class="pip" style="background:#93C5FD"></div>
+            <div class="pip" style="background:#C4B5D4"></div>
+            <div class="pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body">
+        <div class="deck-commander">⚜ Atraxa, Praetors' Voice</div>
+        <div class="deck-meta">
+          <span class="deck-stat">100 cards · Updated today</span>
+          <span class="deck-value">$320</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aggro Red Burn (R) -->
+    <div class="deck-card">
+      <div class="deck-hero" style="background: linear-gradient(135deg, #1C0E0E 0%, #5C1A1A 50%, #2A0E0E 100%)">
+        <div class="card-fan">
+          <div class="fan-card" style="right:128px;transform:rotate(-16deg);z-index:1;--hover-transform:rotate(-20deg) translateX(-6px)">
+            <img src="https://cards.scryfall.io/small/front/f/2/f29b5ac8-91e4-4d2c-854b-5971ef579f1e.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#5C1A1A>🔥</div>'">
+          </div>
+          <div class="fan-card" style="right:84px;transform:rotate(-8deg);z-index:2;--hover-transform:rotate(-10deg) translateX(-3px)">
+            <img src="https://cards.scryfall.io/small/front/0/c/0cc32086-e644-42e4-8a64-7fb0d18bfaca.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#3d0f0f>⚡</div>'">
+          </div>
+          <div class="fan-card" style="right:42px;transform:rotate(0deg);z-index:3;--hover-transform:rotate(0deg)">
+            <img src="https://cards.scryfall.io/small/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#2A0E0E>💥</div>'">
+          </div>
+          <div class="fan-card" style="right:0px;transform:rotate(8deg);z-index:2;--hover-transform:rotate(10deg) translateX(3px)">
+            <img src="https://cards.scryfall.io/small/front/a/7/a7154cb3-1057-4f71-a800-de1a17a13c31.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#5C1A1A>🏔️</div>'">
+          </div>
+        </div>
+        <div class="hero-gradient" style="background: linear-gradient(to right, #1C0E0E 20%, rgba(28,14,14,0.7) 50%, rgba(28,14,14,0.2) 80%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 40%)"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(244,63,94,0.18);color:#F43F5E">Standard</div>
+          <div class="deck-name">Aggro Red Burn</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FCA5A5"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body">
+        <div class="deck-meta">
+          <span class="deck-stat">60 cards · Updated 2d ago</span>
+          <span class="deck-value">$42</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- UW Tempo Control -->
+    <div class="deck-card">
+      <div class="deck-hero" style="background: linear-gradient(135deg, #0D1824 0%, #1E3A5F 50%, #1A1810 100%)">
+        <div class="card-fan">
+          <div class="fan-card" style="right:128px;transform:rotate(-16deg);z-index:1;--hover-transform:rotate(-20deg) translateX(-6px)">
+            <img src="https://cards.scryfall.io/small/front/5/5/557ea210-7b43-4aaa-aee6-e7ef7087bc65.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#0D1824>🌊</div>'">
+          </div>
+          <div class="fan-card" style="right:84px;transform:rotate(-8deg);z-index:2;--hover-transform:rotate(-10deg) translateX(-3px)">
+            <img src="https://cards.scryfall.io/small/front/8/3/83b35b34-7f51-4f2e-905c-2c7e9a013322.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#1E3A5F>❄️</div>'">
+          </div>
+          <div class="fan-card" style="right:42px;transform:rotate(0deg);z-index:3;--hover-transform:rotate(0deg)">
+            <img src="https://cards.scryfall.io/small/front/1/6/16cf9c5e-8b46-4867-ba96-eb3041f78af1.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#2A2510>🛡️</div>'">
+          </div>
+          <div class="fan-card" style="right:0px;transform:rotate(8deg);z-index:2;--hover-transform:rotate(10deg) translateX(3px)">
+            <img src="https://cards.scryfall.io/small/front/a/4/a4b4baa2-4677-4109-82a5-fb3bc48e3d12.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#1E3A5F>💎</div>'">
+          </div>
+        </div>
+        <div class="hero-gradient" style="background: linear-gradient(to right, #0D1824 20%, rgba(13,24,36,0.7) 50%, rgba(13,24,36,0.2) 80%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 40%)"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(56,189,248,0.18);color:#38BDF8">Modern</div>
+          <div class="deck-name">UW Tempo Control</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#FDE68A"></div>
+            <div class="pip" style="background:#93C5FD"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body">
+        <div class="deck-meta">
+          <span class="deck-stat">60 cards · Updated 5d ago</span>
+          <span class="deck-value">$180</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Green Ramp -->
+    <div class="deck-card">
+      <div class="deck-hero" style="background: linear-gradient(135deg, #0A160D 0%, #14532D 50%, #0A1F0E 100%)">
+        <div class="card-fan">
+          <div class="fan-card" style="right:128px;transform:rotate(-16deg);z-index:1;--hover-transform:rotate(-20deg) translateX(-6px)">
+            <img src="https://cards.scryfall.io/small/front/e/2/e229a7a0-c0a1-4d01-998d-13a6a0579269.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#0A160D>🌿</div>'">
+          </div>
+          <div class="fan-card" style="right:84px;transform:rotate(-8deg);z-index:2;--hover-transform:rotate(-10deg) translateX(-3px)">
+            <img src="https://cards.scryfall.io/small/front/5/8/580b606c-3443-4a72-b27b-1e1bca440a74.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#14532D>🌲</div>'">
+          </div>
+          <div class="fan-card" style="right:42px;transform:rotate(0deg);z-index:3;--hover-transform:rotate(0deg)">
+            <img src="https://cards.scryfall.io/small/front/8/7/87de4e4b-e924-4e6c-be84-738fbe7c6282.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#0A1F0E>🦕</div>'">
+          </div>
+          <div class="fan-card" style="right:0px;transform:rotate(8deg);z-index:2;--hover-transform:rotate(10deg) translateX(3px)">
+            <img src="https://cards.scryfall.io/small/front/b/b/bb52df72-5be8-4b20-b9d9-cf0e8e757694.jpg" onerror="this.outerHTML='<div class=fan-card-fallback style=background:#14532D>🌱</div>'">
+          </div>
+        </div>
+        <div class="hero-gradient" style="background: linear-gradient(to right, #0A160D 20%, rgba(10,22,13,0.7) 50%, rgba(10,22,13,0.2) 80%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 40%)"></div>
+        <div class="hero-content">
+          <div class="deck-format-badge" style="background:rgba(34,197,94,0.18);color:#22C55E">Pioneer</div>
+          <div class="deck-name">Green Ramp Stompy</div>
+          <div class="color-pips">
+            <div class="pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body">
+        <div class="deck-meta">
+          <span class="deck-stat">60 cards · Updated 1w ago</span>
+          <span class="deck-value">$184</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

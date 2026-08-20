@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Maxed Out</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030306; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; overflow-x: auto; }
+
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes orbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes orbit-reverse { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
+  @keyframes pulse-ring { 0%,100% { transform: scale(1); opacity: 0.12; } 50% { transform: scale(1.06); opacity: 0.25; } }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  @keyframes mesh-drift { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(30px,-20px) scale(1.1); } 66% { transform: translate(-20px,15px) scale(0.95); } 100% { transform: translate(0,0) scale(1); } }
+  @keyframes mesh-drift-2 { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(-25px,20px) scale(1.05); } 66% { transform: translate(15px,-25px) scale(1.1); } 100% { transform: translate(0,0) scale(1); } }
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  @keyframes glow-breathe { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+  @keyframes glow-line { 0% { left: -40%; opacity: 0; } 30% { opacity: 1; } 70% { opacity: 1; } 100% { left: 140%; opacity: 0; } }
+  @keyframes slide-up { 0% { opacity: 0; transform: translateY(24px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes scale-in { 0% { opacity: 0; transform: scale(0.85); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes card-reveal { 0% { opacity: 0; transform: translateY(16px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes text-glow { 0%,100% { text-shadow: 0 0 20px rgba(13,148,136,0.3); } 50% { text-shadow: 0 0 40px rgba(13,148,136,0.6), 0 0 80px rgba(13,148,136,0.2); } }
+  @keyframes logo-breathe { 0%,100% { box-shadow: 0 8px 32px rgba(13,148,136,0.4), 0 0 60px rgba(13,148,136,0.1); } 50% { box-shadow: 0 12px 48px rgba(13,148,136,0.6), 0 0 100px rgba(13,148,136,0.2); } }
+  @keyframes particle-float-1 { 0%,100% { transform: translate(0,0); opacity: 0.3; } 25% { transform: translate(8px,-12px); opacity: 0.6; } 50% { transform: translate(-4px,-20px); opacity: 0.4; } 75% { transform: translate(12px,-8px); opacity: 0.5; } }
+  @keyframes particle-float-2 { 0%,100% { transform: translate(0,0); opacity: 0.2; } 30% { transform: translate(-10px,8px); opacity: 0.5; } 60% { transform: translate(6px,-14px); opacity: 0.3; } }
+  @keyframes particle-float-3 { 0%,100% { transform: translate(0,0); opacity: 0.4; } 40% { transform: translate(14px,6px); opacity: 0.2; } 70% { transform: translate(-8px,-10px); opacity: 0.6; } }
+  @keyframes input-glow-pulse { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 4px rgba(13,148,136,0.06); } }
+  @keyframes arrow-nudge { 0%,100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+
+  .demo-container {
+    display: flex;
+    gap: 50px;
+    justify-content: center;
+    padding: 24px 20px 50px;
+    min-width: max-content;
+  }
+
+  .demo-col { display: flex; flex-direction: column; align-items: center; }
+  .demo-label { text-align: center; margin-top: 16px; max-width: 380px; }
+  .demo-label h3 { font-size: 15px; font-weight: 700; color: white; margin-bottom: 6px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.7; }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 3px solid #12141e;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.02);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     DESIGN A — Celestial
+     ════════════════════════════════════════════════════════════════ */
+
+  .a-phone { background: #060810; }
+
+  .a-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .a-orb-1 {
+    position: absolute;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    top: -15%;
+    left: -20%;
+    background: radial-gradient(circle, rgba(13,148,136,0.18) 0%, rgba(13,148,136,0.05) 40%, transparent 70%);
+    filter: blur(30px);
+    animation: mesh-drift 14s ease-in-out infinite;
+  }
+
+  .a-orb-2 {
+    position: absolute;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    bottom: 5%;
+    right: -25%;
+    background: radial-gradient(circle, rgba(14,165,233,0.12) 0%, rgba(14,165,233,0.03) 40%, transparent 70%);
+    filter: blur(25px);
+    animation: mesh-drift-2 12s ease-in-out infinite;
+  }
+
+  .a-orb-3 {
+    position: absolute;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    top: 35%;
+    right: 10%;
+    background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 60%);
+    filter: blur(20px);
+    animation: mesh-drift 16s ease-in-out 3s infinite;
+  }
+
+  /* Particles */
+  .a-particle {
+    position: absolute;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: #2DD4BF;
+  }
+
+  .a-p1 { top: 18%; left: 15%; animation: particle-float-1 6s ease-in-out infinite; box-shadow: 0 0 6px #2DD4BF; }
+  .a-p2 { top: 25%; right: 22%; animation: particle-float-2 8s ease-in-out infinite; width: 2px; height: 2px; opacity: 0.5; box-shadow: 0 0 4px #38BDF8; background: #38BDF8; }
+  .a-p3 { top: 40%; left: 30%; animation: particle-float-3 7s ease-in-out infinite; width: 2px; height: 2px; box-shadow: 0 0 5px #A78BFA; background: #A78BFA; }
+  .a-p4 { top: 15%; right: 35%; animation: particle-float-1 9s ease-in-out 2s infinite; width: 2px; height: 2px; box-shadow: 0 0 4px #2DD4BF; }
+  .a-p5 { top: 32%; left: 60%; animation: particle-float-2 5s ease-in-out 1s infinite; box-shadow: 0 0 6px #0EA5E9; background: #0EA5E9; }
+
+  .a-content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px;
+  }
+
+  .a-top {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 16px;
+  }
+
+  /* Logo construct */
+  .a-logo-construct {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin-bottom: 24px;
+    animation: float 5s ease-in-out infinite;
+  }
+
+  .a-logo-core {
+    width: 60px; height: 60px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0D9488 0%, #14B8A6 40%, #0EA5E9 100%);
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    font-weight: 900;
+    color: white;
+    z-index: 5;
+    animation: logo-breathe 3s ease-in-out infinite;
+  }
+
+  .a-logo-core::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 17px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+    z-index: -1;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1px;
+  }
+
+  .a-ring { position: absolute; border-radius: 50%; border: 1px solid; }
+  .a-r1 { inset: 10px; border-color: rgba(13,148,136,0.2); animation: pulse-ring 3s ease-in-out infinite; }
+  .a-r2 { inset: 0; border-color: rgba(13,148,136,0.1); animation: pulse-ring 3s ease-in-out 0.6s infinite; }
+  .a-r3 { inset: -10px; border-color: rgba(13,148,136,0.05); animation: pulse-ring 3s ease-in-out 1.2s infinite; }
+
+  .a-orbit-1 { position: absolute; inset: 2px; animation: orbit 10s linear infinite; }
+  .a-orbit-2 { position: absolute; inset: -8px; animation: orbit-reverse 14s linear infinite; }
+
+  .a-orbit-dot {
+    position: absolute;
+    border-radius: 50%;
+    top: -2px; left: 50%; margin-left: -2px;
+  }
+
+  .a-od-1 { width: 5px; height: 5px; background: #2DD4BF; box-shadow: 0 0 10px #2DD4BF, 0 0 20px rgba(45,212,191,0.3); }
+  .a-od-2 { width: 3px; height: 3px; background: #38BDF8; box-shadow: 0 0 8px #38BDF8; top: auto; bottom: -1px; }
+
+  .a-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: #E2E8F0;
+    letter-spacing: -1px;
+    margin-bottom: 5px;
+    animation: text-glow 4s ease-in-out infinite;
+  }
+
+  .a-subtitle {
+    font-size: 13px;
+    color: #384158;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .a-form {
+    padding-bottom: 44px;
+  }
+
+  .a-input-wrap {
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .a-input {
+    width: 100%;
+    padding: 16px 18px 16px 48px;
+    border-radius: 14px;
+    border: 1px solid rgba(30,45,61,0.5);
+    background: rgba(15,17,23,0.6);
+    backdrop-filter: blur(12px);
+    color: #E2E8F0;
+    font-size: 15px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .a-input:focus {
+    border-color: rgba(13,148,136,0.4);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.08), 0 0 24px rgba(13,148,136,0.06);
+    background: rgba(15,17,23,0.8);
+  }
+
+  .a-input::placeholder { color: #283040; }
+
+  .a-input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 15px;
+    color: #2D4059;
+    font-weight: 600;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .a-input:focus + .a-input-icon,
+  .a-input-wrap:focus-within .a-input-icon { color: #0D9488; }
+
+  .a-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    margin-top: 2px;
+  }
+
+  .a-remember {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #384158;
+    cursor: pointer;
+  }
+
+  .a-checkbox {
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    border: 1px solid #2D4059;
+    background: rgba(15,17,23,0.5);
+  }
+
+  .a-forgot {
+    font-size: 11px;
+    color: #0D9488;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .a-forgot:hover { color: #2DD4BF; }
+
+  .a-btn-wrap {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .a-btn {
+    width: 100%;
+    padding: 17px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%);
+    box-shadow: 0 4px 24px rgba(13,148,136,0.4), 0 0 80px rgba(13,148,136,0.1), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: transform 0.15s;
+  }
+
+  .a-btn:active { transform: scale(0.98); }
+
+  .a-btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  /* Animated border glow under button */
+  .a-btn-glow {
+    position: absolute;
+    bottom: -1px;
+    left: 10%;
+    right: 10%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #0D9488, #2DD4BF, #0EA5E9, #0D9488);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(6px);
+    opacity: 0.5;
+  }
+
+  .a-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .a-div-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(30,45,61,0.6), transparent);
+  }
+
+  .a-div-text {
+    font-size: 10px;
+    color: #2D4059;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .a-social-row { display: flex; gap: 8px; margin-bottom: 16px; }
+
+  .a-social {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(30,45,61,0.4);
+    background: rgba(15,17,23,0.5);
+    backdrop-filter: blur(8px);
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #94A3B8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .a-social:hover {
+    border-color: rgba(45,68,89,0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    color: #E2E8F0;
+  }
+
+  .a-social::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  }
+
+  .a-guest {
+    text-align: center;
+    font-size: 12px;
+    color: #283040;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 4px;
+  }
+
+  .a-guest span { color: #384158; font-weight: 600; border-bottom: 1px solid #2D4059; padding-bottom: 1px; }
+  .a-guest:hover span { color: #94A3B8; border-color: #475569; }
+
+  /* ════════════════════════════════════════════════════════════════
+     DESIGN B — Holographic
+     ════════════════════════════════════════════════════════════════ */
+
+  .b-phone { background: #080A10; }
+
+  .b-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .b-holo-1 {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background:
+      conic-gradient(from 0deg at 30% 30%, rgba(13,148,136,0.08), transparent 120deg),
+      conic-gradient(from 180deg at 70% 70%, rgba(14,165,233,0.06), transparent 120deg);
+    animation: orbit 20s linear infinite;
+    opacity: 0.7;
+  }
+
+  .b-lines {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .b-line {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(13,148,136,0.15), transparent);
+    animation: glow-line 4s ease-in-out infinite;
+  }
+
+  .b-l1 { top: 22%; width: 60%; animation-delay: 0s; }
+  .b-l2 { top: 38%; width: 45%; animation-delay: 1.5s; left: 20%; }
+  .b-l3 { top: 55%; width: 55%; animation-delay: 3s; }
+
+  .b-content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .b-top {
+    flex: 0 0 42%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .b-logo-wrap {
+    position: relative;
+    margin-bottom: 24px;
+    animation: float 4s ease-in-out infinite;
+  }
+
+  .b-logo-hex {
+    width: 68px; height: 68px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #0D9488 0%, #14B8A6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    color: white;
+    position: relative;
+    z-index: 2;
+    animation: logo-breathe 3s ease-in-out infinite;
+    transform: rotate(0deg);
+  }
+
+  .b-logo-hex::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #2DD4BF, #0EA5E9, #A78BFA, #0D9488);
+    background-size: 300% 300%;
+    animation: border-flow 4s linear infinite;
+    z-index: -1;
+    opacity: 0.6;
+  }
+
+  .b-logo-reflection {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) scaleY(-1);
+    width: 68px; height: 40px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #0D9488 0%, #14B8A6 100%);
+    opacity: 0.08;
+    filter: blur(8px);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3), transparent);
+  }
+
+  .b-brand-text {
+    text-align: center;
+  }
+
+  .b-brand-name {
+    font-size: 26px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .b-brand-sub {
+    font-size: 11px;
+    color: #384158;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .b-sheet {
+    flex: 1;
+    background: linear-gradient(180deg, rgba(16,20,30,0.95) 0%, rgba(12,15,22,0.98) 100%);
+    border-top-left-radius: 32px;
+    border-top-right-radius: 32px;
+    border-top: 1px solid rgba(30,45,61,0.4);
+    padding: 20px 24px 40px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+  }
+
+  .b-sheet::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 15%; right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(13,148,136,0.3), transparent);
+  }
+
+  .b-handle {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    margin: 0 auto 18px;
+  }
+
+  .b-auth-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+  .b-auth-card {
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(30,45,61,0.4);
+    background: rgba(15,17,23,0.5);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .b-auth-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.015), transparent 50%);
+    pointer-events: none;
+  }
+
+  .b-auth-card:hover {
+    border-color: rgba(45,68,89,0.5);
+    transform: translateX(4px);
+    box-shadow: -4px 4px 20px rgba(0,0,0,0.3), 0 0 30px rgba(13,148,136,0.03);
+  }
+
+  .b-ac-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .b-ac-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent);
+    pointer-events: none;
+  }
+
+  .b-ac-apple { background: rgba(255,255,255,0.06); color: white; font-size: 20px; font-weight: 500; }
+  .b-ac-google { background: rgba(66,133,244,0.08); color: #4285F4; }
+  .b-ac-email { background: rgba(13,148,136,0.08); color: #2DD4BF; font-size: 16px; }
+
+  .b-ac-info { flex: 1; }
+  .b-ac-label { font-size: 14px; font-weight: 700; color: #E2E8F0; margin-bottom: 1px; }
+  .b-ac-desc { font-size: 11px; color: #475569; }
+
+  .b-ac-arrow {
+    font-size: 16px;
+    color: #2D4059;
+    font-weight: 300;
+    transition: all 0.3s;
+  }
+
+  .b-auth-card:hover .b-ac-arrow {
+    color: #0D9488;
+    animation: arrow-nudge 0.6s ease-in-out;
+  }
+
+  .b-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .b-div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(30,45,61,0.5), transparent); }
+  .b-div-text { font-size: 9px; color: #2D4059; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .b-guest-btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 14px;
+    border: 1px solid rgba(30,45,61,0.3);
+    background: transparent;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .b-guest-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(13,148,136,0.04), rgba(14,165,233,0.04));
+    transition: opacity 0.3s;
+  }
+
+  .b-guest-btn:hover::before { opacity: 1; }
+  .b-guest-btn:hover { border-color: rgba(45,68,89,0.4); }
+
+  .b-guest-text { font-size: 13px; font-weight: 600; color: #475569; position: relative; }
+
+  .b-guest-note {
+    text-align: center;
+    font-size: 10px;
+    color: #1E2D3D;
+    margin-top: 8px;
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     DESIGN C — Depth
+     ════════════════════════════════════════════════════════════════ */
+
+  .c-phone { background: #070A10; }
+
+  .c-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .c-mesh-a {
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    top: -10%;
+    left: -30%;
+    background: radial-gradient(circle, rgba(13,148,136,0.15) 0%, transparent 60%);
+    filter: blur(40px);
+    animation: mesh-drift 12s ease-in-out infinite;
+  }
+
+  .c-mesh-b {
+    position: absolute;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    bottom: 0;
+    right: -30%;
+    background: radial-gradient(circle, rgba(14,165,233,0.1) 0%, transparent 60%);
+    filter: blur(35px);
+    animation: mesh-drift-2 10s ease-in-out infinite;
+  }
+
+  .c-mesh-c {
+    position: absolute;
+    width: 250px; height: 250px;
+    border-radius: 50%;
+    top: 45%;
+    left: 40%;
+    background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 60%);
+    filter: blur(25px);
+  }
+
+  .c-noise {
+    position: absolute;
+    inset: -50%;
+    width: 200%; height: 200%;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .c-content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+
+  .c-logo-area {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: scale-in 0.8s ease-out;
+  }
+
+  .c-logo-mark {
+    width: 56px; height: 56px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .c-logo-inner {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    color: white;
+    position: relative;
+    z-index: 2;
+    animation: logo-breathe 3s ease-in-out infinite;
+  }
+
+  .c-logo-halo {
+    position: absolute;
+    inset: -24px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13,148,136,0.2) 0%, transparent 70%);
+    animation: glow-breathe 3s ease-in-out infinite;
+  }
+
+  .c-logo-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.5px;
+    margin-bottom: 3px;
+  }
+
+  .c-logo-sub {
+    font-size: 12px;
+    color: #384158;
+    letter-spacing: 0.5px;
+  }
+
+  .c-form-section {
+    animation: slide-up 0.6s ease-out 0.2s both;
+  }
+
+  .c-input-group { margin-bottom: 10px; position: relative; }
+
+  .c-input {
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(30,45,61,0.4);
+    background: rgba(15,17,23,0.5);
+    backdrop-filter: blur(12px);
+    color: #E2E8F0;
+    font-size: 15px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .c-input:focus {
+    border-color: rgba(13,148,136,0.4);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.08), 0 0 30px rgba(13,148,136,0.05);
+  }
+
+  .c-input::placeholder { color: #1E2D3D; }
+
+  .c-forgot-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+    margin-top: 2px;
+  }
+
+  .c-forgot {
+    font-size: 11px;
+    color: #0D9488;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .c-btn {
+    width: 100%;
+    padding: 17px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488, #14B8A6);
+    box-shadow: 0 4px 24px rgba(13,148,136,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+    margin-bottom: 16px;
+    transition: transform 0.15s;
+  }
+
+  .c-btn:active { transform: scale(0.98); }
+
+  .c-btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .c-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .c-div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(30,45,61,0.5), transparent); }
+  .c-div-text { font-size: 9px; color: #2D4059; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .c-social-row { display: flex; gap: 8px; margin-bottom: 16px; }
+
+  .c-social {
+    flex: 1;
+    padding: 14px;
+    border-radius: 13px;
+    border: 1px solid rgba(30,45,61,0.35);
+    background: rgba(15,17,23,0.4);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94A3B8;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .c-social:hover {
+    border-color: rgba(45,68,89,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    color: #E2E8F0;
+  }
+
+  .c-signup-row {
+    text-align: center;
+    font-size: 12px;
+    color: #384158;
+    margin-bottom: 10px;
+  }
+
+  .c-signup-link { color: #2DD4BF; font-weight: 600; cursor: pointer; }
+
+  .c-guest {
+    text-align: center;
+    font-size: 11px;
+    color: #283040;
+    cursor: pointer;
+  }
+
+  .c-guest span { color: #384158; border-bottom: 1px solid #2D4059; padding-bottom: 1px; }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+
+  <!-- ═══════════ A — Celestial ═══════════ -->
+  <div class="demo-col">
+    <div class="phone a-phone">
+      <div class="a-bg">
+        <div class="a-orb-1"></div>
+        <div class="a-orb-2"></div>
+        <div class="a-orb-3"></div>
+        <div class="a-p1 a-particle"></div>
+        <div class="a-p2 a-particle"></div>
+        <div class="a-p3 a-particle"></div>
+        <div class="a-p4 a-particle"></div>
+        <div class="a-p5 a-particle"></div>
+      </div>
+
+      <div class="a-content">
+        <div class="a-top">
+          <div class="a-logo-construct">
+            <div class="a-ring a-r1"></div>
+            <div class="a-ring a-r2"></div>
+            <div class="a-ring a-r3"></div>
+            <div class="a-orbit-1"><div class="a-orbit-dot a-od-1"></div></div>
+            <div class="a-orbit-2"><div class="a-orbit-dot a-od-2"></div></div>
+            <div class="a-logo-core">CE</div>
+          </div>
+          <div class="a-title">Card Engine</div>
+          <div class="a-subtitle">Scan . Collect . Master</div>
+        </div>
+
+        <div class="a-form">
+          <div class="a-input-wrap">
+            <input class="a-input" placeholder="Email address" />
+            <div class="a-input-icon">@</div>
+          </div>
+          <div class="a-input-wrap">
+            <input class="a-input" type="password" placeholder="Password" style="padding-left:48px;" />
+            <div class="a-input-icon" style="font-size:13px;">*</div>
+          </div>
+
+          <div class="a-meta-row">
+            <label class="a-remember">
+              <div class="a-checkbox"></div>
+              Remember me
+            </label>
+            <div class="a-forgot">Forgot password?</div>
+          </div>
+
+          <div class="a-btn-wrap">
+            <button class="a-btn">
+              <span class="a-btn-shimmer"></span>
+              <span style="position:relative;z-index:1;">Sign In</span>
+            </button>
+            <div class="a-btn-glow"></div>
+          </div>
+
+          <div class="a-divider">
+            <div class="a-div-line"></div>
+            <div class="a-div-text">or continue with</div>
+            <div class="a-div-line"></div>
+          </div>
+
+          <div class="a-social-row">
+            <div class="a-social"><span style="font-size:18px;font-weight:500;"></span> Apple</div>
+            <div class="a-social"><span style="font-size:15px;font-weight:700;color:#4285F4;">G</span> Google</div>
+          </div>
+
+          <div class="a-guest">or <span>explore as guest</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>A — Celestial</h3>
+      <p>Floating ambient orbs with drifting particles. Logo with orbiting dots and pulsing rings. Frosted glass inputs with icon labels that change color on focus. Animated glow trail under CTA button. Film grain texture. Ethereal, alive.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ B — Holographic ═══════════ -->
+  <div class="demo-col">
+    <div class="phone b-phone">
+      <div class="b-bg">
+        <div class="b-holo-1"></div>
+        <div class="b-lines">
+          <div class="b-line b-l1"></div>
+          <div class="b-line b-l2"></div>
+          <div class="b-line b-l3"></div>
+        </div>
+      </div>
+
+      <div class="b-content">
+        <div class="b-top">
+          <div class="b-logo-wrap">
+            <div class="b-logo-hex">CE</div>
+            <div class="b-logo-reflection"></div>
+          </div>
+          <div class="b-brand-text">
+            <div class="b-brand-name">Card Engine</div>
+            <div class="b-brand-sub">Scan . Collect . Master</div>
+          </div>
+        </div>
+
+        <div class="b-sheet">
+          <div class="b-handle"></div>
+
+          <div class="b-auth-cards">
+            <div class="b-auth-card" style="animation: card-reveal 0.5s ease-out 0.1s both;">
+              <div class="b-ac-icon b-ac-apple"></div>
+              <div class="b-ac-info">
+                <div class="b-ac-label">Continue with Apple</div>
+                <div class="b-ac-desc">Fastest way in</div>
+              </div>
+              <div class="b-ac-arrow">></div>
+            </div>
+
+            <div class="b-auth-card" style="animation: card-reveal 0.5s ease-out 0.2s both;">
+              <div class="b-ac-icon b-ac-google">G</div>
+              <div class="b-ac-info">
+                <div class="b-ac-label">Continue with Google</div>
+                <div class="b-ac-desc">Use your Google account</div>
+              </div>
+              <div class="b-ac-arrow">></div>
+            </div>
+
+            <div class="b-auth-card" style="animation: card-reveal 0.5s ease-out 0.3s both;">
+              <div class="b-ac-icon b-ac-email">@</div>
+              <div class="b-ac-info">
+                <div class="b-ac-label">Email + Password</div>
+                <div class="b-ac-desc">Sign in or create account</div>
+              </div>
+              <div class="b-ac-arrow">></div>
+            </div>
+          </div>
+
+          <div class="b-divider">
+            <div class="b-div-line"></div>
+            <div class="b-div-text">or</div>
+            <div class="b-div-line"></div>
+          </div>
+
+          <div class="b-guest-btn">
+            <span class="b-guest-text">Explore as Guest</span>
+          </div>
+          <div class="b-guest-note">Life counter, browsing, and scanning without an account</div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>B — Holographic</h3>
+      <p>Conic gradient holo background with animated scan lines. Logo with rainbow-edge animated border and downward reflection. Bottom sheet with staggered card reveals. Auth cards slide right on hover with animated arrows. Social-first, email as option.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ C — Depth ═══════════ -->
+  <div class="demo-col">
+    <div class="phone c-phone">
+      <div class="c-bg">
+        <div class="c-mesh-a"></div>
+        <div class="c-mesh-b"></div>
+        <div class="c-mesh-c"></div>
+        <div class="c-noise"></div>
+      </div>
+
+      <div class="c-content">
+        <div class="c-logo-area">
+          <div class="c-logo-mark">
+            <div class="c-logo-halo"></div>
+            <div class="c-logo-inner">CE</div>
+          </div>
+          <div class="c-logo-title">Card Engine</div>
+          <div class="c-logo-sub">Scan. Collect. Master.</div>
+        </div>
+
+        <div class="c-form-section">
+          <div class="c-input-group">
+            <input class="c-input" placeholder="Email address" />
+          </div>
+          <div class="c-input-group">
+            <input class="c-input" type="password" placeholder="Password" />
+          </div>
+
+          <div class="c-forgot-row">
+            <div class="c-forgot">Forgot password?</div>
+          </div>
+
+          <button class="c-btn">
+            <span class="c-btn-shimmer"></span>
+            <span style="position:relative;z-index:1;">Sign In</span>
+          </button>
+
+          <div class="c-divider">
+            <div class="c-div-line"></div>
+            <div class="c-div-text">or continue with</div>
+            <div class="c-div-line"></div>
+          </div>
+
+          <div class="c-social-row">
+            <div class="c-social"><span style="font-size:18px;font-weight:500;"></span> Apple</div>
+            <div class="c-social"><span style="font-size:15px;font-weight:700;color:#4285F4;">G</span> Google</div>
+          </div>
+
+          <div class="c-signup-row">
+            Don't have an account? <span class="c-signup-link">Sign up</span>
+          </div>
+
+          <div class="c-guest">or <span>explore as guest</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>C — Depth</h3>
+      <p>Multi-layer drifting mesh gradient orbs with noise texture. Logo with breathing halo glow. Frosted glass inputs with teal focus glow ring. Side-by-side social buttons with spring lift hover. Clean email+password form with sign up link and guest option. Atmospheric depth without being busy.</p>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

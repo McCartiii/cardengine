@@ -5,6 +5,10 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuthStore } from "../src/store/authStore";
 import { initOfflineDB, startSyncLoop } from "../src/lib/offlineQueue";
 import { addCollectionEvents } from "../src/lib/api";
+import { downloadCardBundle, downloadHashBundle } from "../src/lib/sync";
+import { ensureHashIndexReady } from "../src/scanner/hashIndexManager";
+
+const allowUnauthTabs = process.env.EXPO_PUBLIC_ALLOW_UNAUTH_TABS === "true";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -17,7 +21,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inAuthGroup = segments[0] === "(auth)";
 
     if (!session && !inAuthGroup) {
-      // Not signed in — redirect to sign-in
+      if (allowUnauthTabs) {
+        // Temporary dev override for auth flows during testing.
+        return;
+      }
+      // Not signed in — redirect to sign-in by default.
       router.replace("/(auth)/sign-in");
     } else if (session && inAuthGroup) {
       // Signed in — redirect away from auth screens
@@ -33,6 +41,14 @@ export default function RootLayout() {
 
   // Init SQLite once
   useEffect(() => { initOfflineDB(); }, []);
+
+  // Background: card + hash bundles for offline scan
+  useEffect(() => {
+    downloadCardBundle().catch((e) => console.warn("[boot] Card bundle:", e));
+    downloadHashBundle()
+      .then(() => ensureHashIndexReady())
+      .catch((e) => console.warn("[boot] Hash bundle:", e));
+  }, []);
 
   // Start sync loop when authenticated
   useEffect(() => {

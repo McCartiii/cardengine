@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Counter — Swipe Up Counters</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; color: white; overflow: hidden; }
+
+  .phone-frame {
+    width: 375px;
+    height: 720px;
+    margin: 40px auto;
+    background: #0a0a0f;
+    border-radius: 40px;
+    border: 3px solid #222;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  }
+
+  .title-bar {
+    text-align: center;
+    padding: 10px 0 6px;
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── Player panels ── */
+  .players {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 30px);
+  }
+
+  .player {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .player-top {
+    transform: rotate(180deg);
+    background: linear-gradient(180deg, #0d0d1a 0%, #12121f 100%);
+    border-bottom: 1px solid #1a1a2a;
+  }
+
+  .player-bottom {
+    background: linear-gradient(0deg, #0d0d1a 0%, #12121f 100%);
+    border-top: 1px solid #1a1a2a;
+  }
+
+  .player-color-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .player-name {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+
+  .life-total {
+    font-size: 80px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -3px;
+    text-shadow: 0 0 40px rgba(255,255,255,0.08);
+    transition: transform 0.15s ease;
+  }
+
+  .life-buttons {
+    position: absolute;
+    top: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .life-btn {
+    width: 60px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.15);
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .life-btn:active {
+    color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .life-btn-minus { left: 0; }
+  .life-btn-plus { right: 0; }
+
+  .btn-left { position: absolute; left: 0; top: 0; }
+  .btn-right { position: absolute; right: 0; top: 0; }
+
+  /* ── Swipe hint ── */
+  .swipe-hint {
+    position: absolute;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.3;
+    transition: opacity 0.3s;
+  }
+
+  .swipe-pill {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.4);
+  }
+
+  .swipe-text {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Counter drawer ── */
+  .counter-drawer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(0deg, #111122 0%, #0d0d1a 100%);
+    border-top: 1px solid #2a2a3e;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px 16px;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+  }
+
+  .counter-drawer.open {
+    transform: translateY(0);
+  }
+
+  .drawer-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 auto 14px;
+  }
+
+  .counter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .counter-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .counter-icon {
+    font-size: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .counter-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .counter-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.5;
+    margin-bottom: 2px;
+  }
+
+  .counter-value {
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .counter-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .counter-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.5);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .counter-btn:active {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    transform: scale(0.9);
+  }
+
+  .poison .counter-icon { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+  .poison .counter-value { color: #a78bfa; }
+  .energy .counter-icon { background: rgba(234, 179, 8, 0.15); color: #facc15; }
+  .energy .counter-value { color: #facc15; }
+  .cmdr .counter-icon { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+  .cmdr .counter-value { color: #f87171; }
+  .exp .counter-icon { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+  .exp .counter-value { color: #4ade80; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 44px;
+    background: #080810;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 5;
+    flex-shrink: 0;
+  }
+
+  .div-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #151520;
+    border: 1px solid #222233;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .div-btn:active { background: #222233; transform: scale(0.95); }
+
+  .timer-display {
+    font-family: 'SF Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #3d5068;
+    letter-spacing: 1px;
+  }
+
+  /* ── State labels ── */
+  .state-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 8px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #666;
+    pointer-events: none;
+    z-index: 20;
+    white-space: nowrap;
+  }
+
+  /* ── Side labels ── */
+  .demo-container {
+    display: flex;
+    gap: 60px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+  }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 16px;
+  }
+
+  .demo-label h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 4px;
+  }
+
+  .demo-label p {
+    font-size: 11px;
+    color: #666;
+    max-width: 300px;
+    line-height: 1.5;
+  }
+
+  .arrow-between {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: #333;
+    padding-top: 300px;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+  <!-- STATE 1: Default view -->
+  <div>
+    <div class="phone-frame" id="phone1">
+      <div class="title-bar">Commander · 60 min</div>
+      <div class="players">
+        <!-- Top player (rotated) -->
+        <div class="player player-top" onclick="toggleDrawer('drawer1-top')">
+          <div class="player-color-bar" style="background:#7c3aed;"></div>
+          <div class="life-buttons btn-left"><div class="life-btn life-btn-minus">−</div></div>
+          <div class="life-buttons btn-right"><div class="life-btn life-btn-plus">+</div></div>
+          <div class="player-name" style="color:#a78bfa;">Player 1</div>
+          <div class="life-total">40</div>
+          <div class="swipe-hint">
+            <div class="swipe-pill"></div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider">
+          <div class="div-btn">⚙</div>
+          <div class="timer-display">⏱ 15:00</div>
+          <div class="div-btn">🪙</div>
+        </div>
+
+        <!-- Bottom player -->
+        <div class="player player-bottom" onclick="toggleDrawer('drawer1-bottom')">
+          <div class="player-color-bar" style="background:#1d4ed8;"></div>
+          <div class="life-buttons btn-left"><div class="life-btn life-btn-minus">−</div></div>
+          <div class="life-buttons btn-right"><div class="life-btn life-btn-plus">+</div></div>
+          <div class="player-name" style="color:#60a5fa;">Player 2</div>
+          <div class="life-total">40</div>
+          <div class="swipe-hint">
+            <div class="swipe-pill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>Default View</h3>
+      <p>Clean life totals. Small pill hint at bottom of each panel. Tap − / + on edges to adjust life.</p>
+    </div>
+  </div>
+
+  <div class="arrow-between">→</div>
+
+  <!-- STATE 2: Drawer open -->
+  <div>
+    <div class="phone-frame" id="phone2">
+      <div class="title-bar">Commander · 60 min</div>
+      <div class="players">
+        <!-- Top player -->
+        <div class="player player-top">
+          <div class="player-color-bar" style="background:#7c3aed;"></div>
+          <div class="life-buttons btn-left"><div class="life-btn life-btn-minus">−</div></div>
+          <div class="life-buttons btn-right"><div class="life-btn life-btn-plus">+</div></div>
+          <div class="player-name" style="color:#a78bfa;">Player 1</div>
+          <div class="life-total">40</div>
+          <div class="swipe-hint">
+            <div class="swipe-pill"></div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider">
+          <div class="div-btn">⚙</div>
+          <div class="timer-display">⏱ 14:32</div>
+          <div class="div-btn">🪙</div>
+        </div>
+
+        <!-- Bottom player with drawer OPEN -->
+        <div class="player player-bottom" style="justify-content: flex-start; padding-top: 24px;">
+          <div class="player-color-bar" style="background:#1d4ed8;"></div>
+          <div class="player-name" style="color:#60a5fa;">Player 2</div>
+          <div class="life-total" style="font-size:56px;">37</div>
+
+          <!-- Open drawer -->
+          <div class="counter-drawer open">
+            <div class="drawer-handle"></div>
+            <div class="counter-grid">
+              <div class="counter-item poison">
+                <div class="counter-icon">☠</div>
+                <div class="counter-info">
+                  <div class="counter-label">Poison</div>
+                  <div class="counter-value">3</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+              <div class="counter-item energy">
+                <div class="counter-icon">⚡</div>
+                <div class="counter-info">
+                  <div class="counter-label">Energy</div>
+                  <div class="counter-value">0</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+              <div class="counter-item cmdr">
+                <div class="counter-icon">⚔</div>
+                <div class="counter-info">
+                  <div class="counter-label">Cmdr Dmg</div>
+                  <div class="counter-value">7</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+              <div class="counter-item exp">
+                <div class="counter-icon">★</div>
+                <div class="counter-info">
+                  <div class="counter-label">Experience</div>
+                  <div class="counter-value">0</div>
+                </div>
+                <div class="counter-controls">
+                  <div class="counter-btn">+</div>
+                  <div class="counter-btn">−</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-label">
+      <h3>Drawer Swiped Up</h3>
+      <p>Swipe up on the pill to reveal counter grid. Life total shrinks to make room. All counters visible with +/− controls. Swipe down or tap outside to dismiss.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleDrawer(id) {
+  // Just for demo interactivity
+}
+</script>
+</body>
+</html>

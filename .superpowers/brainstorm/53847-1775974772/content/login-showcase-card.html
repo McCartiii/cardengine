@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Showcase Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030306; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; display: flex; justify-content: center; padding: 30px; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ANIMATIONS
+     ═══════════════════════════════════════════════════════════════════ */
+
+  @keyframes card-intro {
+    0% { top: 50%; left: 50%; width: 88%; height: 88%; transform: translate(-50%,-50%) perspective(1000px) rotateY(90deg); opacity: 0; border-radius: 24px; }
+    20% { transform: translate(-50%,-50%) perspective(1000px) rotateY(-8deg) rotateX(3deg); opacity: 1; }
+    35% { transform: translate(-50%,-50%) perspective(1000px) rotateY(4deg) rotateX(-2deg); }
+    50% { top: 50%; left: 50%; width: 88%; height: 88%; transform: translate(-50%,-50%) perspective(1000px) rotateY(0deg) rotateX(0deg); border-radius: 24px; }
+    80% { top: 14px; left: 50%; width: 110px; height: 154px; transform: translate(-50%,0) perspective(1000px) rotateY(-2deg) rotateX(2deg); border-radius: 12px; }
+    100% { top: 14px; left: 50%; width: 110px; height: 154px; transform: translate(-50%,0) perspective(1000px) rotateY(-2deg) rotateX(2deg); border-radius: 12px; }
+  }
+
+  @keyframes card-bob {
+    0%,100% { transform: translate(-50%,0) perspective(1000px) rotateY(-2deg) rotateX(2deg) translateY(0); }
+    25% { transform: translate(-50%,0) perspective(1000px) rotateY(1.5deg) rotateX(-1deg) translateY(-5px); }
+    50% { transform: translate(-50%,0) perspective(1000px) rotateY(2deg) rotateX(-2.5deg) translateY(-3px); }
+    75% { transform: translate(-50%,0) perspective(1000px) rotateY(-1deg) rotateX(1deg) translateY(-6px); }
+  }
+
+  @keyframes foil-flow {
+    0% { background-position: 0% 0%; }
+    25% { background-position: 100% 30%; }
+    50% { background-position: 50% 100%; }
+    75% { background-position: 0% 70%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  @keyframes holo-rotate { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+
+  @keyframes sparkle-pop {
+    0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+    15% { opacity: 1; transform: scale(1) rotate(30deg); }
+    30% { opacity: 0.6; transform: scale(0.8) rotate(60deg); }
+    45% { opacity: 0; transform: scale(0) rotate(90deg); }
+  }
+
+  @keyframes star-twinkle {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes sweep {
+    0% { left: -60%; opacity: 0; }
+    15% { opacity: 0.8; }
+    85% { opacity: 0.8; }
+    100% { left: 160%; opacity: 0; }
+  }
+
+  @keyframes form-up {
+    0% { opacity: 0; transform: translateY(50px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes brand-in {
+    0% { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  @keyframes edge-pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+
+  @keyframes neon-drift-1 {
+    0%, 100% { transform: translate(0,0) scale(1); opacity: 0.14; }
+    33% { transform: translate(25px,-18px) scale(1.12); opacity: 0.22; }
+    66% { transform: translate(-18px,14px) scale(0.95); opacity: 0.16; }
+  }
+
+  @keyframes neon-drift-2 {
+    0%, 100% { transform: translate(0,0) scale(1); opacity: 0.1; }
+    33% { transform: translate(-22px,16px) scale(1.08); opacity: 0.18; }
+    66% { transform: translate(16px,-20px) scale(1.05); opacity: 0.12; }
+  }
+
+  @keyframes particle-wander {
+    0%, 100% { transform: translate(0,0); opacity: 0.15; }
+    25% { transform: translate(6px,-10px); opacity: 0.45; }
+    50% { transform: translate(-4px,-16px); opacity: 0.2; }
+    75% { transform: translate(8px,-5px); opacity: 0.35; }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PHONE
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 3px solid #18181f;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+    background: #1A1A22;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     NEON BACKGROUND — dark gray base with neon accents
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .bg-layer { position: absolute; inset: 0; overflow: hidden; z-index: 1; background: #1A1A22; }
+
+  .neon-orb { position: absolute; border-radius: 50%; filter: blur(50px); }
+
+  .no1 { width: 260px; height: 260px; top: 25%; left: -18%; background: radial-gradient(circle, rgba(0,255,200,0.18) 0%, transparent 70%); animation: neon-drift-1 15s ease-in-out infinite; }
+  .no2 { width: 220px; height: 220px; top: 50%; right: -20%; background: radial-gradient(circle, rgba(255,0,200,0.14) 0%, transparent 70%); animation: neon-drift-2 13s ease-in-out infinite; }
+  .no3 { width: 200px; height: 200px; bottom: 8%; left: 15%; background: radial-gradient(circle, rgba(0,150,255,0.15) 0%, transparent 70%); animation: neon-drift-1 17s ease-in-out 3s infinite; }
+  .no4 { width: 180px; height: 180px; top: 10%; right: 5%; background: radial-gradient(circle, rgba(160,80,255,0.1) 0%, transparent 70%); animation: neon-drift-2 14s ease-in-out 2s infinite; }
+  .no5 { width: 140px; height: 140px; bottom: 30%; right: 25%; background: radial-gradient(circle, rgba(255,200,0,0.07) 0%, transparent 70%); animation: neon-drift-1 12s ease-in-out 5s infinite; }
+
+  .bg-particle { position: absolute; border-radius: 50%; }
+  .bp1 { width: 3px; height: 3px; background: #00FFC8; top: 30%; left: 18%; animation: particle-wander 7s ease-in-out infinite; box-shadow: 0 0 10px #00FFC8; }
+  .bp2 { width: 2px; height: 2px; background: #FF00C8; top: 48%; right: 22%; animation: particle-wander 9s ease-in-out 1s infinite; box-shadow: 0 0 8px #FF00C8; }
+  .bp3 { width: 2px; height: 2px; background: #0096FF; top: 62%; left: 55%; animation: particle-wander 6s ease-in-out 2s infinite; box-shadow: 0 0 8px #0096FF; }
+  .bp4 { width: 2px; height: 2px; background: #A050FF; top: 75%; left: 30%; animation: particle-wander 8s ease-in-out 3s infinite; box-shadow: 0 0 6px #A050FF; }
+  .bp5 { width: 3px; height: 3px; background: #00FFC8; top: 38%; right: 35%; animation: particle-wander 10s ease-in-out 0.5s infinite; box-shadow: 0 0 10px #00FFC8; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MTG SHOWCASE CARD
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .card-wrap {
+    position: absolute;
+    z-index: 10;
+    transform-style: preserve-3d;
+    animation: card-intro 3.8s cubic-bezier(0.22,1,0.36,1) forwards;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.7));
+  }
+
+  .card-wrap.settled {
+    animation: card-intro 3.8s cubic-bezier(0.22,1,0.36,1) forwards, card-bob 7s ease-in-out 3.8s infinite;
+    filter: drop-shadow(0 12px 30px rgba(0,255,200,0.12)) drop-shadow(0 20px 50px rgba(0,0,0,0.6));
+  }
+
+  .showcase-card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  /* ── Outer frame — Showcase style with extended art bleed ── */
+  .sc-frame {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #111116;
+    border: 1.5px solid rgba(100,110,130,0.25);
+  }
+
+  /* Decorative frame corners and edges — showcase style with flowing lines */
+  .sc-deco {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .sc-deco::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 12%;
+    background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+  }
+
+  .sc-deco::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 35%;
+    background: linear-gradient(0deg, rgba(10,10,14,0.95) 0%, rgba(10,10,14,0.7) 50%, transparent 100%);
+  }
+
+  /* ── Art — full bleed like showcase frames ── */
+  .sc-art {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
+  }
+
+  /* Base art — rich multi-color gradients like Heliod showcase */
+  .sc-art-base {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 25%, rgba(0,255,200,0.45) 0%, transparent 40%),
+      radial-gradient(ellipse at 80% 35%, rgba(0,140,255,0.4) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 65%, rgba(200,50,255,0.35) 0%, transparent 35%),
+      radial-gradient(ellipse at 30% 80%, rgba(255,0,150,0.3) 0%, transparent 35%),
+      radial-gradient(ellipse at 75% 75%, rgba(255,180,0,0.2) 0%, transparent 30%),
+      radial-gradient(ellipse at 55% 20%, rgba(0,200,255,0.25) 0%, transparent 30%),
+      radial-gradient(ellipse at 15% 55%, rgba(100,0,255,0.2) 0%, transparent 35%),
+      linear-gradient(160deg, #0A0A12 0%, #0E0E18 100%);
+    background-size: 180% 180%;
+    animation: foil-flow 14s ease-in-out infinite;
+  }
+
+  /* Holo conic rainbow */
+  .sc-art-holo {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      rgba(0,255,200,0.15),
+      rgba(0,140,255,0.12),
+      rgba(200,50,255,0.15),
+      rgba(255,0,150,0.12),
+      rgba(255,200,0,0.1),
+      rgba(0,255,200,0.15)
+    );
+    animation: holo-rotate 20s linear infinite;
+    mix-blend-mode: color-dodge;
+    opacity: 0.5;
+  }
+
+  /* Specular highlight */
+  .sc-art-spec {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      125deg,
+      transparent 20%,
+      rgba(255,255,255,0.04) 38%,
+      rgba(255,255,255,0.1) 42%,
+      rgba(255,255,255,0.04) 46%,
+      transparent 60%
+    );
+    background-size: 200% 200%;
+    animation: foil-flow 8s ease-in-out infinite reverse;
+  }
+
+  /* Diagonal light sweep */
+  .sc-sweep {
+    position: absolute;
+    top: -20%; bottom: -20%;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), rgba(255,255,255,0.02), transparent);
+    transform: skewX(-20deg);
+    animation: sweep 6s ease-in-out infinite;
+  }
+
+  /* Sparkle stars */
+  .sc-star {
+    position: absolute;
+    z-index: 5;
+  }
+
+  .sc-star::before, .sc-star::after {
+    content: '';
+    position: absolute;
+    background: white;
+    border-radius: 1px;
+  }
+
+  .sc-star::before {
+    width: 1px;
+    height: var(--star-size, 8px);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    box-shadow: 0 0 3px white, 0 0 6px rgba(255,255,255,0.5);
+  }
+
+  .sc-star::after {
+    width: var(--star-size, 8px);
+    height: 1px;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    box-shadow: 0 0 3px white, 0 0 6px rgba(255,255,255,0.5);
+  }
+
+  .ss1 { --star-size: 10px; top: 14%; left: 18%; animation: sparkle-pop 3s ease-in-out infinite; }
+  .ss2 { --star-size: 7px; top: 28%; right: 15%; animation: sparkle-pop 2.5s ease-in-out 0.7s infinite; }
+  .ss3 { --star-size: 9px; top: 42%; left: 35%; animation: sparkle-pop 3.2s ease-in-out 1.2s infinite; }
+  .ss4 { --star-size: 6px; top: 22%; left: 55%; animation: sparkle-pop 2.8s ease-in-out 0.4s infinite; }
+  .ss5 { --star-size: 8px; top: 50%; right: 28%; animation: sparkle-pop 3.5s ease-in-out 1.8s infinite; }
+  .ss6 { --star-size: 5px; top: 35%; left: 70%; animation: sparkle-pop 2.2s ease-in-out 2.2s infinite; }
+  .ss7 { --star-size: 7px; top: 18%; right: 40%; animation: sparkle-pop 2.7s ease-in-out 0.9s infinite; }
+  .ss8 { --star-size: 6px; top: 45%; left: 15%; animation: sparkle-pop 3.1s ease-in-out 1.5s infinite; }
+  .ss9 { --star-size: 8px; top: 55%; left: 50%; animation: sparkle-pop 2.4s ease-in-out 2.5s infinite; }
+  .ss10 { --star-size: 5px; top: 10%; left: 40%; animation: star-twinkle 2s ease-in-out 0.3s infinite; }
+  .ss11 { --star-size: 4px; top: 48%; right: 12%; animation: star-twinkle 2.5s ease-in-out 1.1s infinite; }
+  .ss12 { --star-size: 6px; top: 30%; left: 8%; animation: star-twinkle 1.8s ease-in-out 0.6s infinite; }
+
+  /* ── CE Logo in art ── */
+  .sc-logo {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(36px, 16vw, 80px);
+    font-weight: 900;
+    letter-spacing: -3px;
+    z-index: 5;
+    background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(0,255,200,0.15));
+  }
+
+  /* ── Card info overlay — at bottom over the gradient fade ── */
+  .sc-info {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    z-index: 6;
+    padding: 0 8% 5%;
+  }
+
+  .sc-name {
+    font-size: clamp(10px, 4vw, 18px);
+    font-weight: 800;
+    color: #00FFC8;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+    text-shadow: 0 0 20px rgba(0,255,200,0.4);
+  }
+
+  .sc-type {
+    font-size: clamp(5px, 1.8vw, 9px);
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6%;
+  }
+
+  .sc-rules-box {
+    background: rgba(10,10,16,0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 5% 6%;
+  }
+
+  .sc-rules {
+    font-size: clamp(4.5px, 1.6vw, 8.5px);
+    color: rgba(255,255,255,0.75);
+    line-height: 1.7;
+  }
+
+  .sc-rules em {
+    color: #00FFC8;
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  .sc-flavor {
+    font-size: clamp(4px, 1.4vw, 7px);
+    color: rgba(255,255,255,0.35);
+    font-style: italic;
+    margin-top: 5%;
+    padding-top: 4%;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  /* Footer */
+  .sc-footer {
+    position: absolute;
+    bottom: 1.5%;
+    left: 8%; right: 8%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 6;
+  }
+
+  .sc-collector {
+    font-size: clamp(3px, 1vw, 5.5px);
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.3px;
+  }
+
+  .sc-rarity {
+    width: clamp(5px, 2vw, 9px);
+    height: clamp(5px, 2vw, 9px);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    background: radial-gradient(circle, #FF8C00, #FF6000);
+    box-shadow: 0 0 8px rgba(255,140,0,0.6);
+  }
+
+  /* Edge glow */
+  .sc-edge-glow {
+    position: absolute;
+    top: 0; left: 12%; right: 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,200,0.5), transparent);
+    animation: edge-pulse 3s ease-in-out infinite;
+    z-index: 7;
+  }
+
+  /* Rainbow border shimmer */
+  .sc-border-shimmer {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid transparent;
+    background: linear-gradient(90deg, rgba(0,255,200,0.15), rgba(0,140,255,0.12), rgba(200,50,255,0.12), rgba(255,0,150,0.1), rgba(0,255,200,0.15));
+    background-size: 300% 100%;
+    animation: border-flow 6s linear infinite;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1.5px;
+    pointer-events: none;
+    z-index: 8;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     BRAND
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .brand {
+    position: absolute;
+    top: 182px;
+    left: 0; right: 0;
+    text-align: center;
+    z-index: 5;
+    animation: brand-in 0.6s ease-out 3.4s both;
+  }
+
+  .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #00FFC8;
+    letter-spacing: -0.3px;
+    text-shadow: 0 0 20px rgba(0,255,200,0.3);
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     FORM — neon text and buttons
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .form-layer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 5;
+    padding: 0 24px 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    animation: form-up 0.8s ease-out 3s both;
+  }
+
+  .input-wrap { position: relative; margin-bottom: 10px; }
+
+  .input-field {
+    width: 100%;
+    padding: 15px 18px 15px 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(20,20,28,0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .input-field:focus {
+    border-color: rgba(0,255,200,0.3);
+    box-shadow: 0 0 0 3px rgba(0,255,200,0.06), 0 0 24px rgba(0,255,200,0.04);
+    background: rgba(20,20,28,0.85);
+  }
+
+  .input-field::placeholder { color: rgba(255,255,255,0.15); }
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: rgba(255,255,255,0.15);
+    font-weight: 600;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .input-wrap:focus-within .input-icon { color: #00FFC8; }
+
+  .meta-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+    margin-top: 2px;
+  }
+
+  .forgot {
+    font-size: 11px;
+    color: #00FFC8;
+    font-weight: 600;
+    cursor: pointer;
+    text-shadow: 0 0 10px rgba(0,255,200,0.2);
+  }
+
+  .btn-wrap { position: relative; margin-bottom: 14px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0A0A10;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #00FFC8 0%, #00D4A8 50%, #00B894 100%);
+    box-shadow: 0 4px 24px rgba(0,255,200,0.3), 0 0 60px rgba(0,255,200,0.08), inset 0 1px 0 rgba(255,255,255,0.2);
+    transition: transform 0.15s;
+  }
+
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .btn-glow {
+    position: absolute;
+    bottom: -2px;
+    left: 8%; right: 8%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #00FFC8, #00B8FF, #A050FF, #FF00C8, #00FFC8);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(10px);
+    opacity: 0.35;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); }
+  .div-text { font-size: 9px; color: rgba(255,255,255,0.2); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .social-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .social-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(20,20,28,0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .social-btn:hover {
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    color: #E2E8F0;
+  }
+
+  .guest-row {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.15);
+  }
+
+  .guest-row span {
+    color: rgba(0,255,200,0.5);
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0,255,200,0.2);
+    padding-bottom: 1px;
+    transition: color 0.2s;
+  }
+
+  .guest-row span:hover { color: #00FFC8; }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 18px;
+    max-width: 440px;
+  }
+  .demo-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone">
+
+    <!-- Neon background on dark gray -->
+    <div class="bg-layer">
+      <div class="neon-orb no1"></div>
+      <div class="neon-orb no2"></div>
+      <div class="neon-orb no3"></div>
+      <div class="neon-orb no4"></div>
+      <div class="neon-orb no5"></div>
+      <div class="bg-particle bp1"></div>
+      <div class="bg-particle bp2"></div>
+      <div class="bg-particle bp3"></div>
+      <div class="bg-particle bp4"></div>
+      <div class="bg-particle bp5"></div>
+    </div>
+
+    <!-- Showcase MTG Card -->
+    <div class="card-wrap settled">
+      <div class="showcase-card">
+        <div class="sc-frame">
+          <div class="sc-edge-glow"></div>
+          <div class="sc-border-shimmer"></div>
+
+          <!-- Full bleed art -->
+          <div class="sc-art">
+            <div class="sc-art-base"></div>
+            <div class="sc-art-holo"></div>
+            <div class="sc-art-spec"></div>
+            <div class="sc-sweep"></div>
+
+            <!-- Star sparkles -->
+            <div class="sc-star ss1"></div>
+            <div class="sc-star ss2"></div>
+            <div class="sc-star ss3"></div>
+            <div class="sc-star ss4"></div>
+            <div class="sc-star ss5"></div>
+            <div class="sc-star ss6"></div>
+            <div class="sc-star ss7"></div>
+            <div class="sc-star ss8"></div>
+            <div class="sc-star ss9"></div>
+            <div class="sc-star ss10"></div>
+            <div class="sc-star ss11"></div>
+            <div class="sc-star ss12"></div>
+
+            <!-- CE Logo -->
+            <div class="sc-logo">CE</div>
+          </div>
+
+          <!-- Showcase card info overlaid at bottom -->
+          <div class="sc-info">
+            <div class="sc-name">Card Engine</div>
+            <div class="sc-type">Legendary Artifact -- Collection Engine</div>
+            <div class="sc-rules-box">
+              <div class="sc-rules">
+                <em>Scan</em> -- Identify any card with your camera.<br/>
+                <em>Collect</em> -- Track with real-time pricing.<br/>
+                <em>Master</em> -- Build decks with AI tools.
+              </div>
+              <div class="sc-flavor">"Every collection tells a story."</div>
+            </div>
+          </div>
+
+          <div class="sc-footer">
+            <div class="sc-collector">CE -- 001/001 M</div>
+            <div class="sc-rarity"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Brand -->
+    <div class="brand">
+      <div class="brand-name">Card Engine</div>
+      <div class="brand-sub">Scan . Collect . Master</div>
+    </div>
+
+    <!-- Form -->
+    <div class="form-layer">
+      <div class="input-wrap">
+        <input class="input-field" placeholder="Email address" />
+        <div class="input-icon">@</div>
+      </div>
+      <div class="input-wrap">
+        <input class="input-field" type="password" placeholder="Password" />
+        <div class="input-icon" style="font-size:12px;">*</div>
+      </div>
+
+      <div class="meta-row">
+        <div class="forgot">Forgot password?</div>
+      </div>
+
+      <div class="btn-wrap">
+        <button class="btn-primary">
+          <span class="btn-shimmer"></span>
+          <span style="position:relative;z-index:1;">Sign In</span>
+        </button>
+        <div class="btn-glow"></div>
+      </div>
+
+      <div class="divider">
+        <div class="div-line"></div>
+        <div class="div-text">or continue with</div>
+        <div class="div-line"></div>
+      </div>
+
+      <div class="social-row">
+        <div class="social-btn"><span style="font-size:17px;font-weight:500;"></span> Apple</div>
+        <div class="social-btn"><span style="font-size:14px;font-weight:700;color:#4285F4;">G</span> Google</div>
+      </div>
+
+      <div class="guest-row">or <span>explore as guest</span></div>
+    </div>
+
+  </div>
+
+  <div class="demo-label">
+    <h3>Showcase Card on Dark Gray + Neon</h3>
+    <p>Full-bleed showcase frame (like Heliod) — art bleeds to the edges with card info overlaid at the bottom. Foil art has multi-layer radial color orbs (neon green, electric blue, purple, pink, gold) that flow and shift, a conic rainbow holo rotation, specular highlight, diagonal light sweep, and cross-shaped star sparkles that pop in and out. Card name in neon green with glow. Dark gray (#1A1A22) background with drifting neon orbs (green, pink, blue, purple, gold) and glowing particles. Neon green CTA button with dark text. All accent text in neon green. Rainbow glow trail under the button. Reload to replay the entrance.</p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Fresh Concepts</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #060910; color: #e2e8f0; -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+.demo-bar {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 3px; background: rgba(6,9,16,0.97);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 5px; z-index: 300;
+}
+.db { padding: 6px 14px; border-radius: 7px; font-size: 11px; font-weight: 600; color: #555; background: none; border: none; cursor: pointer; }
+.db.active { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+.page { display: none; min-height: 100vh; }
+.page.active { display: block; }
+
+/* ═══════════════════════════════════════════════════════════════
+   A: CINEMATIC — Full-bleed hero with animated card cascade
+   ═══════════════════════════════════════════════════════════════ */
+#page-a { background: #060810; }
+
+.cinema-hero {
+  min-height: 100vh; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Animated diagonal card rain */
+.card-rain {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+.rain-card {
+  position: absolute; width: 70px; height: 98px; border-radius: 6px;
+  border: 1px solid rgba(34,211,238,0.06);
+  background: linear-gradient(135deg, rgba(12,20,36,0.4), rgba(8,13,24,0.6));
+  animation: fall linear infinite;
+  opacity: 0;
+}
+@keyframes fall {
+  0% { opacity: 0; transform: translateY(-120px) rotate(-15deg); }
+  10% { opacity: 0.15; }
+  90% { opacity: 0.15; }
+  100% { opacity: 0; transform: translateY(110vh) rotate(15deg); }
+}
+.rain-card:nth-child(1) { left: 5%; animation-duration: 18s; animation-delay: 0s; width: 60px; height: 84px; }
+.rain-card:nth-child(2) { left: 15%; animation-duration: 22s; animation-delay: 3s; }
+.rain-card:nth-child(3) { left: 28%; animation-duration: 20s; animation-delay: 7s; width: 55px; height: 77px; }
+.rain-card:nth-child(4) { left: 42%; animation-duration: 25s; animation-delay: 1s; }
+.rain-card:nth-child(5) { left: 55%; animation-duration: 19s; animation-delay: 5s; width: 65px; height: 91px; }
+.rain-card:nth-child(6) { left: 68%; animation-duration: 23s; animation-delay: 9s; }
+.rain-card:nth-child(7) { left: 78%; animation-duration: 21s; animation-delay: 2s; width: 58px; height: 81px; }
+.rain-card:nth-child(8) { left: 90%; animation-duration: 24s; animation-delay: 6s; }
+
+/* Central glow orb */
+.orb {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(8,145,178,0.12) 0%, rgba(34,211,238,0.04) 40%, transparent 65%);
+  pointer-events: none;
+  animation: orb-pulse 6s ease-in-out infinite;
+}
+@keyframes orb-pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 1; } 50% { transform: translate(-50%,-50%) scale(1.1); opacity: 0.7; } }
+
+.cinema-content {
+  position: relative; z-index: 10; text-align: center;
+  max-width: 700px; padding: 0 24px;
+}
+.cinema-logo {
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 36px;
+}
+.cinema-mark {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+  box-shadow: 0 0 24px rgba(8,145,178,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 900; color: #fff;
+}
+.cinema-wordmark { font-size: 20px; font-weight: 800; color: #f0fdff; letter-spacing: -0.02em; }
+
+.cinema-content h1 {
+  font-size: 72px; font-weight: 900; line-height: 0.98;
+  letter-spacing: -0.05em; color: #f0fdff; margin-bottom: 24px;
+}
+.cinema-content h1 .line2 {
+  display: block;
+  background: linear-gradient(135deg, #22d3ee, #06b6d4, #0891b2);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.cinema-content .tagline {
+  font-size: 18px; color: #3d5068; line-height: 1.7; margin-bottom: 40px;
+  max-width: 460px; margin-left: auto; margin-right: auto;
+}
+.cinema-ctas { display: flex; gap: 12px; justify-content: center; }
+.cc-primary {
+  padding: 16px 44px; border-radius: 14px; font-size: 16px; font-weight: 700;
+  background: linear-gradient(135deg, #0891b2, #0e7490); color: #fff;
+  border: none; cursor: pointer; text-decoration: none;
+  box-shadow: 0 0 36px rgba(8,145,178,0.3), 0 8px 32px rgba(0,0,0,0.5);
+  position: relative; overflow: hidden;
+}
+.cc-primary::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.06) 50%, transparent 60%); }
+.cc-secondary {
+  padding: 16px 44px; border-radius: 14px; font-size: 16px; font-weight: 600;
+  background: rgba(12,20,36,0.5); border: 1px solid rgba(34,211,238,0.1);
+  color: #67e8f9; cursor: pointer; text-decoration: none;
+  backdrop-filter: blur(8px);
+}
+
+/* Scroll arrow */
+.scroll-down {
+  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  font-size: 9px; color: #1e3040; font-weight: 600; letter-spacing: 0.1em;
+  animation: bob 2s ease-in-out infinite;
+}
+@keyframes bob { 0%,100%{ transform: translateX(-50%) translateY(0); } 50%{ transform: translateX(-50%) translateY(5px); } }
+.scroll-chevron { width: 12px; height: 12px; border-right: 1.5px solid #1e3040; border-bottom: 1.5px solid #1e3040; transform: rotate(45deg); }
+
+/* Feature strip — horizontal scroll */
+.feat-strip {
+  padding: 60px 0; overflow: hidden; position: relative;
+  border-top: 1px solid rgba(34,211,238,0.04);
+  border-bottom: 1px solid rgba(34,211,238,0.04);
+}
+.feat-strip-inner {
+  display: flex; gap: 12px; padding: 0 40px;
+  width: max-content;
+}
+.fs-card {
+  width: 280px; flex-shrink: 0;
+  background: rgba(12,20,36,0.5); backdrop-filter: blur(12px);
+  border: 1px solid rgba(34,211,238,0.06); border-radius: 16px;
+  padding: 28px 24px; transition: all 0.25s; position: relative; overflow: hidden;
+}
+.fs-card:hover { border-color: rgba(34,211,238,0.18); transform: translateY(-3px); }
+.fs-card::before {
+  content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--fc, rgba(34,211,238,0.15)), transparent);
+  opacity: 0; transition: opacity 0.25s;
+}
+.fs-card:hover::before { opacity: 1; }
+.fs-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+}
+.fs-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fs-card h3 { font-size: 15px; font-weight: 700; color: #e0f7ff; margin-bottom: 8px; }
+.fs-card p { font-size: 13px; color: #3d5068; line-height: 1.65; }
+
+.fsi-1 { background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.15); color: #60a5fa; --fc: rgba(96,165,250,0.2); }
+.fsi-2 { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.12); color: #f87171; --fc: rgba(239,68,68,0.2); }
+.fsi-3 { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.12); color: #fbbf24; --fc: rgba(251,191,36,0.2); }
+.fsi-4 { background: rgba(34,211,238,0.06); border: 1px solid rgba(34,211,238,0.12); color: #22d3ee; --fc: rgba(34,211,238,0.2); }
+.fsi-5 { background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.12); color: #34d399; --fc: rgba(52,211,153,0.2); }
+.fsi-6 { background: rgba(8,145,178,0.08); border: 1px solid rgba(8,145,178,0.15); color: #06b6d4; --fc: rgba(8,145,178,0.2); }
+
+/* Bottom CTA */
+.bottom-cta {
+  padding: 80px 24px; text-align: center;
+}
+.bottom-cta h2 { font-size: 36px; font-weight: 800; color: #f0fdff; letter-spacing: -0.02em; margin-bottom: 12px; }
+.bottom-cta p { font-size: 15px; color: #3d5068; margin-bottom: 28px; }
+
+.footer-a { border-top: 1px solid rgba(34,211,238,0.04); padding: 24px; text-align: center; font-size: 11px; color: #1a2636; }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   B: SHOWCASE — Hero with real card art grid background
+   ═══════════════════════════════════════════════════════════════ */
+#page-b { background: #070a12; }
+
+.showcase-hero {
+  min-height: 100vh; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Card mosaic background */
+.mosaic {
+  position: absolute; inset: -20px; pointer-events: none;
+  display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(5, 1fr);
+  gap: 6px; padding: 6px; transform: rotate(-3deg) scale(1.1);
+  opacity: 0.06;
+}
+.mosaic-tile {
+  border-radius: 6px; background: linear-gradient(135deg, #1a2535, #0f1824);
+  border: 1px solid rgba(34,211,238,0.08);
+  aspect-ratio: 5/7;
+}
+.mosaic-tile:nth-child(odd) { background: linear-gradient(135deg, #142030, #0c1520); }
+
+/* Dark overlay gradient */
+.showcase-overlay {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(7,10,18,0.7) 0%, rgba(7,10,18,0.95) 70%);
+}
+
+.showcase-content {
+  position: relative; z-index: 10; text-align: center;
+  max-width: 640px; padding: 0 24px;
+}
+.showcase-content .badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 20px; border-radius: 24px; margin-bottom: 32px;
+  background: rgba(8,145,178,0.08); border: 1px solid rgba(34,211,238,0.15);
+  font-size: 12px; font-weight: 700; color: #22d3ee;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.badge-line { width: 20px; height: 1px; background: rgba(34,211,238,0.3); }
+
+.showcase-content h1 {
+  font-size: 68px; font-weight: 900; line-height: 1.0;
+  letter-spacing: -0.05em; color: #f0fdff; margin-bottom: 20px;
+}
+.showcase-content h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 40%, #0891b2 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.showcase-content .sub { font-size: 17px; color: #3d5068; line-height: 1.7; margin-bottom: 36px; }
+.showcase-ctas { display: flex; gap: 12px; justify-content: center; margin-bottom: 48px; }
+
+/* Feature pills row */
+.pill-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.feat-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: 24px;
+  background: rgba(12,20,36,0.5); border: 1px solid rgba(34,211,238,0.06);
+  font-size: 12px; font-weight: 600; color: #64748b;
+  backdrop-filter: blur(8px); transition: all 0.2s;
+}
+.feat-pill:hover { border-color: rgba(34,211,238,0.2); color: #94a3b8; }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* Features below */
+.showcase-features {
+  max-width: 1060px; margin: 0 auto; padding: 80px 24px 100px;
+}
+.sf-header { text-align: center; margin-bottom: 48px; }
+.sf-header h2 { font-size: 34px; font-weight: 800; color: #f0fdff; letter-spacing: -0.02em; margin-bottom: 8px; }
+.sf-header p { font-size: 14px; color: #3d5068; }
+
+/* Alternating feature rows */
+.sf-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+  align-items: center; padding: 40px 0;
+  border-bottom: 1px solid rgba(34,211,238,0.03);
+}
+.sf-row:last-child { border-bottom: none; }
+.sf-row.reverse { direction: rtl; }
+.sf-row.reverse > * { direction: ltr; }
+
+.sf-text h3 { font-size: 22px; font-weight: 800; color: #e0f7ff; margin-bottom: 10px; letter-spacing: -0.01em; }
+.sf-text p { font-size: 14px; color: #3d5068; line-height: 1.7; }
+.sf-visual {
+  height: 200px; border-radius: 16px; position: relative; overflow: hidden;
+  background: rgba(12,20,36,0.5); border: 1px solid rgba(34,211,238,0.06);
+}
+/* Faux UI inside visual */
+.sf-ui-bar { height: 8px; background: rgba(34,211,238,0.04); margin: 16px 16px 12px; border-radius: 4px; }
+.sf-ui-lines { padding: 0 16px; display: flex; flex-direction: column; gap: 6px; }
+.sf-ui-line { height: 5px; border-radius: 3px; background: rgba(34,211,238,0.03); }
+.sf-ui-line:nth-child(1) { width: 75%; }
+.sf-ui-line:nth-child(2) { width: 60%; }
+.sf-ui-line:nth-child(3) { width: 85%; }
+.sf-ui-line:nth-child(4) { width: 45%; }
+.sf-ui-line:nth-child(5) { width: 70%; }
+
+.sf-ui-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; padding: 16px; }
+.sf-ui-card { aspect-ratio: 5/7; border-radius: 4px; background: rgba(34,211,238,0.04); border: 1px solid rgba(34,211,238,0.05); }
+
+.footer-b { border-top: 1px solid rgba(34,211,238,0.04); padding: 24px; text-align: center; font-size: 11px; color: #1a2636; }
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <button class="db active" onclick="show('a')">A · Cinematic</button>
+  <button class="db" onclick="show('b')">B · Showcase</button>
+</div>
+
+<!-- ═══ A: CINEMATIC ═══ -->
+<div class="page active" id="page-a">
+  <div class="cinema-hero">
+    <div class="card-rain">
+      <div class="rain-card"></div><div class="rain-card"></div><div class="rain-card"></div><div class="rain-card"></div>
+      <div class="rain-card"></div><div class="rain-card"></div><div class="rain-card"></div><div class="rain-card"></div>
+    </div>
+    <div class="orb"></div>
+
+    <div class="cinema-content">
+      <div class="cinema-logo">
+        <div class="cinema-mark">CE</div>
+        <div class="cinema-wordmark">Card Engine</div>
+      </div>
+
+      <h1>
+        Forge your<br>
+        <span class="line2">ultimate deck</span>
+      </h1>
+
+      <p class="tagline">AI-powered deck building, instant card scanning, live prices, and local shop discovery — all in one platform.</p>
+
+      <div class="cinema-ctas">
+        <a class="cc-primary" href="#">Get started</a>
+        <a class="cc-secondary" href="#">Sign in</a>
+      </div>
+    </div>
+
+    <div class="scroll-down">
+      <span>SCROLL</span>
+      <div class="scroll-chevron"></div>
+    </div>
+  </div>
+
+  <div class="feat-strip">
+    <div class="feat-strip-inner">
+      <div class="fs-card"><div class="fs-icon fsi-1"><svg viewBox="0 0 24 24"><path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg></div><h3>Collection Tracking</h3><p>Add cards, track condition, organize by binder or box. Cloud synced across all your devices.</p></div>
+      <div class="fs-card"><div class="fs-icon fsi-2"><svg viewBox="0 0 24 24"><path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/></svg></div><h3>Camera Scanner</h3><p>Point your phone at any card. Identified instantly using OCR and machine learning.</p></div>
+      <div class="fs-card"><div class="fs-icon fsi-3"><svg viewBox="0 0 24 24"><path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><h3>Live Prices</h3><p>TCGplayer and Cardmarket prices, updated daily. Set alerts on your watchlist.</p></div>
+      <div class="fs-card"><div class="fs-icon fsi-4"><svg viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg></div><h3>AI Advisor</h3><p>EDHREC data + Scryfall verification + AI reasoning. Build winning decks in any format.</p></div>
+      <div class="fs-card"><div class="fs-icon fsi-5"><svg viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg></div><h3>Shop Finder</h3><p>Find local game stores on the map, check in, and connect with players near you.</p></div>
+      <div class="fs-card"><div class="fs-icon fsi-6"><svg viewBox="0 0 24 24"><path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg></div><h3>Rules Engine</h3><p>Automatic deck validation against format rules and ban lists, always current.</p></div>
+    </div>
+  </div>
+
+  <div class="bottom-cta">
+    <h2>Ready to build?</h2>
+    <p>Join Card Engine and start forging your next deck.</p>
+    <a class="cc-primary" href="#">Get started</a>
+  </div>
+
+  <div class="footer-a">Card Engine — MTG Collection Platform</div>
+</div>
+
+<!-- ═══ B: SHOWCASE ═══ -->
+<div class="page" id="page-b">
+  <div class="showcase-hero">
+    <div class="mosaic">
+      <div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div>
+      <div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div>
+      <div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div>
+      <div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div>
+      <div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div><div class="mosaic-tile"></div>
+    </div>
+    <div class="showcase-overlay"></div>
+
+    <div class="showcase-content">
+      <div class="badge"><div class="badge-line"></div> Card Engine <div class="badge-line"></div></div>
+
+      <h1>Collect. Build.<br><em>Dominate.</em></h1>
+
+      <p class="sub">The all-in-one MTG platform. AI deck building, instant scanning, live prices, and local shop discovery.</p>
+
+      <div class="showcase-ctas">
+        <a class="cc-primary" href="#">Get started</a>
+        <a class="cc-secondary" href="#">Sign in</a>
+      </div>
+
+      <div class="pill-row">
+        <div class="feat-pill"><div class="pill-dot" style="background:#60a5fa"></div> Collection</div>
+        <div class="feat-pill"><div class="pill-dot" style="background:#f87171"></div> Scanner</div>
+        <div class="feat-pill"><div class="pill-dot" style="background:#fbbf24"></div> Prices</div>
+        <div class="feat-pill"><div class="pill-dot" style="background:#22d3ee"></div> AI Advisor</div>
+        <div class="feat-pill"><div class="pill-dot" style="background:#34d399"></div> Shops</div>
+        <div class="feat-pill"><div class="pill-dot" style="background:#06b6d4"></div> Rules</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="showcase-features">
+    <div class="sf-header"><h2>Everything in one place</h2><p>Built by players, for players.</p></div>
+
+    <div class="sf-row">
+      <div class="sf-text">
+        <h3>Track every card you own</h3>
+        <p>Organize by binder, box, or set. Track condition, quantity, and value. Everything syncs across your devices instantly.</p>
+      </div>
+      <div class="sf-visual">
+        <div class="sf-ui-grid">
+          <div class="sf-ui-card"></div><div class="sf-ui-card"></div><div class="sf-ui-card"></div><div class="sf-ui-card"></div>
+          <div class="sf-ui-card"></div><div class="sf-ui-card"></div><div class="sf-ui-card"></div><div class="sf-ui-card"></div>
+          <div class="sf-ui-card"></div><div class="sf-ui-card"></div><div class="sf-ui-card"></div><div class="sf-ui-card"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sf-row reverse">
+      <div class="sf-text">
+        <h3>Build decks with AI</h3>
+        <p>Powered by EDHREC synergy data and live Scryfall search. Get recommendations backed by what thousands of real players use.</p>
+      </div>
+      <div class="sf-visual">
+        <div class="sf-ui-bar"></div>
+        <div class="sf-ui-lines"><div class="sf-ui-line"></div><div class="sf-ui-line"></div><div class="sf-ui-line"></div><div class="sf-ui-line"></div><div class="sf-ui-line"></div></div>
+      </div>
+    </div>
+
+    <div class="sf-row">
+      <div class="sf-text">
+        <h3>Scan cards instantly</h3>
+        <p>Point your phone camera at any card. OCR and machine learning identify it in seconds. Add directly to your collection.</p>
+      </div>
+      <div class="sf-visual" style="display:flex;align-items:center;justify-content:center">
+        <div style="width:80px;height:112px;border-radius:8px;border:2px dashed rgba(34,211,238,0.15);display:flex;align-items:center;justify-content:center">
+          <div style="width:40px;height:40px;border:2px solid rgba(34,211,238,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center">
+            <div style="width:12px;height:12px;border-radius:50%;background:rgba(34,211,238,0.15)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-cta">
+    <h2>Start building today</h2>
+    <p>Join the platform built for players who take the game seriously.</p>
+    <a class="cc-primary" href="#">Get started</a>
+  </div>
+
+  <div class="footer-b">Card Engine — MTG Collection Platform</div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.db').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

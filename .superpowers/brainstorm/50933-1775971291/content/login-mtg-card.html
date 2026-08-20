@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — MTG Card Entrance</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030306; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; display: flex; justify-content: center; padding: 30px; }
+
+  /* ── Animations ── */
+  @keyframes card-entrance {
+    0% { transform: perspective(1200px) rotateY(180deg) scale(1.1); opacity: 0; }
+    30% { transform: perspective(1200px) rotateY(0deg) scale(1.15); opacity: 1; }
+    50% { transform: perspective(1200px) rotateY(-8deg) rotateX(5deg) scale(1.15); }
+    65% { transform: perspective(1200px) rotateY(3deg) rotateX(-2deg) scale(1.0); }
+    80% { transform: perspective(1200px) rotateY(-1deg) rotateX(1deg) scale(0.42); }
+    100% { transform: perspective(1200px) rotateY(-2deg) rotateX(3deg) scale(0.42); }
+  }
+
+  @keyframes card-settle {
+    0%, 100% { transform: perspective(1200px) rotateY(-2deg) rotateX(3deg) scale(0.42) translateY(0px); }
+    25% { transform: perspective(1200px) rotateY(1deg) rotateX(-1deg) scale(0.42) translateY(-6px); }
+    50% { transform: perspective(1200px) rotateY(2deg) rotateX(-3deg) scale(0.42) translateY(-3px); }
+    75% { transform: perspective(1200px) rotateY(-1deg) rotateX(1deg) scale(0.42) translateY(-8px); }
+  }
+
+  @keyframes card-move-up {
+    0% { top: 50%; transform: translate(-50%, -50%); }
+    100% { top: 0; transform: translate(-50%, 12px); }
+  }
+
+  @keyframes form-reveal {
+    0% { opacity: 0; transform: translateY(40px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes neo-pulse-1 {
+    0%, 100% { opacity: 0.08; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.18; transform: translate(-50%, -50%) scale(1.15); }
+  }
+
+  @keyframes neo-pulse-2 {
+    0%, 100% { opacity: 0.06; transform: translate(-50%, -50%) scale(1.1); }
+    50% { opacity: 0.14; transform: translate(-50%, -50%) scale(0.9); }
+  }
+
+  @keyframes neo-drift {
+    0% { transform: translate(0, 0); }
+    33% { transform: translate(25px, -15px); }
+    66% { transform: translate(-15px, 20px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  @keyframes neo-drift-2 {
+    0% { transform: translate(0, 0); }
+    33% { transform: translate(-20px, 12px); }
+    66% { transform: translate(18px, -18px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  @keyframes foil-sweep {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  @keyframes holo-rotate {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+  }
+
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+  @keyframes edge-breathe {
+    0%, 100% { opacity: 0.5; box-shadow: 0 0 6px rgba(13,148,136,0.3); }
+    50% { opacity: 1; box-shadow: 0 0 14px rgba(13,148,136,0.6); }
+  }
+
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+  @keyframes shadow-shift {
+    0%, 100% { filter: drop-shadow(4px 12px 24px rgba(13,148,136,0.15)) drop-shadow(0 30px 50px rgba(0,0,0,0.6)); }
+    25% { filter: drop-shadow(-2px 18px 28px rgba(14,165,233,0.15)) drop-shadow(0 34px 50px rgba(0,0,0,0.6)); }
+    50% { filter: drop-shadow(-4px 14px 32px rgba(139,92,246,0.12)) drop-shadow(0 38px 50px rgba(0,0,0,0.6)); }
+    75% { filter: drop-shadow(3px 20px 26px rgba(13,148,136,0.15)) drop-shadow(0 32px 50px rgba(0,0,0,0.6)); }
+  }
+
+  @keyframes particle-float {
+    0%, 100% { transform: translate(0, 0); opacity: 0.2; }
+    25% { transform: translate(6px, -10px); opacity: 0.5; }
+    50% { transform: translate(-4px, -18px); opacity: 0.3; }
+    75% { transform: translate(8px, -6px); opacity: 0.4; }
+  }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 3px solid #12141e;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+    background: #0A0D14;
+  }
+
+  /* ── Neo background ── */
+  .neo-bg { position: absolute; inset: 0; overflow: hidden; }
+
+  .neo-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+  }
+
+  .neo-1 {
+    width: 300px; height: 300px;
+    top: -5%; left: -20%;
+    background: radial-gradient(circle, rgba(13,148,136,0.2) 0%, transparent 70%);
+    animation: neo-drift 16s ease-in-out infinite, neo-pulse-1 6s ease-in-out infinite;
+  }
+
+  .neo-2 {
+    width: 250px; height: 250px;
+    top: 30%; right: -25%;
+    background: radial-gradient(circle, rgba(14,165,233,0.14) 0%, transparent 70%);
+    animation: neo-drift-2 14s ease-in-out infinite, neo-pulse-2 5s ease-in-out 1s infinite;
+  }
+
+  .neo-3 {
+    width: 280px; height: 280px;
+    bottom: -5%; left: -15%;
+    background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+    animation: neo-drift 18s ease-in-out 3s infinite, neo-pulse-1 7s ease-in-out 2s infinite;
+  }
+
+  .neo-4 {
+    width: 200px; height: 200px;
+    top: 55%; left: 50%;
+    background: radial-gradient(circle, rgba(244,63,94,0.06) 0%, transparent 70%);
+    animation: neo-drift-2 12s ease-in-out 2s infinite;
+  }
+
+  /* Fine particles */
+  .neo-particle {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .np1 { width: 3px; height: 3px; background: #2DD4BF; top: 15%; left: 20%; animation: particle-float 7s ease-in-out infinite; box-shadow: 0 0 8px #2DD4BF; }
+  .np2 { width: 2px; height: 2px; background: #38BDF8; top: 25%; right: 18%; animation: particle-float 9s ease-in-out 1s infinite; box-shadow: 0 0 6px #38BDF8; }
+  .np3 { width: 2px; height: 2px; background: #A78BFA; top: 40%; left: 65%; animation: particle-float 6s ease-in-out 2s infinite; box-shadow: 0 0 6px #A78BFA; }
+  .np4 { width: 2px; height: 2px; background: #FB7185; top: 60%; left: 25%; animation: particle-float 8s ease-in-out 3s infinite; box-shadow: 0 0 5px #FB7185; }
+  .np5 { width: 3px; height: 3px; background: #2DD4BF; top: 20%; left: 70%; animation: particle-float 10s ease-in-out 0.5s infinite; box-shadow: 0 0 8px #2DD4BF; }
+
+  /* Noise */
+  .neo-noise {
+    position: absolute;
+    inset: -50%;
+    width: 200%; height: 200%;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  /* ── Card ── */
+  .card-container {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, 12px);
+    z-index: 10;
+    animation: card-entrance 2.8s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+               card-move-up 0s linear 2.8s forwards;
+  }
+
+  .card-shadow-wrap {
+    animation: shadow-shift 6s ease-in-out 2.8s infinite;
+  }
+
+  .mtg-card {
+    width: 240px;
+    height: 336px;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    transform-style: preserve-3d;
+    animation: card-settle 6s ease-in-out 2.8s infinite;
+  }
+
+  /* Card outer frame — black border like real MTG */
+  .card-frame {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: #0C0E14;
+    border: 1px solid rgba(50,60,80,0.4);
+  }
+
+  /* Inner colored border */
+  .card-border-inner {
+    position: absolute;
+    inset: 5px;
+    border-radius: 10px;
+    border: 2px solid rgba(13,148,136,0.25);
+    background: linear-gradient(170deg, #0E1218 0%, #0B0E16 40%, #0D1018 100%);
+  }
+
+  /* ── Art box ── */
+  .card-art {
+    position: absolute;
+    top: 32px;
+    left: 14px;
+    right: 14px;
+    height: 140px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(30,45,61,0.3);
+    background: #080B12;
+  }
+
+  /* Foil art effect */
+  .card-art-foil {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(13,148,136,0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 60%, rgba(14,165,233,0.2) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(139,92,246,0.15) 0%, transparent 40%),
+      radial-gradient(ellipse at 40% 20%, rgba(251,113,133,0.1) 0%, transparent 40%);
+    background-size: 200% 200%;
+    animation: foil-sweep 8s ease-in-out infinite;
+  }
+
+  .card-art-holo {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255,255,255,0.03) 0%,
+      rgba(13,148,136,0.08) 20%,
+      rgba(14,165,233,0.06) 40%,
+      rgba(139,92,246,0.08) 60%,
+      rgba(251,113,133,0.05) 80%,
+      rgba(255,255,255,0.03) 100%
+    );
+    background-size: 300% 300%;
+    animation: foil-sweep 6s ease-in-out infinite reverse;
+    mix-blend-mode: screen;
+  }
+
+  /* Holo rainbow sweep */
+  .card-art-rainbow {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(
+      from 0deg,
+      rgba(13,148,136,0.1),
+      rgba(14,165,233,0.08),
+      rgba(139,92,246,0.1),
+      rgba(251,113,133,0.08),
+      rgba(251,191,36,0.06),
+      rgba(13,148,136,0.1)
+    );
+    animation: holo-rotate 12s linear infinite;
+    opacity: 0.4;
+    mix-blend-mode: color-dodge;
+  }
+
+  /* CE letters in the art */
+  .card-art-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: -3px;
+    background: linear-gradient(135deg, #E2E8F0, #94A3B8, #E2E8F0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+    z-index: 2;
+  }
+
+  /* Light sweep across art */
+  .card-art-sweep {
+    position: absolute;
+    top: 0; left: -100%; bottom: 0;
+    width: 60%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+    animation: shimmer 4s ease-in-out infinite;
+  }
+
+  /* ── Title bar ── */
+  .card-title-bar {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    right: 14px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+  }
+
+  .card-title-text {
+    font-size: 9px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: 0.3px;
+  }
+
+  .card-mana-cost {
+    display: flex;
+    gap: 2px;
+  }
+
+  .mana-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .mana-teal { background: radial-gradient(circle, #14B8A6, #0D9488); }
+  .mana-sky { background: radial-gradient(circle, #38BDF8, #0EA5E9); }
+
+  /* ── Type line ── */
+  .card-type-line {
+    position: absolute;
+    top: 178px;
+    left: 14px;
+    right: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-top: 1px solid rgba(30,45,61,0.2);
+    border-bottom: 1px solid rgba(30,45,61,0.2);
+    background: rgba(13,148,136,0.03);
+  }
+
+  .card-type-text {
+    font-size: 6.5px;
+    font-weight: 700;
+    color: #94A3B8;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Text box ── */
+  .card-text-box {
+    position: absolute;
+    top: 198px;
+    left: 14px;
+    right: 14px;
+    bottom: 40px;
+    border-radius: 4px;
+    background: rgba(10,13,20,0.6);
+    border: 1px solid rgba(30,45,61,0.15);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .card-rules {
+    font-size: 7px;
+    color: #94A3B8;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .card-rules em {
+    color: #2DD4BF;
+    font-style: italic;
+  }
+
+  /* ── Footer ── */
+  .card-footer {
+    position: absolute;
+    bottom: 8px;
+    left: 14px;
+    right: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px;
+  }
+
+  .card-set-info {
+    font-size: 5px;
+    color: #475569;
+    letter-spacing: 0.5px;
+  }
+
+  .card-rarity-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #FB923C, #F97316);
+    box-shadow: 0 0 6px rgba(251,146,60,0.5);
+  }
+
+  /* Edge glow */
+  .card-edge-glow {
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(13,148,136,0.5), transparent);
+    animation: edge-breathe 3s ease-in-out infinite;
+    z-index: 5;
+  }
+
+  /* ── Form area ── */
+  .form-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 240px;
+    z-index: 5;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 44px;
+    animation: form-reveal 0.8s ease-out 2.2s both;
+  }
+
+  .input-wrap {
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 15px 18px 15px 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(30,45,61,0.35);
+    background: rgba(10,13,20,0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .input-field:focus {
+    border-color: rgba(13,148,136,0.4);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.08), 0 0 24px rgba(13,148,136,0.04);
+    background: rgba(10,13,20,0.8);
+  }
+
+  .input-field::placeholder { color: #1E2D3D; }
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #2D4059;
+    font-weight: 600;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .input-wrap:focus-within .input-icon { color: #0D9488; }
+
+  .meta-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+    margin-top: 2px;
+  }
+
+  .forgot {
+    font-size: 11px;
+    color: #0D9488;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-wrap { position: relative; margin-bottom: 14px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488 0%, #14B8A6 50%, #0EA5E9 100%);
+    box-shadow: 0 4px 24px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: transform 0.15s;
+  }
+
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .btn-glow {
+    position: absolute;
+    bottom: -1px;
+    left: 10%; right: 10%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #0D9488, #2DD4BF, #0EA5E9, #0D9488);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(6px);
+    opacity: 0.4;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(30,45,61,0.5), transparent); }
+  .div-text { font-size: 9px; color: #2D4059; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .social-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .social-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid rgba(30,45,61,0.3);
+    background: rgba(10,13,20,0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94A3B8;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .social-btn:hover {
+    border-color: rgba(45,68,89,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    color: #E2E8F0;
+  }
+
+  .guest-row {
+    text-align: center;
+    font-size: 12px;
+    color: #283040;
+  }
+
+  .guest-row span {
+    color: #384158;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 1px solid #1E2D3D;
+    padding-bottom: 1px;
+  }
+
+  .guest-row span:hover { color: #94A3B8; }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 18px;
+    max-width: 400px;
+  }
+  .demo-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone">
+    <!-- Neo background -->
+    <div class="neo-bg">
+      <div class="neo-orb neo-1"></div>
+      <div class="neo-orb neo-2"></div>
+      <div class="neo-orb neo-3"></div>
+      <div class="neo-orb neo-4"></div>
+      <div class="neo-particle np1"></div>
+      <div class="neo-particle np2"></div>
+      <div class="neo-particle np3"></div>
+      <div class="neo-particle np4"></div>
+      <div class="neo-particle np5"></div>
+      <div class="neo-noise"></div>
+    </div>
+
+    <!-- MTG Card — starts centered, flips in, shrinks to top -->
+    <div class="card-container">
+      <div class="card-shadow-wrap">
+        <div class="mtg-card">
+          <div class="card-frame">
+            <div class="card-border-inner">
+              <div class="card-edge-glow"></div>
+
+              <!-- Title bar -->
+              <div class="card-title-bar">
+                <div class="card-title-text">Card Engine</div>
+                <div class="card-mana-cost">
+                  <div class="mana-dot mana-teal"></div>
+                  <div class="mana-dot mana-sky"></div>
+                </div>
+              </div>
+
+              <!-- Art box with foil -->
+              <div class="card-art">
+                <div class="card-art-foil"></div>
+                <div class="card-art-holo"></div>
+                <div class="card-art-rainbow"></div>
+                <div class="card-art-logo">CE</div>
+                <div class="card-art-sweep"></div>
+              </div>
+
+              <!-- Type line -->
+              <div class="card-type-line">
+                <div class="card-type-text">Legendary Artifact -- Collection Engine</div>
+              </div>
+
+              <!-- Text box -->
+              <div class="card-text-box">
+                <div class="card-rules">
+                  <em>Scan</em> -- Identify any card instantly.<br/><br/>
+                  <em>Collect</em> -- Track your entire collection with real-time pricing.<br/><br/>
+                  <em>Master</em> -- Build winning decks with AI-powered tools.
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="card-footer">
+                <div class="card-set-info">CE v1.0 -- 001/001</div>
+                <div class="card-rarity-dot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form layer -->
+    <div class="form-layer">
+      <div class="input-wrap">
+        <input class="input-field" placeholder="Email address" />
+        <div class="input-icon">@</div>
+      </div>
+      <div class="input-wrap">
+        <input class="input-field" type="password" placeholder="Password" />
+        <div class="input-icon" style="font-size:12px;">*</div>
+      </div>
+
+      <div class="meta-row">
+        <div class="forgot">Forgot password?</div>
+      </div>
+
+      <div class="btn-wrap">
+        <button class="btn-primary">
+          <span class="btn-shimmer"></span>
+          <span style="position:relative;z-index:1;">Sign In</span>
+        </button>
+        <div class="btn-glow"></div>
+      </div>
+
+      <div class="divider">
+        <div class="div-line"></div>
+        <div class="div-text">or continue with</div>
+        <div class="div-line"></div>
+      </div>
+
+      <div class="social-row">
+        <div class="social-btn"><span style="font-size:17px;font-weight:500;"></span> Apple</div>
+        <div class="social-btn"><span style="font-size:14px;font-weight:700;color:#4285F4;">G</span> Google</div>
+      </div>
+
+      <div class="guest-row">or <span>explore as guest</span></div>
+    </div>
+  </div>
+
+  <div class="demo-label">
+    <h3>MTG Card Entrance</h3>
+    <p>Card flips in from the back (180deg Y rotation), pauses large and centered to show off the foil art, then shrinks and floats to the top while the form reveals below. The card has a real MTG layout: title bar with mana dots, art frame with multi-layer foil (radial gradients + holo conic sweep + light sweep), type line, text box with flavor text about the app's features, mythic rarity pip. Neo-colored orbs (teal, sky, purple, rose) drift and pulse behind everything with fine particles and noise texture.</p>
+  </div>
+</div>
+
+</body>
+</html>

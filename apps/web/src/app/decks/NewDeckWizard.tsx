@@ -98,12 +98,19 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
 
   useEffect(() => { nameRef.current?.focus(); }, []);
 
+  // Clear stale results when the format stops needing a commander or the
+  // query is emptied. Adjusting state during render (not in an effect) avoids
+  // an extra pass: https://react.dev/learn/you-might-not-need-an-effect
+  const wantsCmdResults = format.needsCommander && cmdQuery.trim().length > 0;
+  const [prevWantsCmd, setPrevWantsCmd] = useState(wantsCmdResults);
+  if (prevWantsCmd !== wantsCmdResults) {
+    setPrevWantsCmd(wantsCmdResults);
+    if (!wantsCmdResults) setCmdResults([]);
+  }
+
   // Debounced Scryfall commander/planeswalker search
   useEffect(() => {
-    if (!format.needsCommander || !cmdQuery.trim()) {
-      setCmdResults([]);
-      return;
-    }
+    if (!format.needsCommander || !cmdQuery.trim()) return;
     const q = format.id === "oathbreaker"
       ? `type:planeswalker name:/${encodeURIComponent(cmdQuery)}/`
       : `is:commander name:/${encodeURIComponent(cmdQuery)}/`;

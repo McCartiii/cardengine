@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Page — Hi-Fi Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: #090D14;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    height: 52px;
+    background: rgba(15,17,23,0.95);
+    border-bottom: 1px solid #1E2535;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .nav-logo-mark { width: 28px; height: 28px; background: #0D9488; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: white; }
+  .nav-logo-text { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+  .nav-links { display: flex; gap: 4px; margin-left: 16px; }
+  .nav-link { padding: 6px 12px; border-radius: 8px; font-size: 13px; color: #64748b; text-decoration: none; }
+  .nav-link.active { color: #0D9488; background: rgba(13,148,136,0.1); }
+  .nav-back { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; text-decoration: none; margin-left: auto; }
+  .nav-back:hover { color: #94a3b8; }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+    height: 220px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0a0d15 0%, #0D1824 40%, #071020 100%);
+  }
+  .hero-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(0,0,0,0.95) 25%, rgba(0,0,0,0.6) 60%, transparent 100%),
+                linear-gradient(to top, #090D14 0%, transparent 50%);
+    z-index: 2;
+  }
+  .hero-fan {
+    position: absolute;
+    right: 80px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    display: flex;
+    align-items: center;
+  }
+  .hero-card {
+    position: absolute;
+    width: 100px;
+    height: 140px;
+    border-radius: 8px;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    box-shadow: -4px 4px 24px rgba(0,0,0,0.9);
+    overflow: hidden;
+  }
+  .hero-card img { width: 100%; height: 100%; object-fit: cover; }
+  .hero-card-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    opacity: 0.3;
+  }
+
+  .hero-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0 32px 24px;
+    z-index: 3;
+  }
+  .hero-badges { display: flex; gap: 6px; margin-bottom: 10px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .badge-format { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+  .badge-legal { background: rgba(13,148,136,0.12); color: #2DD4BF; border: 1px solid rgba(13,148,136,0.25); }
+  .badge-private { background: rgba(100,116,139,0.12); color: #64748b; border: 1px solid rgba(100,116,139,0.2); }
+  .hero-title { font-size: 28px; font-weight: 900; color: #F8FAFC; line-height: 1.1; letter-spacing: -0.5px; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
+  .hero-commander { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+  .hero-commander span { color: #CBD5E1; }
+  .hero-stats {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    align-items: center;
+  }
+  .hero-stat { display: flex; flex-direction: column; gap: 1px; }
+  .hero-stat-val { font-size: 17px; font-weight: 800; color: #F8FAFC; }
+  .hero-stat-val.teal { color: #0D9488; }
+  .hero-stat-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .hero-sep { width: 1px; height: 28px; background: #1E2535; }
+  .hero-colors { display: flex; gap: 5px; align-items: center; }
+  .color-pip { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.5); box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+
+  /* ── Action bar ── */
+  .action-bar {
+    background: #161B27;
+    border-bottom: 1px solid #1E2535;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: sticky;
+    top: 52px;
+    z-index: 50;
+  }
+  .tab-btn {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active { color: #0D9488; border-bottom-color: #0D9488; }
+  .tab-btn:hover:not(.active) { color: #94a3b8; }
+  .action-bar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; padding: 8px 0; }
+  .btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: #0D9488; color: white; }
+  .btn-primary:hover { background: #14B8A6; }
+  .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #1E2535; }
+  .btn-ghost:hover { border-color: #334155; color: #cbd5e1; }
+
+  /* ── Main layout ── */
+  .main { display: flex; gap: 0; max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+  .col-list { flex: 1; min-width: 0; }
+  .col-sidebar { width: 280px; flex-shrink: 0; margin-left: 28px; }
+
+  /* ── Card list ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    margin-top: 20px;
+  }
+  .section-header:first-child { margin-top: 0; }
+  .section-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .section-count { font-size: 10px; color: #334155; }
+  .section-line { flex: 1; height: 1px; background: #1E2535; }
+
+  .card-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    transition: background 0.1s;
+    cursor: default;
+  }
+  .card-row:hover { background: #161B27; }
+  .card-qty { width: 20px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .card-name { flex: 1; font-size: 13px; color: #CBD5E1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-name:hover { color: #2DD4BF; }
+  .card-mana { font-size: 11px; color: #334155; font-family: ui-monospace, monospace; flex-shrink: 0; }
+  .card-price { font-size: 12px; color: #334155; font-variant-numeric: tabular-nums; flex-shrink: 0; width: 48px; text-align: right; }
+  .card-row:hover .card-price { color: #94a3b8; }
+  .card-row:hover .card-mana { color: #64748b; }
+
+  /* ── Sidebar ── */
+  .sidebar-card {
+    background: #161B27;
+    border: 1px solid #1E2535;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .sidebar-title {
+    padding: 12px 16px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #475569;
+  }
+  .sidebar-body { padding: 0 16px 14px; }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #1E2535; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row-label { font-size: 12px; color: #64748b; }
+  .stat-row-val { font-size: 13px; font-weight: 700; color: #CBD5E1; }
+  .stat-row-val.teal { color: #0D9488; }
+
+  /* Mana curve */
+  .curve-chart { display: flex; align-items: flex-end; gap: 4px; height: 48px; padding-top: 4px; }
+  .curve-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .curve-bar { width: 100%; background: #0D9488; border-radius: 3px 3px 0 0; transition: height 0.3s; min-height: 3px; }
+  .curve-label { font-size: 9px; color: #475569; }
+
+  /* Color distribution */
+  .color-bar { height: 6px; border-radius: 3px; overflow: hidden; display: flex; gap: 2px; margin: 8px 0 6px; }
+  .color-seg { height: 100%; border-radius: 2px; }
+  .color-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+  .color-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #64748b; }
+  .color-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Type donut stand-in */
+  .type-list { display: flex; flex-direction: column; gap: 5px; }
+  .type-row { display: flex; align-items: center; gap: 8px; }
+  .type-bar-bg { flex: 1; height: 4px; background: #1E2535; border-radius: 2px; overflow: hidden; }
+  .type-bar-fill { height: 100%; border-radius: 2px; }
+  .type-name { font-size: 11px; color: #64748b; width: 80px; flex-shrink: 0; }
+  .type-count { font-size: 11px; color: #475569; width: 24px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  /* ── Tabs overlay indicator ── */
+  .tab-selector {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 8px;
+    z-index: 200;
+  }
+  .tab-pill {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid #1E2535;
+    background: #161B27;
+    color: #64748b;
+    transition: all 0.15s;
+  }
+  .tab-pill.active { background: #0D9488; color: white; border-color: #0D9488; }
+  .tab-pill:hover:not(.active) { border-color: #334155; color: #94a3b8; }
+
+  /* Prompt banner */
+  .prompt-banner {
+    background: rgba(13,148,136,0.06);
+    border: 1px solid rgba(13,148,136,0.15);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #64748b;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .prompt-banner strong { color: #2DD4BF; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark">CE</div>
+    <span class="nav-logo-text">Card Engine</span>
+  </a>
+  <div class="nav-links">
+    <a href="#" class="nav-link">Collection</a>
+    <a href="#" class="nav-link active">Decks</a>
+    <a href="#" class="nav-link">Scan</a>
+    <a href="#" class="nav-link">Watchlist</a>
+  </div>
+  <a href="#" class="nav-back">← My Decks</a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-gradient"></div>
+
+  <!-- Card fan -->
+  <div class="hero-fan">
+    <!-- 4 rotated card art placeholders -->
+    <div class="hero-card" style="transform: rotate(-14deg) translateX(54px); z-index: 1; background: linear-gradient(135deg, #1a1810, #2a2510);">
+      <div class="hero-card-placeholder">🌟</div>
+    </div>
+    <div class="hero-card" style="transform: rotate(-6deg) translateX(28px); z-index: 2; background: linear-gradient(135deg, #0D1824, #1E3A5F);">
+      <div class="hero-card-placeholder">⚡</div>
+    </div>
+    <div class="hero-card" style="transform: rotate(2deg) translateX(0px); z-index: 3; background: linear-gradient(135deg, #0a160d, #14532D);">
+      <div class="hero-card-placeholder">🌿</div>
+    </div>
+    <div class="hero-card" style="transform: rotate(10deg) translateX(-24px); z-index: 2; background: linear-gradient(135deg, #1A1225, #2D1B4E);">
+      <div class="hero-card-placeholder">💜</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="hero-content">
+    <div class="hero-badges">
+      <span class="badge badge-format">Commander</span>
+      <span class="badge badge-legal">✓ Legal</span>
+      <span class="badge badge-private">🔒 Private</span>
+    </div>
+    <div class="hero-title">Atraxa Superfriends</div>
+    <div class="hero-commander">⚜ <span>Atraxa, Praetors' Voice</span></div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-val">99</div>
+        <div class="hero-stat-label">Cards</div>
+      </div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat">
+        <div class="hero-stat-val teal">$312.00</div>
+        <div class="hero-stat-label">Value</div>
+      </div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat">
+        <div class="hero-stat-val">2.8</div>
+        <div class="hero-stat-label">Avg CMC</div>
+      </div>
+      <div class="hero-sep"></div>
+      <div class="hero-colors">
+        <div class="color-pip" style="background:#FDE68A;" title="White"></div>
+        <div class="color-pip" style="background:#93C5FD;" title="Blue"></div>
+        <div class="color-pip" style="background:#C4B5D4;" title="Black"></div>
+        <div class="color-pip" style="background:#86EFAC;" title="Green"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Action bar / tabs -->
+<div class="action-bar">
+  <button class="tab-btn active" onclick="switchTab('cards', this)">Cards</button>
+  <button class="tab-btn" onclick="switchTab('advisor', this)">Advisor</button>
+  <button class="tab-btn" onclick="switchTab('ai', this)">✦ AI Architect</button>
+  <div class="action-bar-right">
+    <button class="btn btn-ghost">Copy List</button>
+    <button class="btn btn-ghost">🔗 Share</button>
+    <button class="btn btn-primary">↑ Import</button>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- Card list -->
+  <div class="col-list" id="tab-cards">
+
+    <!-- Commander -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#a855f7;"></div>
+      <span class="section-label" style="color:#a855f7;">Commander</span>
+      <span class="section-count">(1)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row">
+      <span class="card-qty">1</span>
+      <span class="card-name">Atraxa, Praetors' Voice</span>
+      <span class="card-mana">WUBG</span>
+      <span class="card-price" style="color:#0D9488;">$18.00</span>
+    </div>
+
+    <!-- Planeswalkers -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#f59e0b;"></div>
+      <span class="section-label" style="color:#f59e0b;">Planeswalkers</span>
+      <span class="section-count">(12)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Elspeth, Sun's Champion</span><span class="card-mana">4WW</span><span class="card-price">$4.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Jace, the Mind Sculptor</span><span class="card-mana">2UU</span><span class="card-price" style="color:#0D9488;">$36.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Liliana of the Veil</span><span class="card-mana">1BB</span><span class="card-price" style="color:#0D9488;">$24.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Tamiyo, the Moon Sage</span><span class="card-mana">3UU</span><span class="card-price">$6.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Atraxa, Grand Unifier</span><span class="card-mana">GWUB</span><span class="card-price" style="color:#0D9488;">$22.00</span></div>
+
+    <!-- Creatures -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#22c55e;"></div>
+      <span class="section-label" style="color:#22c55e;">Creatures</span>
+      <span class="section-count">(22)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Deepglow Skate</span><span class="card-mana">4U</span><span class="card-price">$3.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Crystalline Crawler</span><span class="card-mana">4</span><span class="card-price">$1.20</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Vorinclex, Voice of Hunger</span><span class="card-mana">6GG</span><span class="card-price">$9.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Jin-Gitaxias, Core Augur</span><span class="card-mana">8UU</span><span class="card-price">$4.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Ichor Rats</span><span class="card-mana">1BB</span><span class="card-price">$1.80</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Vector Asp</span><span class="card-mana">B</span><span class="card-price">$0.30</span></div>
+
+    <!-- Instants -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#38bdf8;"></div>
+      <span class="section-label" style="color:#38bdf8;">Instants</span>
+      <span class="section-count">(8)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Counterspell</span><span class="card-mana">UU</span><span class="card-price">$1.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Swords to Plowshares</span><span class="card-mana">W</span><span class="card-price">$2.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Cyclonic Rift</span><span class="card-mana">1U</span><span class="card-price" style="color:#0D9488;">$12.00</span></div>
+
+    <!-- Sorceries -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#3b82f6;"></div>
+      <span class="section-label" style="color:#3b82f6;">Sorceries</span>
+      <span class="section-count">(6)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Toxic Deluge</span><span class="card-mana">2B</span><span class="card-price">$16.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Demonic Tutor</span><span class="card-mana">1B</span><span class="card-price" style="color:#0D9488;">$28.00</span></div>
+
+    <!-- Artifacts -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#94a3b8;"></div>
+      <span class="section-label" style="color:#94a3b8;">Artifacts</span>
+      <span class="section-count">(10)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Sol Ring</span><span class="card-mana">1</span><span class="card-price">$3.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Arcane Signet</span><span class="card-mana">2</span><span class="card-price">$1.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Contagion Engine</span><span class="card-mana">6</span><span class="card-price">$4.50</span></div>
+
+    <!-- Enchantments -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#ec4899;"></div>
+      <span class="section-label" style="color:#ec4899;">Enchantments</span>
+      <span class="section-count">(5)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Doubling Season</span><span class="card-mana">4G</span><span class="card-price" style="color:#0D9488;">$42.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Inexorable Tide</span><span class="card-mana">3UU</span><span class="card-price">$1.50</span></div>
+
+    <!-- Lands -->
+    <div class="section-header">
+      <div class="section-dot" style="background:#78716c;"></div>
+      <span class="section-label" style="color:#78716c;">Lands</span>
+      <span class="section-count">(35)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Command Tower</span><span class="card-mana">—</span><span class="card-price">$0.50</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Breeding Pool</span><span class="card-mana">—</span><span class="card-price">$14.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Watery Grave</span><span class="card-mana">—</span><span class="card-price">$11.00</span></div>
+    <div class="card-row"><span class="card-qty">1</span><span class="card-name">Overgrown Tomb</span><span class="card-mana">—</span><span class="card-price">$12.00</span></div>
+    <div style="padding: 4px 10px; font-size: 11px; color: #334155;">+ 31 more lands…</div>
+
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-sidebar">
+
+    <!-- Stats -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">Deck Stats</div>
+      <div class="sidebar-body">
+        <div class="stat-row"><span class="stat-row-label">Total cards</span><span class="stat-row-val">99</span></div>
+        <div class="stat-row"><span class="stat-row-label">Unique cards</span><span class="stat-row-val">99</span></div>
+        <div class="stat-row"><span class="stat-row-label">Avg CMC</span><span class="stat-row-val">2.8</span></div>
+        <div class="stat-row"><span class="stat-row-label">Rares</span><span class="stat-row-val">38</span></div>
+        <div class="stat-row"><span class="stat-row-label">Mythics</span><span class="stat-row-val">12</span></div>
+        <div class="stat-row"><span class="stat-row-label">Total value</span><span class="stat-row-val teal">$312.00</span></div>
+      </div>
+    </div>
+
+    <!-- Mana curve -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">Mana Curve</div>
+      <div class="sidebar-body">
+        <div class="curve-chart">
+          <div class="curve-bar-wrap">
+            <div class="curve-bar" style="height:35%;opacity:0.7;"></div>
+            <div class="curve-label">1</div>
+          </div>
+          <div class="curve-bar-wrap">
+            <div class="curve-bar" style="height:75%;"></div>
+            <div class="curve-label">2</div>
+          </div>
+          <div class="curve-bar-wrap">
+            <div class="curve-bar" style="height:100%;"></div>
+            <div class="curve-label">3</div>
+          </div>
+          <div class="curve-bar-wrap">
+            <div class="curve-bar" style="height:80%;"></div>
+            <div class="curve-label">4</div>
+          </div>
+          <div class="curve-bar-wrap">
+            <div class="curve-bar" style="height:50%;opacity:0.8;"></div>
+            <div class="curve-label">5</div>
+          </div>
+          <div class="curve-bar-wrap">
+            <div class="curve-bar" style="height:30%;opacity:0.6;"></div>
+            <div class="curve-label">6+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card types -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">Card Types</div>
+      <div class="sidebar-body">
+        <div class="type-list">
+          <div class="type-row">
+            <span class="type-name" style="color:#78716c;">Lands</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:35%;background:#78716c;"></div></div>
+            <span class="type-count">35</span>
+          </div>
+          <div class="type-row">
+            <span class="type-name" style="color:#22c55e;">Creatures</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:22%;background:#22c55e;"></div></div>
+            <span class="type-count">22</span>
+          </div>
+          <div class="type-row">
+            <span class="type-name" style="color:#f59e0b;">Planeswalkers</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:12%;background:#f59e0b;"></div></div>
+            <span class="type-count">12</span>
+          </div>
+          <div class="type-row">
+            <span class="type-name" style="color:#94a3b8;">Artifacts</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:10%;background:#94a3b8;"></div></div>
+            <span class="type-count">10</span>
+          </div>
+          <div class="type-row">
+            <span class="type-name" style="color:#38bdf8;">Instants</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:8%;background:#38bdf8;"></div></div>
+            <span class="type-count">8</span>
+          </div>
+          <div class="type-row">
+            <span class="type-name" style="color:#3b82f6;">Sorceries</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:6%;background:#3b82f6;"></div></div>
+            <span class="type-count">6</span>
+          </div>
+          <div class="type-row">
+            <span class="type-name" style="color:#ec4899;">Enchantments</span>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:5%;background:#ec4899;"></div></div>
+            <span class="type-count">5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="sidebar-card">
+      <div class="sidebar-title">Actions</div>
+      <div class="sidebar-body" style="display:flex;flex-direction:column;gap:6px;">
+        <button class="btn btn-primary" style="width:100%;padding:8px 14px;text-align:center;">↑ Import / Replace Cards</button>
+        <button class="btn btn-ghost" style="width:100%;padding:8px 14px;text-align:center;">📋 Copy Decklist</button>
+        <button class="btn btn-ghost" style="width:100%;padding:8px 14px;text-align:center;">🔗 Make Public & Share</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Tab switcher (for demo) -->
+<div class="tab-selector">
+  <button class="tab-pill active" onclick="switchDemo('cards')">Cards View</button>
+  <button class="tab-pill" onclick="switchDemo('art')">Art Grid</button>
+</div>
+
+<script>
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function switchDemo(mode) {
+  document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

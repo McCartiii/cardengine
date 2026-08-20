@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Loading — Even More</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1117; color: #E2E8F0;
+    font-family: -apple-system, system-ui, sans-serif;
+    padding: 32px 24px; min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #94A3B8; font-size: 14px; margin-bottom: 40px; }
+  .options-grid { display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; }
+  .option-row {
+    background: #161B27; border: 1.5px solid #1E2D3D; border-radius: 14px;
+    padding: 20px 24px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .option-row:hover { border-color: #2D4059; background: #1a2030; }
+  .option-row.selected { border-color: #0D9488; background: #0d2020; }
+  .option-letter {
+    width: 28px; height: 28px; border-radius: 7px; background: #1E2535;
+    border: 1px solid #2D4059; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #94A3B8; flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .option-row.selected .option-letter { background: #0D9488; border-color: #0D9488; color: white; }
+  .option-content { flex: 1; }
+  .option-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .option-desc { font-size: 12px; color: #475569; line-height: 1.5; margin-bottom: 16px; }
+  .preview { display: flex; gap: 16px; align-items: flex-end; }
+  .card-col { display: flex; flex-direction: column; gap: 4px; }
+  .preview-label { font-size: 10px; color: #475569; text-align: center; }
+  .demo-btn {
+    font-size: 10px; color: #0D9488; background: none; border: none;
+    cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; margin-bottom: 2px;
+  }
+
+  /* ─────────────────────────────────
+     A: STAGGERED RISE — row of cards
+  ───────────────────────────────── */
+  .rise-row { display: flex; gap: 6px; }
+  .rise-card {
+    width: 52px; height: 72px; border-radius: 5px;
+    background: linear-gradient(160deg, #1a2535, #0d1420);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.3s ease;
+  }
+  .rise-card.up { transform: translateY(0); opacity: 1; }
+
+  /* ─────────────────────────────────
+     B: MOSAIC TILE POP
+  ───────────────────────────────── */
+  .mosaic-wrap {
+    width: 72px; height: 100px; border-radius: 6px;
+    position: relative; overflow: hidden; background: #0d1117;
+  }
+  .mosaic-face {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+  .tile-grid {
+    position: absolute; inset: 0;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border-radius: 5px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .tile {
+    background: #0d1117;
+    transition: opacity 0.2s ease;
+  }
+
+  /* ─────────────────────────────────
+     C: NEON BORDER TRACE
+  ───────────────────────────────── */
+  .trace-wrap {
+    width: 72px; height: 100px; border-radius: 6px;
+    position: relative; overflow: hidden;
+    background: #0d1117;
+  }
+  .trace-face {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: linear-gradient(160deg, #1a2535 0%, #0d1420 60%, #0a0f1a 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    opacity: 0;
+    transition: opacity 0.35s ease 0.5s;
+  }
+  .trace-face.on { opacity: 1; }
+  .trace-svg {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .trace-path {
+    fill: none;
+    stroke: #0D9488;
+    stroke-width: 2;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 4px #0D9488) drop-shadow(0 0 8px rgba(13,148,136,0.5));
+    stroke-dasharray: 340;
+    stroke-dashoffset: 340;
+    transition: stroke-dashoffset 0s;
+  }
+  .trace-path.tracing {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ─────────────────────────────────
+     D: HEARTBEAT PULSE → SNAP
+  ───────────────────────────────── */
+  .pulse-wrap {
+    width: 72px; height: 100px; border-radius: 6px;
+    position: relative; overflow: hidden;
+    background: #0d1117;
+  }
+  .pulse-card {
+    position: absolute; inset: 0; border-radius: 5px;
+    background: #1E2535;
+    border: 1.5px solid #1E2D3D;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .pulse-card.on { opacity: 1; }
+  .pulse-ring {
+    position: absolute; inset: 0; border-radius: 5px;
+    border: 1.5px solid #0D9488;
+    box-shadow: 0 0 0 0 rgba(13,148,136,0);
+    animation: none;
+    opacity: 0;
+  }
+  .pulse-ring.pulsing {
+    opacity: 1;
+    animation: heartbeat 1.1s ease-in-out infinite;
+  }
+  .pulse-ring.done {
+    animation: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  @keyframes heartbeat {
+    0%   { box-shadow: 0 0 0 0 rgba(13,148,136,0.5); border-color: #0D9488; }
+    40%  { box-shadow: 0 0 0 6px rgba(13,148,136,0); border-color: #2DD4BF; }
+    100% { box-shadow: 0 0 0 0 rgba(13,148,136,0); border-color: #0D9488; }
+  }
+</style>
+</head>
+<body>
+<h2>Card loading — more options</h2>
+<p class="subtitle">Hit "replay" to re-watch. Click a row to choose.</p>
+
+<div class="options-grid">
+
+  <!-- A: Staggered rise -->
+  <div class="option-row" id="opt-a" onclick="sel('a')">
+    <div class="option-letter">A</div>
+    <div class="option-content">
+      <div class="option-name">Staggered spring rise</div>
+      <div class="option-desc">Each card in a row springs up with a tiny delay between them. The whole grid feels alive as it populates — like cards being dealt onto a table.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="rise-row" id="rise-row">
+            <div class="rise-card">🌊</div>
+            <div class="rise-card">⚡</div>
+            <div class="rise-card">🌲</div>
+            <div class="rise-card">🔥</div>
+          </div>
+          <div class="preview-label">Row loading in</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoRise()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: Mosaic tile pop -->
+  <div class="option-row" id="opt-b" onclick="sel('b')">
+    <div class="option-letter">B</div>
+    <div class="option-content">
+      <div class="option-name">Mosaic tile reveal</div>
+      <div class="option-desc">The card image hides behind a grid of dark tiles. Tiles randomly disappear to reveal the card beneath — like puzzle pieces falling away.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="mosaic-wrap">
+            <div class="mosaic-face">🌊</div>
+            <div class="tile-grid" id="tile-grid"></div>
+          </div>
+          <div class="preview-label">Tiles falling away</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoMosaic()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Neon border trace -->
+  <div class="option-row" id="opt-c" onclick="sel('c')">
+    <div class="option-letter">C</div>
+    <div class="option-content">
+      <div class="option-name">Neon border trace</div>
+      <div class="option-desc">A glowing teal line traces around the card's border before it fills in. Feels like the app is scanning/registering each card. Very unique.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="trace-wrap" id="trace-wrap">
+            <div class="trace-face" id="trace-face">🌊</div>
+            <svg class="trace-svg" viewBox="0 0 72 100">
+              <rect class="trace-path" id="trace-path" x="2" y="2" width="68" height="96" rx="5"/>
+            </svg>
+          </div>
+          <div class="preview-label">Tracing outline</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoTrace()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Heartbeat pulse -->
+  <div class="option-row" id="opt-d" onclick="sel('d')">
+    <div class="option-letter">D</div>
+    <div class="option-content">
+      <div class="option-name">Heartbeat pulse → snap</div>
+      <div class="option-desc">While the card loads, its border pulses with a teal glow (breathing rhythm). The moment it's ready, the pulse stops and the image snaps in cleanly. Calm but alive.</div>
+      <div class="preview">
+        <div class="card-col">
+          <div class="pulse-wrap">
+            <div class="pulse-ring" id="pulse-ring"></div>
+            <div class="pulse-card" id="pulse-card">🌊</div>
+          </div>
+          <div class="preview-label">Pulse → snap</div>
+        </div>
+        <button class="demo-btn" onclick="event.stopPropagation(); demoPulse()">replay →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(c) {
+  document.querySelectorAll('.option-row').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + c).classList.add('selected');
+  if (window.recordChoice) window.recordChoice(c, document.getElementById('opt-' + c).querySelector('.option-name').textContent);
+}
+
+/* A: Staggered rise */
+function demoRise() {
+  const cards = document.querySelectorAll('#rise-row .rise-card');
+  cards.forEach(c => c.classList.remove('up'));
+  cards.forEach((c, i) => setTimeout(() => c.classList.add('up'), 120 * i + 100));
+}
+
+/* B: Mosaic */
+function buildTileGrid() {
+  const grid = document.getElementById('tile-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 48; i++) {
+    const t = document.createElement('div');
+    t.className = 'tile';
+    grid.appendChild(t);
+  }
+}
+function demoMosaic() {
+  buildTileGrid();
+  const tiles = Array.from(document.querySelectorAll('.tile'));
+  const shuffled = tiles.sort(() => Math.random() - 0.5);
+  shuffled.forEach((t, i) => {
+    setTimeout(() => { t.style.opacity = '0'; }, i * 18 + 100);
+  });
+}
+
+/* C: Neon trace */
+function demoTrace() {
+  const path = document.getElementById('trace-path');
+  const face = document.getElementById('trace-face');
+  path.classList.remove('tracing');
+  face.classList.remove('on');
+  void path.offsetWidth;
+  setTimeout(() => {
+    path.classList.add('tracing');
+    setTimeout(() => { face.classList.add('on'); }, 700);
+  }, 100);
+}
+
+/* D: Pulse */
+let pulseTimer = null;
+function demoPulse() {
+  const ring = document.getElementById('pulse-ring');
+  const card = document.getElementById('pulse-card');
+  ring.classList.remove('pulsing', 'done');
+  card.classList.remove('on');
+  if (pulseTimer) clearTimeout(pulseTimer);
+  void ring.offsetWidth;
+  setTimeout(() => {
+    ring.classList.add('pulsing');
+    pulseTimer = setTimeout(() => {
+      ring.classList.remove('pulsing');
+      ring.classList.add('done');
+      card.classList.add('on');
+    }, 2200);
+  }, 100);
+}
+
+// auto-demo on load
+setTimeout(demoRise, 500);
+setTimeout(demoMosaic, 800);
+setTimeout(demoTrace, 600);
+setTimeout(demoPulse, 400);
+buildTileGrid();
+</script>
+</body>
+</html>

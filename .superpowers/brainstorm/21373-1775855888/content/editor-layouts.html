@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Editor — Layout Options</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: #090D14; color: #e2e8f0; padding: 24px; }
+h1 { font-size: 18px; font-weight: 800; color: #F8FAFC; margin-bottom: 6px; }
+.subtitle { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+
+.layouts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.layout-card {
+  border: 2px solid #1E2535;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+  background: #0F1117;
+}
+.layout-card:hover { border-color: #0D9488; transform: translateY(-2px); }
+.layout-card.selected { border-color: #0D9488; box-shadow: 0 0 0 1px #0D9488; }
+.layout-label {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #CBD5E1;
+  background: #161B27;
+  border-bottom: 1px solid #1E2535;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.layout-label span { font-size: 11px; font-weight: 500; color: #64748b; }
+.mockup { padding: 12px; }
+
+/* ── Shared mockup styles ── */
+.m-nav { height: 36px; background: #161B27; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+.m-dot { width: 28px; height: 28px; background: #0D9488; border-radius: 6px; font-size: 9px; font-weight: 900; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.m-navlinks { display: flex; gap: 4px; margin-left: 4px; }
+.m-navlink { width: 40px; height: 14px; background: #1E2535; border-radius: 3px; }
+.m-navlink.active { background: #0D9488; opacity: 0.6; }
+
+.m-header { height: 42px; background: #161B27; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; padding: 0 10px; gap: 6px; border: 1px solid #1E2535; }
+.m-title { width: 100px; height: 12px; background: #CBD5E1; border-radius: 3px; }
+.m-badge { width: 50px; height: 18px; background: #1E2535; border-radius: 4px; border: 1px solid #334155; }
+.m-stat { width: 36px; height: 10px; background: #334155; border-radius: 2px; }
+.m-stat.teal { background: #0D9488; opacity: 0.5; }
+.m-spacer { flex: 1; }
+.m-btn { height: 22px; border-radius: 5px; padding: 0 8px; font-size: 9px; font-weight: 700; display: flex; align-items: center; }
+.m-btn.primary { background: #0D9488; color: white; }
+.m-btn.ghost { background: #1E2535; color: #94a3b8; border: 1px solid #334155; }
+
+/* Layout A - Classic 2 col */
+.la-body { display: grid; grid-template-columns: 1fr 140px; gap: 6px; }
+.la-cards { background: #161B27; border-radius: 8px; padding: 8px; min-height: 160px; }
+.la-section-hdr { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #0D9488; margin-bottom: 5px; display: flex; align-items: center; gap: 4px; }
+.la-section-hdr::after { content: ''; flex: 1; height: 1px; background: #1E2535; }
+.la-row { display: flex; align-items: center; gap: 5px; padding: 3px 4px; border-radius: 4px; }
+.la-row:hover { background: #1E2535; }
+.la-qty { width: 12px; font-size: 9px; font-weight: 800; color: #0D9488; text-align: right; }
+.la-name { flex: 1; height: 9px; background: #CBD5E1; border-radius: 2px; opacity: 0.7; }
+.la-price { width: 20px; height: 7px; background: #475569; border-radius: 2px; }
+.la-sidebar { background: #161B27; border-radius: 8px; padding: 8px; }
+.la-search { height: 24px; background: #0F1117; border-radius: 6px; border: 1px solid #1E2535; margin-bottom: 8px; display: flex; align-items: center; padding: 0 7px; gap: 4px; font-size: 9px; color: #475569; }
+.la-result { display: flex; align-items: center; gap: 4px; padding: 3px 4px; border-radius: 4px; border: 1px solid #1E2535; margin-bottom: 3px; background: #0F1117; }
+.la-card-thumb { width: 16px; height: 22px; background: #0D9488; border-radius: 2px; opacity: 0.4; flex-shrink: 0; }
+.la-card-info { flex: 1; }
+.la-card-info-name { height: 7px; background: #CBD5E1; border-radius: 2px; opacity: 0.6; margin-bottom: 3px; }
+.la-card-info-sub { height: 5px; background: #475569; border-radius: 2px; width: 70%; }
+.la-add { width: 14px; height: 14px; background: #0D9488; border-radius: 3px; flex-shrink: 0; }
+
+/* Layout B - 3 col with stats panel */
+.lb-body { display: grid; grid-template-columns: 1fr 130px 120px; gap: 6px; }
+.lb-stats { background: #161B27; border-radius: 8px; padding: 8px; }
+.lb-stat-row { margin-bottom: 6px; }
+.lb-stat-label { font-size: 7px; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; margin-bottom: 2px; }
+.lb-stat-val { font-size: 13px; font-weight: 800; color: #F8FAFC; }
+.lb-stat-val.teal { color: #14B8A6; }
+.lb-curve { margin-top: 8px; }
+.lb-curve-label { font-size: 7px; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; margin-bottom: 4px; }
+.lb-bar-row { display: flex; align-items: center; gap: 3px; margin-bottom: 2px; }
+.lb-bar-num { font-size: 7px; color: #475569; width: 6px; }
+.lb-bar-track { flex: 1; height: 5px; background: #0F1117; border-radius: 2px; overflow: hidden; }
+.lb-bar-fill { height: 100%; background: linear-gradient(to right, #0D9488, #14B8A6); border-radius: 2px; }
+.lb-bar-ct { font-size: 7px; color: #475569; width: 10px; text-align: right; }
+
+/* Layout C - Full width workspace */
+.lc-body {}
+.lc-workspace-bar { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+.lc-search-inline { flex: 1; height: 28px; background: #161B27; border-radius: 8px; border: 1px solid #1E2535; display: flex; align-items: center; padding: 0 8px; gap: 5px; }
+.lc-search-icon { width: 10px; height: 10px; border: 1.5px solid #475569; border-radius: 50%; }
+.lc-search-text { font-size: 9px; color: #334155; }
+.lc-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.lc-section { background: #161B27; border-radius: 8px; padding: 8px; }
+
+/* Color coding for type sections */
+.type-creature { border-left: 2px solid #22c55e; }
+.type-instant { border-left: 2px solid #00d4ff; }
+.type-land { border-left: 2px solid #78716c; }
+.type-artifact { border-left: 2px solid #94a3b8; }
+
+/* Curve sparkline */
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 24px; }
+.spark-bar { width: 10px; background: linear-gradient(to top, #0D9488, #14B8A6); border-radius: 2px 2px 0 0; opacity: 0.8; }
+
+/* Tags */
+.new-tag { background: rgba(13,148,136,0.15); color: #0D9488; border: 1px solid rgba(13,148,136,0.3); border-radius: 4px; font-size: 8px; font-weight: 700; padding: 1px 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.selected-badge { font-size: 10px; color: #0D9488; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>Deck Editor Layout</h1>
+<p class="subtitle">Which layout direction do you prefer? (Click to select)</p>
+
+<div class="layouts">
+
+  <!-- Option A: Classic 2-col, polished -->
+  <div class="layout-card" onclick="this.classList.toggle('selected'); document.querySelectorAll('.layout-card').forEach(c => { if(c !== this) c.classList.remove('selected'); })">
+    <div class="layout-label">A — Classic (polished) <span>Search sidebar + card list</span></div>
+    <div class="mockup">
+      <div class="m-nav">
+        <div class="m-dot">CE</div>
+        <div class="m-navlinks"><div class="m-navlink"></div><div class="m-navlink active"></div><div class="m-navlink"></div></div>
+      </div>
+      <div class="m-header">
+        <div class="m-title"></div>
+        <div class="m-badge"></div>
+        <div class="m-stat"></div>
+        <div class="m-stat teal"></div>
+        <div class="m-spacer"></div>
+        <div class="m-btn ghost" style="margin-right:3px">Copy</div>
+        <div class="m-btn primary">Import</div>
+      </div>
+      <!-- Inline mana curve under header -->
+      <div style="display:flex; align-items:center; gap:6px; padding:4px 6px; background:#161B27; border-radius:6px; margin-bottom:6px; border:1px solid #1E2535;">
+        <span style="font-size:7px;color:#475569;text-transform:uppercase;letter-spacing:0.8px;">Curve</span>
+        <div class="spark">
+          <div class="spark-bar" style="height:6px"></div>
+          <div class="spark-bar" style="height:14px"></div>
+          <div class="spark-bar" style="height:22px"></div>
+          <div class="spark-bar" style="height:18px"></div>
+          <div class="spark-bar" style="height:12px"></div>
+          <div class="spark-bar" style="height:8px"></div>
+          <div class="spark-bar" style="height:4px"></div>
+        </div>
+        <div style="display:flex;gap:3px;margin-left:4px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#F9FAF4;border:1px solid rgba(0,0,0,0.3)"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:#0E68AB;border:1px solid rgba(0,0,0,0.3)"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:#00733E;border:1px solid rgba(0,0,0,0.3)"></div>
+        </div>
+        <div class="m-spacer"></div>
+        <span style="font-size:7px;color:#475569;">60 cards</span>
+        <span style="font-size:7px;color:#14B8A6;font-weight:800;">$142.50</span>
+      </div>
+      <div class="la-body">
+        <div class="la-cards">
+          <div class="la-section-hdr" style="color:#22c55e;">Creatures (24)</div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:70%"></div><div class="la-price"></div></div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:85%"></div><div class="la-price"></div></div>
+          <div class="la-row"><div class="la-qty">2</div><div class="la-name" style="width:60%"></div><div class="la-price"></div></div>
+          <div class="la-section-hdr" style="color:#00d4ff;margin-top:6px">Instants (8)</div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:65%"></div><div class="la-price"></div></div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:75%"></div><div class="la-price"></div></div>
+          <div class="la-section-hdr" style="color:#78716c;margin-top:6px">Lands (24)</div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:55%"></div><div class="la-price"></div></div>
+        </div>
+        <div class="la-sidebar">
+          <div class="la-search">🔍 Search cards…</div>
+          <div class="la-result">
+            <div class="la-card-thumb"></div>
+            <div class="la-card-info"><div class="la-card-info-name"></div><div class="la-card-info-sub"></div></div>
+            <div class="la-add"></div>
+          </div>
+          <div class="la-result">
+            <div class="la-card-thumb" style="opacity:0.25"></div>
+            <div class="la-card-info"><div class="la-card-info-name" style="width:90%"></div><div class="la-card-info-sub"></div></div>
+            <div class="la-add"></div>
+          </div>
+          <div class="la-result">
+            <div class="la-card-thumb" style="opacity:0.35"></div>
+            <div class="la-card-info"><div class="la-card-info-name" style="width:75%"></div><div class="la-card-info-sub"></div></div>
+            <div class="la-add"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: 3-col with live stats -->
+  <div class="layout-card" onclick="this.classList.toggle('selected'); document.querySelectorAll('.layout-card').forEach(c => { if(c !== this) c.classList.remove('selected'); })">
+    <div class="layout-label">B — Stats Panel <span>Card list + search + live stats sidebar</span></div>
+    <div class="mockup">
+      <div class="m-nav">
+        <div class="m-dot">CE</div>
+        <div class="m-navlinks"><div class="m-navlink"></div><div class="m-navlink active"></div><div class="m-navlink"></div></div>
+      </div>
+      <div class="m-header">
+        <div class="m-title"></div>
+        <div class="m-badge"></div>
+        <div class="m-spacer"></div>
+        <div class="m-btn ghost" style="margin-right:3px">Copy</div>
+        <div class="m-btn primary">Import</div>
+      </div>
+      <div class="lb-body">
+        <div class="la-cards">
+          <div class="la-section-hdr" style="color:#22c55e;">Creatures (24)</div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:70%"></div><div class="la-price"></div></div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:85%"></div><div class="la-price"></div></div>
+          <div class="la-section-hdr" style="color:#00d4ff;margin-top:6px">Instants (8)</div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name"></div><div class="la-price"></div></div>
+          <div class="la-section-hdr" style="color:#78716c;margin-top:6px">Lands (24)</div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:55%"></div><div class="la-price"></div></div>
+          <div class="la-row"><div class="la-qty">4</div><div class="la-name" style="width:70%"></div><div class="la-price"></div></div>
+        </div>
+        <div class="la-sidebar">
+          <div class="la-search">🔍 Search…</div>
+          <div class="la-result">
+            <div class="la-card-thumb"></div>
+            <div class="la-card-info"><div class="la-card-info-name"></div><div class="la-card-info-sub"></div></div>
+            <div class="la-add"></div>
+          </div>
+          <div class="la-result">
+            <div class="la-card-thumb" style="opacity:0.25"></div>
+            <div class="la-card-info"><div class="la-card-info-name" style="width:90%"></div><div class="la-card-info-sub"></div></div>
+            <div class="la-add"></div>
+          </div>
+        </div>
+        <!-- Stats panel -->
+        <div class="lb-stats">
+          <div class="lb-stat-row">
+            <div class="lb-stat-label">Cards</div>
+            <div class="lb-stat-val">60</div>
+          </div>
+          <div class="lb-stat-row">
+            <div class="lb-stat-label">Value</div>
+            <div class="lb-stat-val teal">$142</div>
+          </div>
+          <div class="lb-stat-row">
+            <div class="lb-stat-label">Avg CMC</div>
+            <div class="lb-stat-val">2.4</div>
+          </div>
+          <div class="lb-curve">
+            <div class="lb-curve-label">Mana Curve</div>
+            <div class="lb-bar-row"><div class="lb-bar-num">1</div><div class="lb-bar-track"><div class="lb-bar-fill" style="width:40%"></div></div><div class="lb-bar-ct">8</div></div>
+            <div class="lb-bar-row"><div class="lb-bar-num">2</div><div class="lb-bar-track"><div class="lb-bar-fill" style="width:75%"></div></div><div class="lb-bar-ct">14</div></div>
+            <div class="lb-bar-row"><div class="lb-bar-num">3</div><div class="lb-bar-track"><div class="lb-bar-fill" style="width:60%"></div></div><div class="lb-bar-ct">12</div></div>
+            <div class="lb-bar-row"><div class="lb-bar-num">4</div><div class="lb-bar-track"><div class="lb-bar-fill" style="width:30%"></div></div><div class="lb-bar-ct">6</div></div>
+            <div class="lb-bar-row"><div class="lb-bar-num">5</div><div class="lb-bar-track"><div class="lb-bar-fill" style="width:15%"></div></div><div class="lb-bar-ct">3</div></div>
+          </div>
+          <!-- Color pips -->
+          <div style="margin-top:8px;">
+            <div class="lb-curve-label">Colors</div>
+            <div style="display:flex;gap:3px;margin-top:3px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#F9FAF4;border:1px solid rgba(0,0,0,0.4)"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#0E68AB;border:1px solid rgba(0,0,0,0.4)"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#00733E;border:1px solid rgba(0,0,0,0.4)"></div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid #1E2535;">
+            <button style="width:100%;padding:5px;background:rgba(13,148,136,0.12);border:1px solid rgba(13,148,136,0.3);border-radius:6px;color:#0D9488;font-size:8px;font-weight:700;cursor:pointer;">✦ AI Suggestions</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.layout-card').forEach(card => {
+  card.addEventListener('click', function() {
+    document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('selected'));
+    this.classList.add('selected');
+    const label = this.querySelector('.layout-label').textContent.trim();
+    window.__companion_selection = label;
+  });
+});
+</script>
+</body>
+</html>

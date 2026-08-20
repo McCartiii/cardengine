@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; padding: 30px; font-family: 'Inter', -apple-system, sans-serif; }
+
+  @keyframes logo-in {
+    0% { opacity: 0; transform: scale(0.7); }
+    60% { opacity: 1; transform: scale(1.03); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes text-in {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ring-spin {
+    0% { transform: translate(-50%,-50%) rotate(0deg); }
+    100% { transform: translate(-50%,-50%) rotate(360deg); }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+
+  .device {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    background: #111;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.7);
+  }
+
+  .page {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 32px;
+  }
+
+  /* ── Logo ── */
+  .logo-area {
+    margin-top: 80px;
+    margin-bottom: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: logo-in 0.8s ease-out;
+  }
+
+  .logo-svg {
+    width: 140px;
+    height: 175px;
+  }
+
+  /* ── Form ── */
+  .form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .input-group {
+    margin-bottom: 14px;
+    animation: text-in 0.5s ease-out var(--d, 0.3s) both;
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #1E2535;
+    background: #161B27;
+    color: #E2E8F0;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-field:focus {
+    border-color: #0D9488;
+  }
+
+  .input-field::placeholder {
+    color: #334155;
+  }
+
+  .forgot-row {
+    text-align: right;
+    margin-bottom: 20px;
+    margin-top: -4px;
+    animation: text-in 0.5s ease-out 0.5s both;
+  }
+
+  .forgot-link {
+    font-size: 13px;
+    font-weight: 500;
+    color: #0D9488;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  /* CTA */
+  .cta-wrap {
+    margin-bottom: 24px;
+    animation: text-in 0.5s ease-out 0.6s both;
+  }
+
+  .cta {
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    background: #0D9488;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s;
+  }
+
+  .cta:active { transform: scale(0.98); }
+
+  .cta-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 25%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+
+  .cta span { position: relative; z-index: 1; }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    animation: text-in 0.5s ease-out 0.7s both;
+  }
+
+  .div-line { flex: 1; height: 1px; background: #1E2535; }
+  .div-text { font-size: 12px; color: #334155; font-weight: 500; }
+
+  /* Social */
+  .social-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    animation: text-in 0.5s ease-out 0.8s both;
+  }
+
+  .social-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #1E2535;
+    background: #161B27;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .social-btn:hover { border-color: #2D4059; }
+
+  .social-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #94A3B8;
+  }
+
+  .social-icon {
+    font-size: 16px;
+    color: #94A3B8;
+  }
+
+  /* Guest */
+  .guest {
+    text-align: center;
+    animation: text-in 0.5s ease-out 0.9s both;
+  }
+
+  .guest-text {
+    font-size: 13px;
+    color: #334155;
+  }
+
+  .guest-link {
+    color: #0D9488;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="page">
+
+    <div class="logo-area">
+      <svg class="logo-svg" viewBox="0 0 160 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Card mark -->
+        <rect x="44" y="4" width="72" height="112" rx="7" fill="transparent"/>
+        <rect x="44" y="4" width="72" height="112" rx="7" stroke="#0D9488" stroke-width="1.4"/>
+        <rect x="49" y="9" width="62" height="102" rx="4" stroke="#0D9488" stroke-width="0.5" opacity="0.4"/>
+        <!-- 8-tooth gear -->
+        <polygon
+          points="80,38 85.9,44.2 94.6,43.5 94.0,52.3 101,60 94.0,67.7 94.6,76.5 85.9,75.8 80,82 74.1,75.8 65.4,76.5 66.0,67.7 59,60 66.0,52.3 65.4,43.5 74.1,44.2"
+          fill="#0D9488"/>
+        <circle cx="80" cy="60" r="7.5" fill="#111"/>
+        <!-- Corner CE top-left -->
+        <text x="51" y="22" font-family="Inter,sans-serif" font-size="9" font-weight="800" fill="#0D9488">C</text>
+        <text x="51" y="33" font-family="Inter,sans-serif" font-size="9" font-weight="800" fill="#0D9488">E</text>
+        <!-- Corner CE bottom-right -->
+        <g transform="rotate(180,80,60)">
+          <text x="51" y="22" font-family="Inter,sans-serif" font-size="9" font-weight="800" fill="#0D9488">C</text>
+          <text x="51" y="33" font-family="Inter,sans-serif" font-size="9" font-weight="800" fill="#0D9488">E</text>
+        </g>
+        <!-- Wordmark -->
+        <text x="80" y="144" text-anchor="middle" font-family="Inter,sans-serif" font-size="30" font-weight="800" fill="#E2E8F0">CARD</text>
+        <text x="80" y="168" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" font-weight="400" fill="#0D9488" letter-spacing="5.5">ENGINE</text>
+      </svg>
+    </div>
+
+    <div class="form">
+      <div class="input-group" style="--d: 0.3s;">
+        <input class="input-field" type="email" placeholder="Email" />
+      </div>
+
+      <div class="input-group" style="--d: 0.4s;">
+        <input class="input-field" type="password" placeholder="Password" />
+      </div>
+
+      <div class="forgot-row">
+        <a class="forgot-link">Forgot password?</a>
+      </div>
+
+      <div class="cta-wrap">
+        <button class="cta">
+          <span class="cta-shimmer"></span>
+          <span>Sign In</span>
+        </button>
+      </div>
+
+      <div class="divider">
+        <div class="div-line"></div>
+        <div class="div-text">or</div>
+        <div class="div-line"></div>
+      </div>
+
+      <div class="social-row">
+        <div class="social-btn">
+          <span class="social-icon"></span>
+          <span class="social-name">Apple</span>
+        </div>
+        <div class="social-btn">
+          <span class="social-icon" style="font-weight:700;font-size:14px;">G</span>
+          <span class="social-name">Google</span>
+        </div>
+      </div>
+
+      <div class="guest">
+        <span class="guest-text">or <a class="guest-link">continue as guest</a></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

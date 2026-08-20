@@ -1,7 +1,7 @@
 // apps/web/src/components/ui/CardImage.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface CardImageProps {
   src: string;
@@ -27,9 +27,14 @@ export function CardImage({
 }: CardImageProps) {
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
+  // Reset the loading overlay when the image source changes. Adjusting state
+  // during render (instead of an effect) avoids a one-frame flash of the old
+  // image: https://react.dev/learn/you-might-not-need-an-effect
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (prevSrc !== src) {
+    setPrevSrc(src);
     setLoaded(false);
-  }, [src]);
+  }
 
   return (
     <div

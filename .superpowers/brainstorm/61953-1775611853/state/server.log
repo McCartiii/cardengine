@@ -1,0 +1,4 @@
+{"type":"server-started","port":49438,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:49438","screen_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/61953-1775611853/content","state_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/61953-1775611853/state"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/61953-1775611853/content/decks-page-v2.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/61953-1775611853/content/deck-hero-options.html"}
+{"type":"server-stopped","reason":"idle timeout"}

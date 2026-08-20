@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Home Redesign</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #090D14; color: #e2e8f0; min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Nav */
+.nav {
+  height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 16px;
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(9,13,20,0.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(30,37,53,0.5);
+}
+.nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.nav-mark { width: 30px; height: 30px; background: #0D9488; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: white; }
+.nav-name { font-size: 15px; font-weight: 700; color: #F8FAFC; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.nav-link { font-size: 13px; color: #475569; font-weight: 500; text-decoration: none; }
+.nav-link:hover { color: #94a3b8; }
+.nav-btn { padding: 7px 18px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: #0D9488; color: #fff; }
+
+/* ═══ HERO ═══ */
+.hero {
+  position: relative; padding: 100px 24px 80px; text-align: center;
+  overflow: hidden;
+}
+/* Ambient glow behind hero */
+.hero::before {
+  content: '';
+  position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 700px; height: 400px;
+  background: radial-gradient(ellipse at center, rgba(13,148,136,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+/* Floating card fan decoration */
+.hero-cards {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 300px; height: 200px; pointer-events: none; opacity: 0.04;
+}
+.hero-card {
+  position: absolute; width: 100px; height: 140px; border-radius: 8px;
+  border: 1px solid rgba(13,148,136,0.3); top: 50%; left: 50%;
+}
+.hero-card:nth-child(1) { transform: translate(-50%,-50%) rotate(-20deg) translateX(-60px); }
+.hero-card:nth-child(2) { transform: translate(-50%,-50%) rotate(0deg); }
+.hero-card:nth-child(3) { transform: translate(-50%,-50%) rotate(20deg) translateX(60px); }
+
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 16px; border-radius: 20px;
+  background: rgba(13,148,136,0.06); border: 1px solid rgba(13,148,136,0.15);
+  font-size: 11px; font-weight: 600; color: #0D9488;
+  margin-bottom: 24px; letter-spacing: 0.02em;
+}
+.hero-eyebrow-dot { width: 5px; height: 5px; border-radius: 50%; background: #0D9488; box-shadow: 0 0 6px rgba(13,148,136,0.5); }
+
+.hero h1 {
+  font-size: 56px; font-weight: 800; color: #F8FAFC;
+  line-height: 1.08; letter-spacing: -0.03em; max-width: 680px;
+  margin: 0 auto 20px; position: relative;
+}
+.hero h1 .accent {
+  background: linear-gradient(135deg, #0D9488, #14b8a6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero p {
+  font-size: 17px; color: #64748b; line-height: 1.7; max-width: 480px;
+  margin: 0 auto 36px; font-weight: 400;
+}
+.hero-ctas { display: flex; gap: 10px; justify-content: center; position: relative; }
+.cta-primary {
+  padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  background: linear-gradient(135deg, #0D9488, #0f766e); color: #fff;
+  border: none; cursor: pointer; text-decoration: none;
+  box-shadow: 0 0 24px rgba(13,148,136,0.2), 0 4px 12px rgba(0,0,0,0.3);
+  transition: all 0.15s;
+}
+.cta-primary:hover { box-shadow: 0 0 32px rgba(13,148,136,0.35), 0 6px 16px rgba(0,0,0,0.3); transform: translateY(-1px); }
+.cta-secondary {
+  padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  background: rgba(17,24,39,0.6); border: 1px solid rgba(30,37,53,0.7);
+  color: #94a3b8; cursor: pointer; text-decoration: none;
+  backdrop-filter: blur(8px); transition: all 0.15s;
+}
+.cta-secondary:hover { border-color: rgba(13,148,136,0.3); color: #e2e8f0; }
+
+/* ═══ FEATURES ═══ */
+.features {
+  max-width: 1000px; margin: 0 auto; padding: 0 24px 80px;
+}
+.features-label {
+  text-align: center; font-size: 10px; font-weight: 700; color: #334155;
+  text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 32px;
+}
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+
+.feature-card {
+  background: rgba(17,24,39,0.5); backdrop-filter: blur(12px);
+  border: 1px solid rgba(30,37,53,0.6); border-radius: 14px;
+  padding: 24px 22px; position: relative; overflow: hidden;
+  transition: all 0.2s;
+}
+.feature-card:hover { border-color: rgba(13,148,136,0.25); transform: translateY(-2px); }
+.feature-card::before {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-glow, rgba(13,148,136,0.2)), transparent);
+  opacity: 0; transition: opacity 0.2s;
+}
+.feature-card:hover::before { opacity: 1; }
+
+.feature-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.feature-card h3 { font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 6px; }
+.feature-card p { font-size: 12.5px; color: #64748b; line-height: 1.6; }
+
+/* Feature icon colors */
+.fi-collection { background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.2); color: #60a5fa; }
+.fi-scanner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
+.fi-prices { background: rgba(249,250,251,0.08); border: 1px solid rgba(249,250,251,0.15); color: #f9fafb; }
+.fi-decks { background: rgba(126,34,206,0.1); border: 1px solid rgba(126,34,206,0.2); color: #a855f7; }
+.fi-shops { background: rgba(22,163,74,0.1); border: 1px solid rgba(22,163,74,0.2); color: #16a34a; }
+.fi-rules { background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.2); color: #0D9488; }
+
+/* Icon SVGs */
+.feature-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ═══ STATS BAR ═══ */
+.stats-bar {
+  max-width: 700px; margin: -40px auto 60px; padding: 16px 0;
+  display: flex; justify-content: center; gap: 40px;
+  position: relative;
+}
+.stats-bar::before {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(30,37,53,0.6), transparent);
+}
+.stats-bar::after {
+  content: ''; position: absolute; bottom: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(30,37,53,0.6), transparent);
+}
+.stat { text-align: center; }
+.stat-val { font-size: 24px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.02em; }
+.stat-val .accent { color: #0D9488; }
+.stat-label { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; font-weight: 600; }
+
+/* ═══ FOOTER ═══ */
+.footer {
+  border-top: 1px solid rgba(30,37,53,0.4);
+  padding: 24px; text-align: center;
+  font-size: 12px; color: #334155;
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav">
+  <a class="nav-logo" href="#">
+    <div class="nav-mark">CE</div>
+    <div class="nav-name">Card Engine</div>
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="#">Sign in</a>
+    <button class="nav-btn">Get started</button>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-cards">
+    <div class="hero-card"></div>
+    <div class="hero-card"></div>
+    <div class="hero-card"></div>
+  </div>
+
+  <div class="hero-eyebrow">
+    <div class="hero-eyebrow-dot"></div>
+    Open-source MTG platform
+  </div>
+
+  <h1>
+    Build, track, and master your <span class="accent">collection</span>
+  </h1>
+
+  <p>
+    Scan cards with your camera, build decks with AI, monitor prices, and find local game stores. All in one place.
+  </p>
+
+  <div class="hero-ctas">
+    <a class="cta-primary" href="#">Create free account</a>
+    <a class="cta-secondary" href="#">Sign in</a>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-val"><span class="accent">30k</span>+</div><div class="stat-label">Cards indexed</div></div>
+  <div class="stat"><div class="stat-val"><span class="accent">100</span>%</div><div class="stat-label">Free to use</div></div>
+  <div class="stat"><div class="stat-val"><span class="accent">5</span></div><div class="stat-label">Formats supported</div></div>
+  <div class="stat"><div class="stat-val"><span class="accent">AI</span></div><div class="stat-label">Deck building</div></div>
+</div>
+
+<!-- Features -->
+<div class="features">
+  <div class="features-label">Everything you need</div>
+  <div class="features-grid">
+
+    <div class="feature-card" style="--card-glow:rgba(96,165,250,0.2)">
+      <div class="feature-icon fi-collection">
+        <svg viewBox="0 0 24 24"><path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+      </div>
+      <h3>Collection Tracking</h3>
+      <p>Add cards, track condition, organize by binder or box. Offline-first with cloud sync.</p>
+    </div>
+
+    <div class="feature-card" style="--card-glow:rgba(239,68,68,0.2)">
+      <div class="feature-icon fi-scanner">
+        <svg viewBox="0 0 24 24"><path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/></svg>
+      </div>
+      <h3>Camera Scanner</h3>
+      <p>Point your phone at a card to identify it instantly using OCR and machine learning.</p>
+    </div>
+
+    <div class="feature-card" style="--card-glow:rgba(249,250,251,0.15)">
+      <div class="feature-icon fi-prices">
+        <svg viewBox="0 0 24 24"><path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h3>Live Prices</h3>
+      <p>Prices from TCGplayer and Cardmarket, updated daily. Set alerts via your watchlist.</p>
+    </div>
+
+    <div class="feature-card" style="--card-glow:rgba(168,85,247,0.2)">
+      <div class="feature-icon fi-decks">
+        <svg viewBox="0 0 24 24"><path d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-1.243 1.007-2.25 2.25-2.25h13.5"/></svg>
+      </div>
+      <h3>AI Deck Builder</h3>
+      <p>Build decks with EDHREC data and AI suggestions. Supports every format from Standard to Commander.</p>
+    </div>
+
+    <div class="feature-card" style="--card-glow:rgba(22,163,74,0.2)">
+      <div class="feature-icon fi-shops">
+        <svg viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+      </div>
+      <h3>Local Shops</h3>
+      <p>Find nearby card shops on the map, check in, and connect with local players.</p>
+    </div>
+
+    <div class="feature-card" style="--card-glow:rgba(13,148,136,0.2)">
+      <div class="feature-icon fi-rules">
+        <svg viewBox="0 0 24 24"><path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+      </div>
+      <h3>Rules Engine</h3>
+      <p>Automatic deck validation against format rules and up-to-date ban lists.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Card Engine — Open-source MTG collection platform
+</div>
+
+</body>
+</html>

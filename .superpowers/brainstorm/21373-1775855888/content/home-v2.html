@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Bold Home</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #060910; color: #e2e8f0; min-height: 100vh;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+
+/* Nav */
+.nav {
+  height: 56px; display: flex; align-items: center; padding: 0 32px;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(6,9,16,0.7); backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(30,37,53,0.3);
+}
+.nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.nav-mark { width: 30px; height: 30px; background: #0D9488; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: white; }
+.nav-name { font-size: 15px; font-weight: 700; color: #F8FAFC; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.nav-link { font-size: 13px; color: #64748b; font-weight: 500; text-decoration: none; transition: color 0.15s; }
+.nav-link:hover { color: #e2e8f0; }
+.nav-btn { padding: 7px 20px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: #0D9488; color: #fff; transition: all 0.15s; }
+.nav-btn:hover { box-shadow: 0 0 16px rgba(13,148,136,0.3); }
+
+/* ═══ HERO — Full viewport, immersive ═══ */
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative; overflow: hidden; padding: 80px 24px 60px;
+}
+
+/* Animated background grid */
+.hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(13,148,136,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13,148,136,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+}
+
+/* Big ambient glow */
+.hero-glow {
+  position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 600px;
+  background: radial-gradient(ellipse at center, rgba(13,148,136,0.1) 0%, rgba(13,148,136,0.03) 40%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Floating card art fan */
+.card-fan {
+  position: relative; width: 380px; height: 220px; margin-bottom: 48px;
+}
+.fan-card {
+  position: absolute; width: 130px; height: 182px;
+  border-radius: 10px; overflow: hidden;
+  border: 2px solid rgba(30,37,53,0.6);
+  background: linear-gradient(135deg, #111827, #0F1117);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  transition: transform 0.4s ease;
+  top: 50%; left: 50%;
+}
+.fan-card-inner {
+  width: 100%; height: 100%; position: relative;
+  background: linear-gradient(180deg, rgba(13,148,136,0.08) 0%, rgba(13,148,136,0.02) 100%);
+}
+.fan-card-art {
+  width: 100%; height: 65%; background: linear-gradient(135deg, #1a2535, #0f1824);
+  display: flex; align-items: center; justify-content: center;
+}
+.fan-card-art-icon { font-size: 28px; opacity: 0.15; }
+.fan-card-text { padding: 8px 10px; }
+.fan-card-name { font-size: 8px; font-weight: 700; color: #94a3b8; margin-bottom: 3px; }
+.fan-card-type { font-size: 7px; color: #334155; }
+.fan-card-mana { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
+.fan-card-pip { width: 10px; height: 10px; border-radius: 50%; font-size: 6px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+
+.fan-card:nth-child(1) { transform: translate(-50%,-50%) rotate(-18deg) translateX(-100px) translateY(10px); z-index: 1; }
+.fan-card:nth-child(2) { transform: translate(-50%,-50%) rotate(-6deg) translateX(-40px) translateY(-5px); z-index: 2; }
+.fan-card:nth-child(3) { transform: translate(-50%,-50%) rotate(6deg) translateX(40px) translateY(-5px); z-index: 3; border-color: rgba(13,148,136,0.3); }
+.fan-card:nth-child(4) { transform: translate(-50%,-50%) rotate(18deg) translateX(100px) translateY(10px); z-index: 2; }
+
+.fan-card:nth-child(3) .fan-card-inner { background: linear-gradient(180deg, rgba(13,148,136,0.12) 0%, rgba(13,148,136,0.03) 100%); }
+.fan-card:nth-child(3) { box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(13,148,136,0.08); }
+
+.hero h1 {
+  font-size: 64px; font-weight: 900; color: #F8FAFC;
+  line-height: 1.05; letter-spacing: -0.04em; max-width: 700px;
+  text-align: center; margin-bottom: 20px;
+}
+.hero h1 .gradient {
+  background: linear-gradient(135deg, #0D9488 0%, #14b8a6 50%, #5eead4 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  font-size: 17px; color: #475569; line-height: 1.7; max-width: 440px;
+  text-align: center; margin-bottom: 40px;
+}
+.hero-ctas { display: flex; gap: 12px; }
+.cta-big {
+  padding: 14px 36px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  background: linear-gradient(135deg, #0D9488, #0f766e); color: #fff;
+  border: none; cursor: pointer; text-decoration: none;
+  box-shadow: 0 0 30px rgba(13,148,136,0.25), 0 6px 20px rgba(0,0,0,0.4);
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.cta-big::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255,255,255,0.05), transparent);
+}
+.cta-big:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(13,148,136,0.35), 0 8px 24px rgba(0,0,0,0.4); }
+.cta-ghost {
+  padding: 14px 36px; border-radius: 12px; font-size: 15px; font-weight: 600;
+  background: rgba(17,24,39,0.5); border: 1px solid rgba(30,37,53,0.6);
+  color: #94a3b8; cursor: pointer; text-decoration: none;
+  backdrop-filter: blur(8px); transition: all 0.2s;
+}
+.cta-ghost:hover { border-color: rgba(13,148,136,0.3); color: #e2e8f0; }
+
+/* Scroll indicator */
+.scroll-hint {
+  position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font-size: 10px; color: #334155; font-weight: 500; letter-spacing: 0.06em;
+  animation: float 2.5s ease-in-out infinite;
+}
+.scroll-arrow { width: 16px; height: 16px; border-right: 1.5px solid #334155; border-bottom: 1.5px solid #334155; transform: rotate(45deg); }
+@keyframes float { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
+
+/* ═══ FEATURES — Bold cards with icons ═══ */
+.features { max-width: 1060px; margin: 0 auto; padding: 80px 24px; }
+
+.features-header {
+  text-align: center; margin-bottom: 48px;
+}
+.features-header h2 {
+  font-size: 36px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+.features-header p { font-size: 15px; color: #475569; max-width: 400px; margin: 0 auto; }
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+
+.f-card {
+  background: rgba(17,24,39,0.4); backdrop-filter: blur(12px);
+  border: 1px solid rgba(30,37,53,0.5); border-radius: 16px;
+  padding: 28px 24px; position: relative; overflow: hidden;
+  transition: all 0.25s; cursor: default;
+}
+.f-card:hover { border-color: var(--fc, rgba(13,148,136,0.3)); transform: translateY(-3px); }
+.f-card::before {
+  content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--fc, rgba(13,148,136,0.25)), transparent);
+  opacity: 0; transition: opacity 0.25s;
+}
+.f-card:hover::before { opacity: 1; }
+/* Ambient color bleed on hover */
+.f-card::after {
+  content: ''; position: absolute; top: -20px; left: 30%; right: 30%; height: 60px;
+  background: radial-gradient(ellipse at center, var(--fc, rgba(13,148,136,0.06)), transparent);
+  opacity: 0; transition: opacity 0.25s; pointer-events: none;
+}
+.f-card:hover::after { opacity: 1; }
+
+.f-icon {
+  width: 44px; height: 44px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px; position: relative;
+}
+.f-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.f-card h3 { font-size: 15px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px; }
+.f-card p { font-size: 13px; color: #64748b; line-height: 1.65; }
+
+/* Icon theme colors */
+.fi-1 { background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2); color: #60a5fa; --fc: rgba(96,165,250,0.2); }
+.fi-2 { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.18); color: #ef4444; --fc: rgba(239,68,68,0.2); }
+.fi-3 { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.18); color: #f59e0b; --fc: rgba(245,158,11,0.2); }
+.fi-4 { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.18); color: #a855f7; --fc: rgba(168,85,247,0.2); }
+.fi-5 { background: rgba(22,163,74,0.08); border: 1px solid rgba(22,163,74,0.18); color: #16a34a; --fc: rgba(22,163,74,0.2); }
+.fi-6 { background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.2); color: #0D9488; --fc: rgba(13,148,136,0.2); }
+
+/* ═══ CTA BANNER ═══ */
+.cta-banner {
+  max-width: 800px; margin: 0 auto 80px; padding: 48px 40px;
+  background: rgba(17,24,39,0.5); backdrop-filter: blur(12px);
+  border: 1px solid rgba(30,37,53,0.5); border-radius: 20px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.cta-banner::before {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(13,148,136,0.35), transparent);
+}
+.cta-banner::after {
+  content: ''; position: absolute; top: -40px; left: 30%; right: 30%; height: 80px;
+  background: radial-gradient(ellipse at center, rgba(13,148,136,0.06), transparent);
+  pointer-events: none;
+}
+.cta-banner h2 { font-size: 28px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.02em; margin-bottom: 10px; }
+.cta-banner p { font-size: 14px; color: #475569; margin-bottom: 24px; }
+
+/* Footer */
+.footer {
+  border-top: 1px solid rgba(30,37,53,0.3);
+  padding: 28px; text-align: center;
+  font-size: 12px; color: #334155;
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav">
+  <a class="nav-logo"><div class="nav-mark">CE</div><div class="nav-name">Card Engine</div></a>
+  <div class="nav-right">
+    <a class="nav-link">Sign in</a>
+    <button class="nav-btn">Get started</button>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+
+  <!-- Card fan -->
+  <div class="card-fan">
+    <div class="fan-card">
+      <div class="fan-card-inner">
+        <div class="fan-card-art"></div>
+        <div class="fan-card-text">
+          <div class="fan-card-name">Lightning Bolt</div>
+          <div class="fan-card-type">Instant</div>
+        </div>
+        <div class="fan-card-mana"><div class="fan-card-pip" style="background:#ef4444;color:#fff">R</div></div>
+      </div>
+    </div>
+    <div class="fan-card">
+      <div class="fan-card-inner">
+        <div class="fan-card-art"></div>
+        <div class="fan-card-text">
+          <div class="fan-card-name">Counterspell</div>
+          <div class="fan-card-type">Instant</div>
+        </div>
+        <div class="fan-card-mana"><div class="fan-card-pip" style="background:#60a5fa;color:#1a1a1a">U</div><div class="fan-card-pip" style="background:#60a5fa;color:#1a1a1a">U</div></div>
+      </div>
+    </div>
+    <div class="fan-card">
+      <div class="fan-card-inner">
+        <div class="fan-card-art"></div>
+        <div class="fan-card-text">
+          <div class="fan-card-name">Sol Ring</div>
+          <div class="fan-card-type">Artifact</div>
+        </div>
+        <div class="fan-card-mana"><div class="fan-card-pip" style="background:#94a3b8;color:#1a1a1a">1</div></div>
+      </div>
+    </div>
+    <div class="fan-card">
+      <div class="fan-card-inner">
+        <div class="fan-card-art"></div>
+        <div class="fan-card-text">
+          <div class="fan-card-name">Swords to Plowshares</div>
+          <div class="fan-card-type">Instant</div>
+        </div>
+        <div class="fan-card-mana"><div class="fan-card-pip" style="background:#f9fafb;color:#1a1a1a">W</div></div>
+      </div>
+    </div>
+  </div>
+
+  <h1>Your deck.<br>Your <span class="gradient">engine</span>.</h1>
+  <p class="hero-sub">Build decks with AI. Scan cards instantly. Track your collection. Find local shops.</p>
+
+  <div class="hero-ctas">
+    <a class="cta-big">Get started</a>
+    <a class="cta-ghost">Sign in</a>
+  </div>
+
+  <div class="scroll-hint">
+    <span>EXPLORE</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="features">
+  <div class="features-header">
+    <h2>Built for the game</h2>
+    <p>Everything you need to collect, build, and compete.</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="f-card" style="--fc:rgba(96,165,250,0.2)">
+      <div class="f-icon fi-1"><svg viewBox="0 0 24 24"><path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg></div>
+      <h3>Collection Tracking</h3>
+      <p>Add cards, track condition, organize by binder or box. Cloud synced across all your devices.</p>
+    </div>
+
+    <div class="f-card" style="--fc:rgba(239,68,68,0.2)">
+      <div class="f-icon fi-2"><svg viewBox="0 0 24 24"><path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/></svg></div>
+      <h3>Camera Scanner</h3>
+      <p>Point your phone at a card to identify it instantly using OCR and machine learning.</p>
+    </div>
+
+    <div class="f-card" style="--fc:rgba(245,158,11,0.2)">
+      <div class="f-icon fi-3"><svg viewBox="0 0 24 24"><path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+      <h3>Live Prices</h3>
+      <p>Prices from TCGplayer and Cardmarket, updated daily. Set alerts on your watchlist.</p>
+    </div>
+
+    <div class="f-card" style="--fc:rgba(168,85,247,0.2)">
+      <div class="f-icon fi-4"><svg viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg></div>
+      <h3>AI Deck Advisor</h3>
+      <p>Build decks powered by EDHREC data and AI. Scryfall-verified cards, synergy scores, full deck lists.</p>
+    </div>
+
+    <div class="f-card" style="--fc:rgba(22,163,74,0.2)">
+      <div class="f-icon fi-5"><svg viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg></div>
+      <h3>Shop Finder</h3>
+      <p>Find nearby card shops on the map, check in, and discover local play groups.</p>
+    </div>
+
+    <div class="f-card" style="--fc:rgba(13,148,136,0.2)">
+      <div class="f-icon fi-6"><svg viewBox="0 0 24 24"><path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg></div>
+      <h3>Rules Engine</h3>
+      <p>Automatic deck validation against format rules and up-to-date ban lists.</p>
+    </div>
+  </div>
+</div>
+
+<!-- CTA banner -->
+<div style="padding: 0 24px;">
+  <div class="cta-banner">
+    <h2>Ready to build?</h2>
+    <p>Join Card Engine and start building your collection today.</p>
+    <a class="cta-big" style="display:inline-block">Get started</a>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">Card Engine — MTG Collection Platform</div>
+
+</body>
+</html>

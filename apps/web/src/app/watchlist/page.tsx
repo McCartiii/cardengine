@@ -49,15 +49,14 @@ export default function WatchlistPage() {
     });
   }, []);
 
-  const fetchWatchlist = useCallback(async () => {
+  // Pure fetcher: returns the entries (or null when signed out / offline) and
+  // leaves state updates to the caller, so effects can set state in a callback.
+  const fetchWatchlist = useCallback(async (): Promise<WatchlistEntry[] | null> => {
     const supabase = createClient();
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session) {
-      setLoading(false);
-      return;
-    }
+    if (!session) return null;
 
     try {
       const res = await fetch(`${API_URL}/v1/watchlist`, {
@@ -66,7 +65,7 @@ export default function WatchlistPage() {
       const data = await res.json();
       const rawEntries: WatchlistEntry[] = data.entries ?? [];
 
-      // Enrich with card names and current prices
+      // Enrich with current prices
       if (rawEntries.length > 0) {
         const variantIds = rawEntries.map((e) => e.variantId);
         const priceRes = await fetch(`${API_URL}/v1/prices/batch`, {
@@ -76,40 +75,43 @@ export default function WatchlistPage() {
         });
         const priceData = priceRes.ok ? await priceRes.json() : { prices: {} };
 
-        // Fetch card names
         for (const entry of rawEntries) {
           const price = priceData.prices?.[entry.variantId];
           entry.currentPrice = price?.amount;
-
-          // Try to get card name from search
-          try {
-            const nameRes = await fetch(
-              `${API_URL}/v1/search?q=&game=mtg&limit=1&offset=0`
-            );
-            // We'll use variantId lookup instead
-          } catch {
-            // skip
-          }
         }
       }
 
-      setEntries(rawEntries);
+      return rawEntries;
     } catch {
       // Offline
+      return null;
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchWatchlist();
+    let cancelled = false;
+    fetchWatchlist().then((fetched) => {
+      if (cancelled) return;
+      if (fetched) setEntries(fetched);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchWatchlist]);
+
+  // Clear stale results the moment the query drops below the search threshold.
+  // Adjusting state during render (not in an effect) avoids an extra pass:
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  if (prevSearchQuery !== searchQuery) {
+    setPrevSearchQuery(searchQuery);
+    if (!searchQuery || searchQuery.length < 2) setSearchResults([]);
+  }
 
   // Search for cards to add to watchlist
   useEffect(() => {
-    if (!searchQuery || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchQuery || searchQuery.length < 2) return;
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
@@ -159,7 +161,8 @@ export default function WatchlistPage() {
         setSelectedCard(null);
         setSearchQuery("");
         setThreshold("");
-        fetchWatchlist();
+        const fetched = await fetchWatchlist();
+        if (fetched) setEntries(fetched);
       }
     } catch {
       alert("Failed to create alert");

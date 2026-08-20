@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Engine — Design System</title>
+<style>
+/* ══════════════════════════════════════════
+   CARD ENGINE — DESIGN SYSTEM SHOWCASE
+   Light + Dark · Sidebar Layout · TCG Soul
+══════════════════════════════════════════ */
+
+/* ── Tokens ── */
+:root {
+  /* Surfaces */
+  --bg:              #F6F2EC;
+  --surface:         #FDFAF6;
+  --surface-raised:  #FFFFFF;
+  --surface-sunken:  #EDE7DC;
+  --surface-overlay: rgba(253,250,246,0.92);
+
+  /* Text */
+  --text-primary:   #18150F;
+  --text-secondary: #6B5D4F;
+  --text-muted:     #A8937C;
+  --text-inverse:   #FFFFFF;
+
+  /* Borders */
+  --border:       #DDD5C8;
+  --border-strong:#C4B49A;
+
+  /* Gold accent */
+  --gold:         #B8860B;
+  --gold-light:   #FFF8E1;
+  --gold-glow:    rgba(184,134,11,0.22);
+
+  /* Sidebar active */
+  --sidebar-active-bg:   #EDE7DC;
+  --sidebar-active-text: #18150F;
+
+  /* Shadows */
+  --shadow-sm:   0 1px 3px rgba(24,21,15,0.07), 0 1px 2px rgba(24,21,15,0.04);
+  --shadow-md:   0 4px 12px rgba(24,21,15,0.09), 0 2px 4px rgba(24,21,15,0.05);
+  --shadow-lg:   0 8px 28px rgba(24,21,15,0.12), 0 3px 8px rgba(24,21,15,0.06);
+  --shadow-lift: 0 14px 36px rgba(24,21,15,0.16), 0 4px 10px rgba(24,21,15,0.08);
+
+  /* Rarity */
+  --mythic-from: #FF6B1A; --mythic-to: #C2400C;
+  --mythic-glow: rgba(234,88,12,0.28);
+  --rare-from:   #D4A017; --rare-to: #A17000;
+  --rare-glow:   rgba(202,138,4,0.22);
+  --uncommon-from: #7A8FA6; --uncommon-to: #4E6478;
+  --common-color: #8E9BAA;
+
+  /* Identity */
+  --id-W-tint: #FFFDF0; --id-W-border: #EDD87A; --id-W-glow: rgba(234,179,8,0.18);
+  --id-U-tint: #EFF6FF; --id-U-border: #93C5FD; --id-U-glow: rgba(59,130,246,0.18);
+  --id-B-tint: #F5F3F8; --id-B-border: #C4B5D4; --id-B-glow: rgba(109,40,217,0.14);
+  --id-R-tint: #FFF5F2; --id-R-border: #FCA5A5; --id-R-glow: rgba(239,68,68,0.18);
+  --id-G-tint: #F0FBF3; --id-G-border: #86EFAC; --id-G-glow: rgba(34,197,94,0.18);
+
+  --radius: 12px;
+  --radius-sm: 7px;
+  --radius-lg: 18px;
+}
+
+.dark-mode {
+  --bg:              #0D0B09;
+  --surface:         #161310;
+  --surface-raised:  #1E1A16;
+  --surface-sunken:  #0A0807;
+  --surface-overlay: rgba(22,19,16,0.94);
+
+  --text-primary:   #F2ECE4;
+  --text-secondary: #A89880;
+  --text-muted:     #665A4A;
+  --text-inverse:   #0D0B09;
+
+  --border:        #2E2822;
+  --border-strong: #3D352C;
+
+  --gold:        #E8B94F;
+  --gold-light:  #2A1F06;
+  --gold-glow:   rgba(232,185,79,0.2);
+
+  --sidebar-active-bg:   #1E1A16;
+  --sidebar-active-text: #F2ECE4;
+
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.25);
+  --shadow-lg:   0 8px 28px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.3);
+  --shadow-lift: 0 14px 36px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.35);
+
+  --id-W-tint: #1A1708; --id-W-border: #5C4E10; --id-W-glow: rgba(234,179,8,0.2);
+  --id-U-tint: #091524; --id-U-border: #1E3A5F; --id-U-glow: rgba(59,130,246,0.2);
+  --id-B-tint: #100D18; --id-B-border: #2D1B4E; --id-B-glow: rgba(109,40,217,0.2);
+  --id-R-tint: #1A0A07; --id-R-border: #5C1A1A; --id-R-glow: rgba(239,68,68,0.2);
+  --id-G-tint: #081409; --id-G-border: #14532D; --id-G-glow: rgba(34,197,94,0.2);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'Geist', 'Inter', 'SF Pro Display', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #1A1714;
+  padding: 32px 24px;
+  min-height: 100vh;
+}
+
+/* ── Layout wrapper ── */
+.showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #665A4A;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.label-row::after {
+  content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,#2E2822,transparent);
+}
+
+/* ── App shell ── */
+.app-shell {
+  display: flex;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
+  height: 560px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--gold) 0%, #8B6508 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+.logo-text { line-height: 1; }
+.logo-text strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.logo-text span {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.nav-item.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 600;
+}
+
+/* Colored active indicator */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--nav-accent, var(--gold));
+}
+
+.nav-item .nav-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.nav-item.active .nav-icon { opacity: 1; }
+
+/* Per-tab accent colors */
+.nav-item[data-tab="collection"].active { --nav-accent: #059669; }
+.nav-item[data-tab="decks"].active      { --nav-accent: #7C3AED; }
+.nav-item[data-tab="life"].active       { --nav-accent: #E11D48; }
+.nav-item[data-tab="alerts"].active     { --nav-accent: #D97706; }
+.nav-item[data-tab="shops"].active      { --nav-accent: #0284C7; }
+.nav-item[data-tab="browse"].active     { --nav-accent: var(--gold); }
+
+.nav-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+  border-radius: 999px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-bottom {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Main content ── */
+.main-content {
+  flex: 1;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Subtle noise texture */
+.main-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.main-inner {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Top bar ── */
+.topbar {
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.deck-title-group {}
+.deck-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.deck-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+.deck-meta-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.deck-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Chips / action buttons */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.15s;
+}
+
+.chip-legal {
+  background: linear-gradient(120deg, #ECFDF5, #D1FAE5);
+  color: #065F46;
+  border-color: #6EE7B7;
+  box-shadow: 0 1px 4px rgba(16,185,129,0.15);
+}
+
+.chip-import {
+  background: linear-gradient(120deg, #7C3AED, #5B21B6);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(124,58,237,0.3), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.chip-private {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.chip-price {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+/* ── Tab bar ── */
+.tabbar {
+  display: flex;
+  gap: 2px;
+  padding: 10px 24px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tab {
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: -1px;
+  border-radius: 6px 6px 0 0;
+}
+.tab.active {
+  color: #7C3AED;
+  border-bottom-color: #7C3AED;
+  background: var(--bg);
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.view-btn {
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.view-btn.active {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.section-btn {
+  margin-left: auto;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: 1.5px solid var(--border);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+.section-btn.active {
+  background: var(--surface-sunken);
+  border-color: var(--border-strong);
+}
+
+/* ── Card grid ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  padding: 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Card item ── */
+.card-item {
+  position: relative;
+  border-radius: 9px;
+  overflow: visible;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.22s ease;
+}
+
+.card-item:hover {
+  transform: translateY(-5px) scale(1.03);
+}
+
+.card-art-wrap {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.22s ease;
+  position: relative;
+}
+
+.card-item:hover .card-art-wrap {
+  box-shadow: var(--card-hover-glow, var(--shadow-lift));
+}
+
+/* Color identity glow on hover */
+.card-item.id-U:hover .card-art-wrap  { --card-hover-glow: 0 14px 36px rgba(59,130,246,0.35), 0 4px 10px rgba(59,130,246,0.2); }
+.card-item.id-R:hover .card-art-wrap  { --card-hover-glow: 0 14px 36px rgba(239,68,68,0.35), 0 4px 10px rgba(239,68,68,0.2); }
+.card-item.id-G:hover .card-art-wrap  { --card-hover-glow: 0 14px 36px rgba(34,197,94,0.3), 0 4px 10px rgba(34,197,94,0.18); }
+.card-item.id-B:hover .card-art-wrap  { --card-hover-glow: 0 14px 36px rgba(139,92,246,0.3), 0 4px 10px rgba(139,92,246,0.18); }
+.card-item.id-W:hover .card-art-wrap  { --card-hover-glow: 0 14px 36px rgba(234,179,8,0.3), 0 4px 10px rgba(234,179,8,0.18); }
+.card-item.id-BR:hover .card-art-wrap { --card-hover-glow: 0 14px 36px rgba(220,38,38,0.3), 0 4px 10px rgba(234,88,12,0.2); }
+
+.card-art-block {
+  width: 100%;
+  padding-top: 139.4%; /* standard card ratio */
+  position: relative;
+}
+
+.card-art-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+}
+
+/* Card name label on hover */
+.card-label {
+  position: absolute;
+  bottom: -22px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.card-item:hover .card-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Rarity indicator dot on corner */
+.rarity-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.15);
+  z-index: 2;
+}
+.rarity-dot.mythic {
+  background: linear-gradient(135deg, #FF6B1A, #C2400C);
+  box-shadow: 0 0 6px rgba(234,88,12,0.7);
+  animation: mythic-pulse 2.5s ease-in-out infinite;
+}
+.rarity-dot.rare {
+  background: linear-gradient(135deg, #E8B94F, #A17000);
+  box-shadow: 0 0 5px rgba(202,138,4,0.6);
+}
+.rarity-dot.uncommon {
+  background: linear-gradient(135deg, #94A3B8, #4E6478);
+}
+.rarity-dot.common {
+  background: #6B7280;
+}
+
+@keyframes mythic-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(234,88,12,0.7); }
+  50% { box-shadow: 0 0 12px rgba(234,88,12,1), 0 0 20px rgba(234,88,12,0.5); }
+}
+
+/* ── Color swatches for sample art ── */
+.art-animate-dead   { background: linear-gradient(155deg,#0a0a14,#1e1432,#2d1b4e); }
+.art-arcane-signet  { background: linear-gradient(155deg,#1a1a2e,#16213e,#0f3460); }
+.art-bitterblossom  { background: linear-gradient(155deg,#1a0e2e,#2d1b4e,#6b3fa0); }
+.art-black-market   { background: linear-gradient(155deg,#0d1117,#161b22,#21262d); }
+.art-blood-artist   { background: linear-gradient(155deg,#1a0505,#3d0b0b,#6b1515); }
+.art-bojuka-bog     { background: linear-gradient(155deg,#0d1a0d,#1a2e1a,#0f2a0f); }
+.art-minas-morgul   { background: linear-gradient(155deg,#0a1a0a,#152515,#1e3a1e,#2d5a2d); }
+.art-ragavan        { background: linear-gradient(155deg,#3d0f0f,#6b1a1a,#b91c1c,#ef4444); }
+.art-counterspell   { background: linear-gradient(155deg,#0f1e3d,#1e3a6b,#1d4ed8,#3b82f6); }
+
+/* ════════════════════════════════════════
+   SECTION 2: Component tokens
+════════════════════════════════════════ */
+.component-section {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.comp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.comp-row:last-child { border-bottom: none; }
+.comp-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+/* Rarity badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge-mythic {
+  background: linear-gradient(100deg, #FFF0E6, #FFE8D6);
+  color: #B83A0A;
+  border-color: #F97316;
+  box-shadow: 0 1px 4px rgba(234,88,12,0.2), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.badge-mythic .dot { background: linear-gradient(135deg,#FF6B1A,#C2400C); box-shadow: 0 0 4px rgba(234,88,12,0.8); }
+
+.badge-rare {
+  background: linear-gradient(100deg, #FFFBEB, #FEF3C7);
+  color: #92700A;
+  border-color: #F59E0B;
+  box-shadow: 0 1px 4px rgba(202,138,4,0.2), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.badge-rare .dot { background: linear-gradient(135deg,#E8B94F,#A17000); box-shadow: 0 0 3px rgba(202,138,4,0.7); }
+
+.badge-uncommon {
+  background: linear-gradient(100deg, #F1F5F9, #E2E8F0);
+  color: #475569;
+  border-color: #94A3B8;
+  box-shadow: 0 1px 3px rgba(71,85,105,0.12), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.badge-uncommon .dot { background: linear-gradient(135deg,#94A3B8,#4E6478); }
+
+.badge-common {
+  background: #F3F4F6;
+  color: #6B7280;
+  border-color: #D1D5DB;
+}
+.badge-common .dot { background: #9CA3AF; }
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Market badges */
+.badge-tcg  { background: linear-gradient(100deg,#FEFCE8,#FEF3C7); color:#92700A; border-color:#F59E0B; }
+.badge-mkm  { background: linear-gradient(100deg,#ECFDF5,#D1FAE5); color:#065F46; border-color:#34D399; }
+.badge-mtgo { background: linear-gradient(100deg,#EFF6FF,#DBEAFE); color:#1E40AF; border-color:#93C5FD; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #7C3AED, #5B21B6);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold), #8B6508);
+  color: #fff;
+  box-shadow: 0 2px 10px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-secondary {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+/* ── Dark mode version (right side) ── */
+.split-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.mode-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #665A4A;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mode-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
+/* ── Typography showcase ── */
+.type-showcase {
+  padding: 20px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.type-col {}
+.type-item {
+  margin-bottom: 14px;
+}
+.type-item .tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+.t-display {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.t-heading {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+}
+.t-subhead {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+}
+.t-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.t-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.t-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.color-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.color-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+.swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.swatch-label {
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* ── Animation note ── */
+.anim-strip {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 18px 20px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+.anim-strip h3 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.anim-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.anim-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.anim-item strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+/* ── Mode toggle demo ── */
+.toggle-strip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 0 8px;
+}
+.mode-toggle {
+  display: flex;
+  background: #2E2822;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.mode-toggle button {
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.mode-toggle .active-mode {
+  background: #F6F2EC;
+  color: #18150F;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.mode-toggle .inactive-mode {
+  background: transparent;
+  color: #665A4A;
+}
+</style>
+</head>
+<body>
+<div class="showcase dark-mode">
+
+  <!-- TOGGLE HINT -->
+  <div class="toggle-strip">
+    <div class="mode-toggle">
+      <button class="inactive-mode">☀ Light</button>
+      <button class="active-mode">◑ Dark</button>
+    </div>
+  </div>
+
+  <!-- LABEL -->
+  <div class="label-row">Dark Mode · Sidebar Layout · Art Grid View</div>
+
+  <!-- ═══ MAIN APP SHELL (DARK) ═══ -->
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-mark">CE</div>
+        <div class="logo-text">
+          <strong>CardEngine</strong>
+          <span>TCG Platform</span>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-item" data-tab="browse">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Browse
+        </div>
+        <div class="nav-item" data-tab="collection">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.25 7.5l-.625 10.632A2.25 2.25 0 0117.375 20.25H6.625a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375"/></svg>
+          Collection
+        </div>
+        <div class="nav-item active" data-tab="decks">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-1.243 1.007-2.25 2.25-2.25h13.5"/></svg>
+          Decks
+          <span class="nav-badge">4</span>
+        </div>
+        <div class="nav-item" data-tab="life">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+          Life
+        </div>
+        <div class="nav-item" data-tab="alerts">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+          Alerts
+        </div>
+        <div class="nav-item" data-tab="shops">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+          Shops
+        </div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="nav-item" data-tab="profile">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+          Profile
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+      <div class="main-inner">
+        <!-- Top bar -->
+        <div class="topbar">
+          <div class="deck-title-group">
+            <div class="deck-title">Super Shredder</div>
+            <div class="deck-meta">
+              <span class="deck-meta-text">116 cards</span>
+              <span style="color:var(--border-strong)">·</span>
+              <span class="deck-meta-text">Commander</span>
+              <span style="color:var(--border-strong)">·</span>
+              <span class="deck-meta-text" style="color:var(--gold);font-weight:700;">$0.00</span>
+            </div>
+          </div>
+          <div class="deck-actions">
+            <div class="chip chip-legal">✓ Legal</div>
+            <div class="chip chip-import">↑ Import</div>
+            <div class="chip chip-private">⚿ Private</div>
+          </div>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="tabbar">
+          <div class="tab active">Cards</div>
+          <div class="tab">EDHRec</div>
+          <div class="tab">✦ AI Architect</div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="view-btn">≡ List</div>
+          <div class="view-btn">⊞ Art</div>
+          <div class="view-btn active">⊡ Art + Name</div>
+          <div class="toolbar-sep"></div>
+          <div class="section-btn active">By Section</div>
+          <div class="section-btn">By Type</div>
+        </div>
+
+        <!-- Grid -->
+        <div class="card-grid">
+
+          <div class="card-item id-B">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-animate-dead"></div></div>
+            </div>
+            <div class="rarity-dot uncommon"></div>
+            <div class="card-label">Animate Dead</div>
+          </div>
+
+          <div class="card-item id-U">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-arcane-signet"></div></div>
+            </div>
+            <div class="rarity-dot common"></div>
+            <div class="card-label">Arcane Signet</div>
+          </div>
+
+          <div class="card-item id-B">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-bitterblossom"></div></div>
+            </div>
+            <div class="rarity-dot rare"></div>
+            <div class="card-label">Bitterblossom</div>
+          </div>
+
+          <div class="card-item id-B">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-black-market"></div></div>
+            </div>
+            <div class="rarity-dot rare"></div>
+            <div class="card-label">Black Market</div>
+          </div>
+
+          <div class="card-item id-B">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-blood-artist"></div></div>
+            </div>
+            <div class="rarity-dot uncommon"></div>
+            <div class="card-label">Blood Artist</div>
+          </div>
+
+          <div class="card-item id-G">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-bojuka-bog"></div></div>
+            </div>
+            <div class="rarity-dot common"></div>
+            <div class="card-label">Bojuka Bog</div>
+          </div>
+
+          <div class="card-item id-G">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-minas-morgul"></div></div>
+            </div>
+            <div class="rarity-dot mythic"></div>
+            <div class="card-label">Minas Morgul</div>
+          </div>
+
+          <div class="card-item id-R">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-ragavan"></div></div>
+            </div>
+            <div class="rarity-dot mythic"></div>
+            <div class="card-label">Ragavan</div>
+          </div>
+
+          <div class="card-item id-U">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner art-counterspell"></div></div>
+            </div>
+            <div class="rarity-dot uncommon"></div>
+            <div class="card-label">Counterspell</div>
+          </div>
+
+          <!-- More placeholder cards -->
+          <div class="card-item id-B">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner" style="background:linear-gradient(155deg,#0a0a0a,#1a1a1a,#2a1a0a);"></div></div>
+            </div>
+            <div class="rarity-dot rare"></div>
+          </div>
+          <div class="card-item id-R">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner" style="background:linear-gradient(155deg,#2a0a0a,#4a1a1a,#6b1a1a);"></div></div>
+            </div>
+            <div class="rarity-dot uncommon"></div>
+          </div>
+          <div class="card-item id-U">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner" style="background:linear-gradient(155deg,#0a1a2a,#1a2a4a,#1e3a6b);"></div></div>
+            </div>
+            <div class="rarity-dot common"></div>
+          </div>
+          <div class="card-item id-G">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner" style="background:linear-gradient(155deg,#0a1a0a,#1a2e1a,#1e3d1e);"></div></div>
+            </div>
+            <div class="rarity-dot rare"></div>
+          </div>
+          <div class="card-item id-W">
+            <div class="card-art-wrap">
+              <div class="card-art-block"><div class="card-art-inner" style="background:linear-gradient(155deg,#2a2010,#3a2e14,#4a3c1a);"></div></div>
+            </div>
+            <div class="rarity-dot mythic"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPONENTS ROW -->
+  <div class="label-row">Component System</div>
+
+  <div class="component-section dark-mode">
+    <div class="comp-row">
+      <div class="comp-label">Rarity</div>
+      <span class="badge badge-mythic"><span class="dot"></span>Mythic</span>
+      <span class="badge badge-rare"><span class="dot"></span>Rare</span>
+      <span class="badge badge-uncommon"><span class="dot"></span>Uncommon</span>
+      <span class="badge badge-common"><span class="dot"></span>Common</span>
+    </div>
+    <div class="comp-row">
+      <div class="comp-label">Markets</div>
+      <span class="badge badge-tcg">TCG $42.00</span>
+      <span class="badge badge-mkm">MKM €38.50</span>
+      <span class="badge badge-mtgo">MTGO 28 tix</span>
+    </div>
+    <div class="comp-row">
+      <div class="comp-label">Buttons</div>
+      <div class="btn btn-primary">Import Deck</div>
+      <div class="btn btn-gold">Add to Collection</div>
+      <div class="btn btn-secondary">Export</div>
+      <div class="btn btn-ghost">Cancel</div>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <div class="label-row">Typography Scale</div>
+  <div class="type-showcase dark-mode">
+    <div class="type-col">
+      <div class="type-item"><div class="tag">Display</div><div class="t-display">Super Shredder</div></div>
+      <div class="type-item"><div class="tag">Heading</div><div class="t-heading">Your Collection</div></div>
+      <div class="type-item"><div class="tag">Subheading</div><div class="t-subhead">116 cards · Commander · Legal</div></div>
+      <div class="type-item"><div class="tag">Body</div><div class="t-body">Tap: Add one mana of any color in your commander's color identity.</div></div>
+      <div class="type-item"><div class="tag">Caption</div><div class="t-caption">Last updated 2 hours ago · Synced</div></div>
+      <div class="type-item"><div class="tag">Label</div><div class="t-label">Mainboard · 116</div></div>
+    </div>
+    <div class="type-col">
+      <div class="type-item">
+        <div class="tag">Color Palette</div>
+        <div class="color-row">
+          <div class="color-swatch"><div class="swatch" style="background:#F6F2EC;border:1px solid #C4B49A;"></div><div class="swatch-label">Bg</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#FFFFFF;border:1px solid #DDD5C8;"></div><div class="swatch-label">Surface</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#B8860B;"></div><div class="swatch-label">Gold</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#7C3AED;"></div><div class="swatch-label">Deck</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#059669;"></div><div class="swatch-label">Coll.</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#E11D48;"></div><div class="swatch-label">Scan</div></div>
+        </div>
+        <div class="color-row" style="margin-top:10px;">
+          <div class="color-swatch"><div class="swatch" style="background:#0D0B09;"></div><div class="swatch-label">Bg·D</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#1E1A16;"></div><div class="swatch-label">Surf·D</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#E8B94F;"></div><div class="swatch-label">Gold·D</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#BFDBFE;border-color:#93C5FD;"></div><div class="swatch-label">Id-U</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#FCA5A5;border-color:#F87171;"></div><div class="swatch-label">Id-R</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:#86EFAC;border-color:#4ADE80;"></div><div class="swatch-label">Id-G</div></div>
+        </div>
+      </div>
+      <div class="type-item" style="margin-top:16px;">
+        <div class="tag">Mana Identity Tints</div>
+        <div class="color-row" style="margin-top:8px;">
+          <div class="color-swatch"><div class="swatch" style="background:linear-gradient(135deg,#FFFDF0,#FEF9C3);border-color:#EDD87A;"></div><div class="swatch-label">W</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-color:#93C5FD;"></div><div class="swatch-label">U</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:linear-gradient(135deg,#F5F3F8,#EDE9F8);border-color:#C4B5D4;"></div><div class="swatch-label">B</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:linear-gradient(135deg,#FFF5F2,#FFE4E1);border-color:#FCA5A5;"></div><div class="swatch-label">R</div></div>
+          <div class="color-swatch"><div class="swatch" style="background:linear-gradient(135deg,#F0FBF3,#DCFCE7);border-color:#86EFAC;"></div><div class="swatch-label">G</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANIMATIONS -->
+  <div class="label-row">Animation System</div>
+  <div class="anim-strip dark-mode">
+    <h3>Motion principles — lively but purposeful</h3>
+    <div class="anim-list">
+      <div class="anim-item">
+        <strong>Card Hover Lift</strong>
+        translateY(-5px) + scale(1.03) · cubic-bezier(0.34, 1.56, 0.64, 1) · 220ms — springy, satisfying
+      </div>
+      <div class="anim-item">
+        <strong>Identity Glow Bloom</strong>
+        Colored box-shadow expands on hover matching card's mana color · 220ms ease
+      </div>
+      <div class="anim-item">
+        <strong>Mythic Rarity Pulse</strong>
+        Corner dot pulses between 6px and 10px glow radius · 2.5s ease-in-out infinite
+      </div>
+      <div class="anim-item">
+        <strong>Page Cascade</strong>
+        Cards slide up with staggered delays (30ms apart) on route change · 400ms ease-out
+      </div>
+      <div class="anim-item">
+        <strong>Skeleton Shimmer</strong>
+        Warm gradient sweeps across loading placeholders · 1.5s infinite · kept from current
+      </div>
+      <div class="anim-item">
+        <strong>Nav Active Bleed</strong>
+        Section-color bleeds in from left edge as 3px indicator bar · 150ms ease
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

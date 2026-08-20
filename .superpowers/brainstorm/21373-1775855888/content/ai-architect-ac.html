@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Architect — A+C Combo</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background: #090D14; color: #e2e8f0; min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Top config bar (thin, always visible) ── */
+.top-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  background: rgba(17,24,39,0.6); backdrop-filter: blur(16px);
+  border: 1px solid rgba(30,37,53,0.7); border-radius: 12px;
+  padding: 8px 14px; flex-shrink: 0; margin-bottom: 10px;
+  position: relative; overflow: hidden;
+}
+.top-bar::before { content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, rgba(13,148,136,0.3), transparent); }
+
+.chip { padding: 4px 11px; border-radius: 18px; font-size: 10px; font-weight: 600; background: rgba(22,27,39,0.6); border: 1px solid rgba(30,37,53,0.6); color: #64748b; cursor: pointer; white-space: nowrap; transition: all 0.12s; }
+.chip:hover { border-color: rgba(13,148,136,0.2); color: #94a3b8; }
+.chip.on { background: rgba(13,148,136,0.1); border-color: rgba(13,148,136,0.35); color: #0D9488; }
+.chip.purple { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: #818cf8; }
+.cfg-label { font-size: 9px; font-weight: 700; color: rgba(71,85,105,0.6); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 3px; }
+.cfg-div { width: 1px; height: 16px; background: rgba(30,37,53,0.7); margin: 0 2px; }
+.bracket-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 18px; font-size: 10px; font-weight: 700; background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; cursor: pointer; }
+.bracket-dot { width: 5px; height: 5px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 5px rgba(245,158,11,0.4); }
+
+/* ── Main layout: sidebar + chat ── */
+.main { display: grid; grid-template-columns: 200px 1fr; gap: 10px; flex: 1; overflow: hidden; }
+
+/* ── Left sidebar ── */
+.sidebar { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 4px; }
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: #1E2535; border-radius: 3px; }
+
+.glass { background: rgba(17,24,39,0.55); backdrop-filter: blur(12px); border: 1px solid rgba(30,37,53,0.6); }
+
+.sb-section { border-radius: 10px; padding: 10px 12px; }
+.sb-title { font-size: 8px; font-weight: 700; color: rgba(71,85,105,0.7); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+
+/* Stats */
+.sb-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; }
+.sb-stat:not(:last-child) { border-bottom: 1px solid rgba(30,37,53,0.3); }
+.sb-stat-label { font-size: 10px; color: #475569; font-weight: 500; }
+.sb-stat-val { font-size: 14px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.02em; }
+.sb-stat-val.warn { color: #f59e0b; }
+.sb-stat-val.good { color: #22c55e; }
+
+/* Mini curve */
+.mini-curve { display: flex; align-items: flex-end; gap: 2px; height: 32px; }
+.mc-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.3s; }
+.mc-fill { width: 100%; height: 100%; border-radius: 2px 2px 0 0; background: linear-gradient(180deg, rgba(13,148,136,0.6), rgba(13,148,136,0.15)); }
+.mc-bar.peak .mc-fill { background: linear-gradient(180deg, #14b8a6, rgba(13,148,136,0.3)); box-shadow: 0 -2px 6px rgba(13,148,136,0.25); }
+
+/* Mini color */
+.mini-colors { display: flex; gap: 1.5px; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.mc-seg { border-radius: 2px; }
+.color-pips { display: flex; gap: 4px; flex-wrap: wrap; }
+.mini-pip { width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; box-shadow: 0 0 5px var(--glow); }
+
+/* Issues */
+.sb-issue { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 10px; color: #94a3b8; font-weight: 500; }
+.sb-issue:not(:last-child) { border-bottom: 1px solid rgba(30,37,53,0.25); }
+.sb-issue-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.sb-issue-fix { margin-left: auto; font-size: 9px; font-weight: 600; color: #0D9488; cursor: pointer; padding: 2px 8px; border-radius: 6px; background: rgba(13,148,136,0.06); border: 1px solid rgba(13,148,136,0.15); }
+.sb-issue-fix:hover { background: rgba(13,148,136,0.12); }
+
+/* ── Chat column ── */
+.chat-col { display: flex; flex-direction: column; overflow: hidden; }
+
+/* Command hero (shown when no messages) */
+.cmd-hero {
+  background: rgba(17,24,39,0.5); backdrop-filter: blur(16px);
+  border: 1px solid rgba(30,37,53,0.7); border-radius: 14px;
+  margin-bottom: 10px; position: relative; overflow: hidden;
+}
+.cmd-hero::before { content: ''; position: absolute; top: 0; left: 5%; right: 5%; height: 1px; background: linear-gradient(90deg, transparent, rgba(13,148,136,0.4), transparent); }
+.cmd-hero::after { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 40px; background: radial-gradient(ellipse at center top, rgba(13,148,136,0.05) 0%, transparent 70%); pointer-events: none; }
+.cmd-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.cmd-badge { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; background: linear-gradient(135deg, rgba(13,148,136,0.2), rgba(13,148,136,0.05)); border: 1px solid rgba(13,148,136,0.25); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(13,148,136,0.1); }
+.cmd-badge svg { stroke: #0D9488; }
+.cmd-field { flex: 1; background: none; border: none; outline: none; font-size: 14px; font-weight: 500; color: #F8FAFC; }
+.cmd-field::placeholder { color: #334155; }
+.cmd-send { padding: 8px 22px; border-radius: 9px; border: none; background: linear-gradient(135deg, #0D9488, #0f766e); color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; box-shadow: 0 0 16px rgba(13,148,136,0.2); flex-shrink: 0; transition: all 0.15s; }
+.cmd-send:hover { box-shadow: 0 0 24px rgba(13,148,136,0.35); transform: translateY(-1px); }
+.cmd-actions { display: flex; gap: 4px; flex-wrap: wrap; padding: 0 10px 10px; }
+.cmd-act { padding: 6px 14px; border-radius: 8px; font-size: 10.5px; font-weight: 500; background: rgba(15,17,23,0.5); border: 1px solid rgba(30,37,53,0.5); color: #64748b; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; gap: 5px; }
+.cmd-act:hover { border-color: rgba(13,148,136,0.3); color: #0D9488; background: rgba(13,148,136,0.03); }
+.cmd-act-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(13,148,136,0.35); }
+
+/* Chat messages */
+.chat-messages { flex: 1; overflow-y: auto; padding: 4px 0; }
+.chat-messages::-webkit-scrollbar { width: 3px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #1E2535; border-radius: 3px; }
+
+.msg { display: flex; gap: 10px; margin-bottom: 14px; }
+.msg.user { justify-content: flex-end; }
+.msg-avatar { width: 28px; height: 28px; border-radius: 9px; flex-shrink: 0; margin-top: 2px; background: linear-gradient(135deg, rgba(13,148,136,0.2), rgba(13,148,136,0.05)); border: 1px solid rgba(13,148,136,0.25); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(13,148,136,0.08); }
+.msg-avatar svg { stroke: #0D9488; }
+
+.user-bubble { max-width: 82%; padding: 10px 16px; background: rgba(13,148,136,0.07); border: 1px solid rgba(13,148,136,0.18); border-radius: 13px 13px 4px 13px; color: #e2e8f0; font-size: 12.5px; font-weight: 500; line-height: 1.6; }
+
+.ai-bubble { max-width: 88%; padding: 14px 18px; border-radius: 13px 13px 13px 4px; font-size: 12px; line-height: 1.7; color: #cbd5e1; box-shadow: 0 3px 16px rgba(0,0,0,0.12); }
+.ai-bubble strong { color: #F8FAFC; font-weight: 600; }
+.ai-bubble .sh { display: block; font-size: 10px; font-weight: 700; color: #94a3b8; margin: 12px 0 5px; padding-bottom: 3px; border-bottom: 1px solid rgba(30,37,53,0.4); letter-spacing: 0.04em; text-transform: uppercase; }
+.ai-bubble .sh:first-child { margin-top: 0; }
+.ai-bubble ul { padding-left: 14px; margin: 5px 0; }
+.ai-bubble li { margin-bottom: 3px; font-size: 11.5px; }
+.ai-bubble li::marker { color: rgba(13,148,136,0.4); }
+.ai-bubble .cn { color: #0D9488; font-weight: 600; }
+.cursor { display: inline-block; width: 2px; height: 14px; background: #0D9488; border-radius: 1px; animation: blink 1s step-end infinite; margin-left: 2px; vertical-align: text-bottom; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+
+/* Card suggestion panel inline */
+.card-panel { border-radius: 10px; overflow: hidden; margin: 6px 0 14px 38px; }
+.cp-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; border-bottom: 1px solid rgba(30,37,53,0.4); }
+.cp-title { font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; }
+.cp-meta { font-size: 9px; color: #334155; }
+.cp-row { display: flex; align-items: center; gap: 6px; padding: 5px 12px; transition: background 0.1s; }
+.cp-row:not(:last-child) { border-bottom: 1px solid rgba(30,37,53,0.2); }
+.cp-row:hover { background: rgba(13,148,136,0.03); }
+.cp-qty { width: 16px; font-size: 10px; font-weight: 700; color: #475569; text-align: right; flex-shrink: 0; }
+.cp-name { font-size: 11px; font-weight: 500; color: #e2e8f0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-price { font-size: 9px; color: #475569; }
+.cp-add { width: 16px; height: 16px; border-radius: 4px; background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.2); color: #0D9488; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.cp-import { display: block; width: 100%; padding: 7px; border: none; border-top: 1px solid rgba(30,37,53,0.4); background: rgba(13,148,136,0.05); color: #0D9488; font-size: 10px; font-weight: 600; cursor: pointer; }
+.cp-import:hover { background: rgba(13,148,136,0.1); }
+
+/* Bottom input */
+.bottom-input { flex-shrink: 0; border-radius: 12px; overflow: hidden; margin-top: 8px; }
+.bi-hint { display: flex; align-items: center; gap: 5px; padding: 6px 14px; border-bottom: 1px solid rgba(30,37,53,0.3); font-size: 9px; font-weight: 600; color: #0D9488; cursor: pointer; }
+.bi-hint span { color: #334155; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bi-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.bi-field { flex: 1; background: none; border: none; outline: none; font-size: 13px; font-weight: 500; color: #F8FAFC; }
+.bi-field::placeholder { color: #334155; }
+.bi-send { padding: 8px 20px; border-radius: 9px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #0D9488, #0f766e); color: #fff; box-shadow: 0 0 12px rgba(13,148,136,0.15); transition: all 0.15s; }
+.bi-send:hover { box-shadow: 0 0 20px rgba(13,148,136,0.3); }
+.bi-send.working { background: rgba(30,37,53,0.6); color: #475569; box-shadow: none; }
+.spinner { width: 11px; height: 11px; border-radius: 50%; border: 2px solid rgba(71,85,105,0.3); border-top-color: #475569; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Top config bar -->
+  <div class="top-bar">
+    <div class="bracket-chip"><div class="bracket-dot"></div> Bracket 3</div>
+    <div class="cfg-div"></div>
+    <div class="chip on">Ramp</div><div class="chip on">Card Draw</div><div class="chip">Removal</div><div class="chip on">Aggro</div><div class="chip on">Control</div><div class="chip">Combo</div><div class="chip">Tokens</div><div class="chip">Voltron</div>
+    <div class="cfg-div"></div>
+    <div class="cfg-label">Theme</div>
+    <div class="chip purple">Tribal</div><div class="chip">Reanimator</div><div class="chip">Voltron</div>
+    <div class="cfg-div"></div>
+    <div class="cfg-label">Pool</div>
+    <div class="chip on">Mix</div><div class="chip">Owned</div><div class="chip">All</div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="main">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-section glass">
+        <div class="sb-title">Deck Health</div>
+        <div class="sb-stat"><div class="sb-stat-label">Cards</div><div class="sb-stat-val">67 <span style="font-size:9px;color:#475569;font-weight:500">/ 100</span></div></div>
+        <div class="sb-stat"><div class="sb-stat-label">Avg CMC</div><div class="sb-stat-val">3.2</div></div>
+        <div class="sb-stat"><div class="sb-stat-label">Lands</div><div class="sb-stat-val">36</div></div>
+        <div class="sb-stat"><div class="sb-stat-label">Value</div><div class="sb-stat-val">$142</div></div>
+        <div class="sb-stat"><div class="sb-stat-label">Health</div><div class="sb-stat-val warn">B-</div></div>
+      </div>
+
+      <div class="sb-section glass">
+        <div class="sb-title">Mana Curve</div>
+        <div class="mini-curve">
+          <div class="mc-bar" style="height:20%"><div class="mc-fill"></div></div>
+          <div class="mc-bar" style="height:35%"><div class="mc-fill"></div></div>
+          <div class="mc-bar" style="height:60%"><div class="mc-fill"></div></div>
+          <div class="mc-bar peak" style="height:100%"><div class="mc-fill"></div></div>
+          <div class="mc-bar" style="height:55%"><div class="mc-fill"></div></div>
+          <div class="mc-bar" style="height:35%"><div class="mc-fill"></div></div>
+          <div class="mc-bar" style="height:18%"><div class="mc-fill"></div></div>
+          <div class="mc-bar" style="height:12%"><div class="mc-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="sb-section glass">
+        <div class="sb-title">Colors</div>
+        <div class="mini-colors">
+          <div class="mc-seg" style="width:28%;background:#f9fafb"></div>
+          <div class="mc-seg" style="width:22%;background:#60a5fa"></div>
+          <div class="mc-seg" style="width:20%;background:#7e22ce"></div>
+          <div class="mc-seg" style="width:30%;background:#16a34a"></div>
+        </div>
+        <div class="color-pips">
+          <div class="mini-pip" style="background:#f9fafb;color:#1a1a1a;--glow:rgba(249,250,251,0.25)">W</div>
+          <div class="mini-pip" style="background:#60a5fa;color:#1a1a1a;--glow:rgba(96,165,250,0.25)">U</div>
+          <div class="mini-pip" style="background:#7e22ce;color:#e9d5ff;--glow:rgba(126,34,206,0.25)">B</div>
+          <div class="mini-pip" style="background:#16a34a;color:#fff;--glow:rgba(22,163,74,0.25)">G</div>
+        </div>
+      </div>
+
+      <div class="sb-section glass">
+        <div class="sb-title">Issues</div>
+        <div class="sb-issue">
+          <div class="sb-issue-dot" style="background:#ef4444;box-shadow:0 0 4px rgba(239,68,68,0.4)"></div>
+          No removal
+          <div class="sb-issue-fix">Fix</div>
+        </div>
+        <div class="sb-issue">
+          <div class="sb-issue-dot" style="background:#f59e0b;box-shadow:0 0 4px rgba(245,158,11,0.3)"></div>
+          2/5 board wipes
+          <div class="sb-issue-fix">Fix</div>
+        </div>
+        <div class="sb-issue">
+          <div class="sb-issue-dot" style="background:#f59e0b;box-shadow:0 0 4px rgba(245,158,11,0.3)"></div>
+          33 cards short
+          <div class="sb-issue-fix">Fill</div>
+        </div>
+        <div class="sb-issue">
+          <div class="sb-issue-dot" style="background:#22c55e;box-shadow:0 0 4px rgba(34,197,94,0.3)"></div>
+          Ramp solid
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat column -->
+    <div class="chat-col">
+
+      <!-- Command hero -->
+      <div class="cmd-hero" id="cmd-hero">
+        <div class="cmd-row">
+          <div class="cmd-badge"><svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect x="6" y="6" width="11" height="16" rx="1.5" transform="rotate(-20 11.5 14)" stroke="#0D9488" stroke-width="1.5" fill="rgba(13,148,136,0.06)"/><rect x="10.5" y="4" width="11" height="16" rx="1.5" stroke="#14b8a6" stroke-width="1.5" fill="rgba(13,148,136,0.15)"/><rect x="15" y="6" width="11" height="16" rx="1.5" transform="rotate(20 20.5 14)" stroke="#0D9488" stroke-width="1.5" fill="rgba(13,148,136,0.06)"/></svg></div>
+          <input class="cmd-field" placeholder="What do you want to build?" />
+          <button class="cmd-send">Send</button>
+        </div>
+        <div class="cmd-actions">
+          <div class="cmd-act"><div class="cmd-act-dot"></div> Build remaining deck</div>
+          <div class="cmd-act"><div class="cmd-act-dot"></div> Suggest upgrades</div>
+          <div class="cmd-act"><div class="cmd-act-dot"></div> Find synergies</div>
+          <div class="cmd-act"><div class="cmd-act-dot"></div> Budget swaps</div>
+          <div class="cmd-act"><div class="cmd-act-dot"></div> How to pilot</div>
+        </div>
+      </div>
+
+      <!-- Chat messages -->
+      <div class="chat-messages">
+        <div class="msg user">
+          <div class="user-bubble">Build me the remaining 99 but I want the deck to have themes from Solo Leveling</div>
+        </div>
+
+        <div class="msg ai">
+          <div class="msg-avatar"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><rect x="6" y="6" width="11" height="16" rx="1.5" transform="rotate(-20 11.5 14)" stroke="#0D9488" stroke-width="1.5" fill="rgba(13,148,136,0.06)"/><rect x="10.5" y="4" width="11" height="16" rx="1.5" stroke="#14b8a6" stroke-width="1.5" fill="rgba(13,148,136,0.15)"/><rect x="15" y="6" width="11" height="16" rx="1.5" transform="rotate(20 20.5 14)" stroke="#0D9488" stroke-width="1.5" fill="rgba(13,148,136,0.06)"/></svg></div>
+          <div class="ai-bubble glass">
+            <p style="margin-bottom:6px"><strong>Jin Sakai</strong> is <strong>Esper (W/U/B)</strong> — a solo attacker with double strike or unblockable modes, drawing cards on combat damage. This maps perfectly to Solo Leveling.</p>
+
+            <span class="sh">Theme Mapping</span>
+            <ul>
+              <li><span class="cn">Sung Jin-Woo</span> = Jin Sakai (lone shadow monarch)</li>
+              <li><span class="cn">Shadow Army</span> = token generation / reanimation</li>
+              <li><span class="cn">Leveling Up</span> = +1/+1 counters, power growth</li>
+              <li><span class="cn">The System</span> = draw engines, card advantage</li>
+              <li><span class="cn">Shadow Monarch</span> = aristocrats, death triggers</li>
+            </ul>
+
+            <span class="sh">Core Strategy</span>
+            <p>Voltron core with Jin Sakai equipped and enchanted, backed by a reanimation subtheme that brings fallen creatures back as your "shadow army." Counter synergies represent leveling up.</p>
+
+            <span class="sh">Key Cards</span>
+            <ul>
+              <li><span class="cn">Sword of Feast and Famine</span> — equipment, doubles mana (power spike)</li>
+              <li><span class="cn">Reconnaissance</span> — untap after damage, free attacks</li>
+              <li><span class="cn">Reanimate</span> — bring back fallen warriors as shadows</li>
+              <li><span class="cn">Animate Dead</span> — same shadow army theme</li>
+              <li><span class="cn">Dauthi Voidwalker</span> — shadow creature, exiles threats</li>
+              <li><span class="cn">Shadowspear</span> — perfect flavor, trample + lifelink</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Card suggestion panel -->
+        <div class="card-panel glass">
+          <div class="cp-head">
+            <div class="cp-title">Suggested Cards</div>
+            <div class="cp-meta">6 cards · $18.40</div>
+          </div>
+          <div class="cp-row"><div class="cp-qty">1x</div><div class="cp-name">Sword of Feast and Famine</div><div class="cp-price">$8.20</div><div class="cp-add">+</div></div>
+          <div class="cp-row"><div class="cp-qty">1x</div><div class="cp-name">Reconnaissance</div><div class="cp-price">$3.50</div><div class="cp-add">+</div></div>
+          <div class="cp-row"><div class="cp-qty">1x</div><div class="cp-name">Reanimate</div><div class="cp-price">$2.80</div><div class="cp-add">+</div></div>
+          <div class="cp-row"><div class="cp-qty">1x</div><div class="cp-name">Animate Dead</div><div class="cp-price">$1.50</div><div class="cp-add">+</div></div>
+          <div class="cp-row"><div class="cp-qty">1x</div><div class="cp-name">Dauthi Voidwalker</div><div class="cp-price">$1.90</div><div class="cp-add">+</div></div>
+          <div class="cp-row"><div class="cp-qty">1x</div><div class="cp-name">Shadowspear</div><div class="cp-price">$0.50</div><div class="cp-add">+</div></div>
+          <button class="cp-import">+ Add All 6 Cards · $18.40</button>
+        </div>
+
+        <div class="msg user">
+          <div class="user-bubble">ok how can we lean more into the shadow army reanimation side?</div>
+        </div>
+
+        <div class="msg ai">
+          <div class="msg-avatar"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><rect x="6" y="6" width="11" height="16" rx="1.5" transform="rotate(-20 11.5 14)" stroke="#0D9488" stroke-width="1.5" fill="rgba(13,148,136,0.06)"/><rect x="10.5" y="4" width="11" height="16" rx="1.5" stroke="#14b8a6" stroke-width="1.5" fill="rgba(13,148,136,0.15)"/><rect x="15" y="6" width="11" height="16" rx="1.5" transform="rotate(20 20.5 14)" stroke="#0D9488" stroke-width="1.5" fill="rgba(13,148,136,0.06)"/></svg></div>
+          <div class="ai-bubble glass">
+            <p style="margin-bottom:6px">Great call — leaning into the shadow army means more creatures that want to die and come back, plus sacrifice outlets that generate value.</p>
+            <span class="sh">Shadow Army Package</span>
+            <ul>
+              <li><span class="cn">Grave Titan</span> — makes zombie tokens on ETB and attack</li>
+              <li><span class="cn">Reassembling Skeleton</span> — keeps coming back from the grave</li>
+              <li><span class="cn">Bloodghast</span> — returns every landfall, free shadow soldier</li>
+            </ul>
+            <div class="cursor"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom input -->
+      <div class="bottom-input glass">
+        <div class="bi-hint">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838.838-2.872a2 2 0 0 1 .506-.855z"/></svg>
+          Instructions active
+          <span>— Keep budget under $200, focus on reanimation themes</span>
+        </div>
+        <div class="bi-row">
+          <input class="bi-field" placeholder="Ask a follow-up..." />
+          <button class="bi-send">Send</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

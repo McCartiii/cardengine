@@ -1,0 +1,117 @@
+<h2>Collection page — which direction?</h2>
+<p class="subtitle">The collection page currently just searches all cards. It needs to become a real "my cards" tracker with manual add support. Which approach fits best?</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>My Collection first, search to add</h3>
+      <p>Page loads your owned cards immediately. A prominent <strong>+ Add Cards</strong> button opens a search drawer to find and add cards manually (or by scanning). Empty state prompts you to add your first card. "Search all cards" is still accessible but secondary.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8;line-height:1.6">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;color:#E2E8F0">Collection · 142 cards · $384</span>
+          <span style="background:linear-gradient(135deg,#0D9488,#14B8A6);color:white;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:600">+ Add Cards</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="background:#1E2535;padding:3px 8px;border-radius:6px">Sort: Value ▾</span>
+          <span style="background:#1E2535;padding:3px 8px;border-radius:6px">Filter ▾</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:18px">🃏</div>
+            <div style="color:#E2E8F0;font-size:10px;margin-top:4px">Black Lotus</div>
+            <div style="color:#0D9488;font-size:10px">×1 · $4200</div>
+          </div>
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:18px">🃏</div>
+            <div style="color:#E2E8F0;font-size:10px;margin-top:4px">Sol Ring</div>
+            <div style="color:#0D9488;font-size:10px">×3 · $1.20</div>
+          </div>
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:18px">🃏</div>
+            <div style="color:#E2E8F0;font-size:10px;margin-top:4px">Thoughtseize</div>
+            <div style="color:#0D9488;font-size:10px">×4 · $8.50</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Two tabs: My Cards / Explore</h3>
+      <p>"My Cards" tab shows owned cards. "Explore" tab is the current search-all-cards experience. Familiar tab pattern — clear separation between what you own and browsing the full catalog.</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8;line-height:1.6">
+        <div style="display:flex;gap:0;border-bottom:1px solid #1E2D3D;margin-bottom:10px">
+          <span style="padding:6px 14px;border-bottom:2px solid #0D9488;color:#0D9488;font-weight:600">My Cards</span>
+          <span style="padding:6px 14px;color:#94A3B8">Explore</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="color:#E2E8F0">142 cards · $384 total</span>
+          <span style="background:linear-gradient(135deg,#0D9488,#14B8A6);color:white;padding:3px 10px;border-radius:7px;font-size:11px">+ Add</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-direction:column">
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;display:flex;align-items:center;gap:8px">
+            <div style="font-size:22px">🃏</div>
+            <div>
+              <div style="color:#E2E8F0;font-size:11px">Sol Ring</div>
+              <div style="color:#475569;font-size:10px">C21 · Uncommon</div>
+            </div>
+            <div style="margin-left:auto;color:#0D9488;font-size:11px">×3 · $1.20</div>
+          </div>
+          <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;display:flex;align-items:center;gap:8px">
+            <div style="font-size:22px">🃏</div>
+            <div>
+              <div style="color:#E2E8F0;font-size:11px">Thoughtseize</div>
+              <div style="color:#475569;font-size:10px">THS · Rare</div>
+            </div>
+            <div style="margin-left:auto;color:#0D9488;font-size:11px">×4 · $8.50</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Search-first with inline "Add to Collection"</h3>
+      <p>Keep the current search-all-cards layout as the primary view. Add a <strong>+ Add to Collection</strong> button on each card result. A "My Collection" filter toggle at the top lets users switch between "All cards" and "My cards only".</p>
+      <div style="margin-top:12px;padding:12px;background:#0d1420;border-radius:10px;font-size:12px;color:#94A3B8;line-height:1.6">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <span style="background:#0D9488;color:white;padding:3px 10px;border-radius:6px;font-size:11px">All Cards</span>
+          <span style="background:#161B27;color:#94A3B8;padding:3px 10px;border-radius:6px;font-size:11px;border:1px solid #1E2D3D">My Collection</span>
+        </div>
+        <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="font-size:22px">🃏</div>
+            <div style="flex:1">
+              <div style="color:#E2E8F0;font-size:11px">Sol Ring</div>
+              <div style="color:#0D9488;font-size:10px">$1.20 · Uncommon</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <span style="background:#0d2020;border:1px solid #0D9488;color:#0D9488;padding:2px 8px;border-radius:5px;font-size:10px">+ Add to Collection</span>
+            <span style="background:#161B27;border:1px solid #1E2D3D;color:#94A3B8;padding:2px 8px;border-radius:5px;font-size:10px">Watch</span>
+          </div>
+        </div>
+        <div style="background:#161B27;border:1px solid #1E2D3D;border-radius:8px;padding:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="font-size:22px">🃏</div>
+            <div style="flex:1">
+              <div style="color:#E2E8F0;font-size:11px">Lightning Bolt</div>
+              <div style="color:#0D9488;font-size:10px">$0.35 · Common</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <span style="background:#0d2020;border:1px solid #0D9488;color:#0D9488;padding:2px 8px;border-radius:5px;font-size:10px">+ Add to Collection</span>
+            <span style="background:#161B27;border:1px solid #1E2D3D;color:#94A3B8;padding:2px 8px;border-radius:5px;font-size:10px">Watch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

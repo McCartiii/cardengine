@@ -9,9 +9,11 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
-// Lazy imports so the app doesn't crash if the package isn't installed yet
+// Lazy imports so the app doesn't crash if the package isn't installed yet.
+// expo-device isn't a dependency, so type just the surface we use.
+type ExpoDeviceModule = { isDevice: boolean };
 let Notifications: typeof import("expo-notifications") | null = null;
-let Device: typeof import("expo-device") | null = null;
+let Device: ExpoDeviceModule | null = null;
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Detail — Full Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: #090D14;
+    color: #e2e8f0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    height: 52px;
+    background: rgba(15,17,23,0.95);
+    border-bottom: 1px solid #1E2535;
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .nav-logo-mark { width: 28px; height: 28px; background: #0D9488; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: white; letter-spacing: -0.5px; }
+  .nav-logo-text { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+  .nav-links { display: flex; gap: 2px; margin-left: 12px; }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; color: #64748b; text-decoration: none; font-weight: 500; transition: all 0.12s; }
+  .nav-link:hover { color: #94a3b8; }
+  .nav-link.active { color: #0D9488; background: rgba(13,148,136,0.08); }
+  .nav-breadcrumb { margin-left: auto; font-size: 13px; color: #334155; display: flex; align-items: center; gap: 6px; }
+  .nav-breadcrumb a { color: #475569; text-decoration: none; }
+  .nav-breadcrumb a:hover { color: #94a3b8; }
+  .nav-breadcrumb span { color: #1E2535; }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+    height: 230px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #070a12 0%, #0D1824 30%, #0a1628 60%, #0a160d 100%);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(9,13,20,0.97) 20%, rgba(9,13,20,0.7) 55%, rgba(9,13,20,0.2) 100%),
+                linear-gradient(to top, #090D14 0%, transparent 40%);
+    z-index: 2;
+  }
+  /* Subtle pattern */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 70% 40%, rgba(13,148,136,0.06) 0%, transparent 60%);
+    z-index: 1;
+  }
+
+  .hero-fan {
+    position: absolute;
+    right: 100px;
+    top: 50%;
+    transform: translateY(-55%);
+    z-index: 1;
+  }
+  .hero-card {
+    position: absolute;
+    width: 110px;
+    height: 154px;
+    border-radius: 9px;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    box-shadow: -6px 6px 30px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.4);
+    overflow: hidden;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .hero-card-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    opacity: 0.25;
+  }
+
+  .hero-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0 36px 28px;
+    z-index: 3;
+  }
+  .hero-badges { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge-format { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+  .badge-legal { background: rgba(13,148,136,0.1); color: #2DD4BF; border: 1px solid rgba(13,148,136,0.2); }
+  .badge-private { background: rgba(100,116,139,0.08); color: #64748b; border: 1px solid rgba(100,116,139,0.15); }
+  .hero-title {
+    font-size: 30px;
+    font-weight: 900;
+    color: #F8FAFC;
+    line-height: 1.1;
+    letter-spacing: -0.6px;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.8);
+  }
+  .hero-commander { font-size: 14px; color: #94a3b8; margin-top: 5px; }
+  .hero-commander em { color: #CBD5E1; font-style: normal; font-weight: 600; }
+  .hero-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 14px;
+    align-items: center;
+  }
+  .hero-stat { display: flex; flex-direction: column; gap: 2px; }
+  .hero-stat-val { font-size: 18px; font-weight: 800; color: #F8FAFC; letter-spacing: -0.3px; }
+  .hero-stat-val.teal { color: #14B8A6; }
+  .hero-stat-label { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .hero-sep { width: 1px; height: 32px; background: rgba(255,255,255,0.06); }
+  .hero-colors { display: flex; gap: 5px; align-items: center; }
+  .cpip { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.5); box-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+
+  /* ── Action bar ── */
+  .action-bar {
+    background: rgba(22,27,39,0.98);
+    border-bottom: 1px solid #1E2535;
+    padding: 0 36px;
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 52px;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+  }
+  .tabs { display: flex; gap: 0; }
+  .tab-btn {
+    padding: 13px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.12s;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active { color: #14B8A6; border-bottom-color: #14B8A6; }
+  .tab-btn:hover:not(.active) { color: #94a3b8; }
+  .bar-sep { width: 1px; height: 24px; background: #1E2535; margin: 0 8px; flex-shrink: 0; }
+
+  /* View controls in action bar */
+  .controls { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+  .ctrl-group { display: flex; align-items: center; gap: 3px; background: #0F1117; border-radius: 7px; padding: 2px; border: 1px solid #1E2535; }
+  .ctrl-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #334155; margin-right: 4px; padding-left: 4px; }
+  .ctrl-btn {
+    padding: 4px 9px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .ctrl-btn.active { background: #1E2535; color: #CBD5E1; }
+  .ctrl-btn:hover:not(.active) { color: #94a3b8; }
+
+  .bar-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; padding: 8px 0; }
+  .btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.12s;
+  }
+  .btn-primary { background: #0D9488; color: white; }
+  .btn-primary:hover { background: #14B8A6; }
+  .btn-ghost { background: transparent; color: #64748b; border: 1px solid #1E2535; }
+  .btn-ghost:hover { border-color: #334155; color: #94a3b8; }
+
+  /* ── Main layout ── */
+  .main { display: flex; gap: 0; max-width: 1200px; margin: 0 auto; padding: 28px 36px; }
+  .col-list { flex: 1; min-width: 0; padding-right: 32px; }
+  .col-sidebar { width: 280px; flex-shrink: 0; }
+
+  /* ── Card list ── */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    margin-top: 22px;
+  }
+  .sec-head:first-child { margin-top: 0; }
+  .sec-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .sec-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+  .sec-cnt { font-size: 10px; color: #334155; }
+  .sec-line { flex: 1; height: 1px; }
+
+  .cr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    transition: all 0.1s;
+    cursor: default;
+  }
+  .cr:hover { background: rgba(30,37,53,0.6); }
+  .cr-q { width: 18px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .cr-n { flex: 1; font-size: 13px; color: #CBD5E1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cr-n:hover { color: #2DD4BF; }
+  .cr-t { font-size: 11px; color: #1E2535; flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cr:hover .cr-t { color: #334155; }
+  .cr-m { font-size: 10px; color: #1E2535; font-family: ui-monospace, monospace; flex-shrink: 0; letter-spacing: 0.3px; }
+  .cr:hover .cr-m { color: #475569; }
+  .cr-p { font-size: 12px; color: #334155; font-variant-numeric: tabular-nums; flex-shrink: 0; width: 52px; text-align: right; }
+  .cr:hover .cr-p { color: #64748b; }
+  .cr-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.1s; flex-shrink: 0; }
+  .cr:hover .cr-actions { opacity: 1; }
+  .cr-act { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; color: #475569; cursor: pointer; transition: all 0.1s; }
+  .cr-act:hover { background: rgba(239,68,68,0.15); color: #f87171; }
+  .cr-act.add:hover { background: rgba(13,148,136,0.15); color: #2DD4BF; }
+  .teal { color: #14B8A6 !important; }
+
+  /* ── Sidebar cards ── */
+  .sb-card {
+    background: #161B27;
+    border: 1px solid #1E2535;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .sb-title {
+    padding: 12px 16px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #334155;
+  }
+  .sb-body { padding: 4px 16px 14px; }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(30,37,53,0.6); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { font-size: 12px; color: #475569; }
+  .stat-val { font-size: 13px; font-weight: 700; color: #CBD5E1; font-variant-numeric: tabular-nums; }
+
+  /* Mana curve */
+  .curve { display: flex; align-items: flex-end; gap: 4px; height: 52px; }
+  .curve-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .curve-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .curve-lbl { font-size: 9px; color: #334155; font-weight: 600; }
+
+  /* Type breakdown */
+  .type-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .type-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .type-name { font-size: 11px; color: #64748b; width: 90px; flex-shrink: 0; }
+  .type-bar-bg { flex: 1; height: 4px; background: #0F1117; border-radius: 2px; overflow: hidden; }
+  .type-bar-fill { height: 100%; border-radius: 2px; }
+  .type-cnt { font-size: 11px; color: #334155; width: 22px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* Color dist */
+  .color-bar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; gap: 2px; margin-bottom: 8px; }
+  .color-seg { height: 100%; border-radius: 3px; }
+  .color-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+  .color-leg { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #475569; }
+  .color-leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Rarity */
+  .rarity-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .rarity-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .rarity-name { font-size: 11px; color: #475569; flex: 1; }
+  .rarity-cnt { font-size: 11px; color: #334155; font-weight: 600; }
+
+  .more { font-size: 10px; color: #1E2535; padding: 3px 10px; }
+  .more:hover { color: #334155; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Nav ═══ -->
+<nav class="nav">
+  <a class="nav-logo">
+    <div class="nav-logo-mark">CE</div>
+    <span class="nav-logo-text">Card Engine</span>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link">Collection</a>
+    <a class="nav-link active">Decks</a>
+    <a class="nav-link">Scan</a>
+    <a class="nav-link">Map</a>
+    <a class="nav-link">Watchlist</a>
+  </div>
+  <div class="nav-breadcrumb">
+    <a href="#">My Decks</a>
+    <span>/</span>
+    <span style="color:#94a3b8;">Atraxa Superfriends</span>
+  </div>
+</nav>
+
+<!-- ═══ Hero ═══ -->
+<div class="hero">
+  <!-- Card fan -->
+  <div class="hero-fan">
+    <div class="hero-card" style="transform: rotate(-16deg) translateX(70px); z-index: 1;">
+      <div class="hero-card-inner" style="background: linear-gradient(135deg, #1a1810 0%, #3a3520 100%);">&#9733;</div>
+    </div>
+    <div class="hero-card" style="transform: rotate(-7deg) translateX(32px); z-index: 2;">
+      <div class="hero-card-inner" style="background: linear-gradient(135deg, #0D1824 0%, #1E3A5F 100%);">&#9830;</div>
+    </div>
+    <div class="hero-card" style="transform: rotate(2deg) translateX(0); z-index: 3;">
+      <div class="hero-card-inner" style="background: linear-gradient(135deg, #0a160d 0%, #14532D 100%);">&#9827;</div>
+    </div>
+    <div class="hero-card" style="transform: rotate(11deg) translateX(-28px); z-index: 2;">
+      <div class="hero-card-inner" style="background: linear-gradient(135deg, #1A1225 0%, #2D1B4E 100%);">&#9829;</div>
+    </div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badges">
+      <span class="badge badge-format">Commander</span>
+      <span class="badge badge-legal">Legal</span>
+      <span class="badge badge-private">Private</span>
+    </div>
+    <div class="hero-title">Atraxa Superfriends</div>
+    <div class="hero-commander">&#9876; <em>Atraxa, Praetors' Voice</em></div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-val">99</div>
+        <div class="hero-stat-label">Cards</div>
+      </div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat">
+        <div class="hero-stat-val teal">$312.00</div>
+        <div class="hero-stat-label">Value</div>
+      </div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat">
+        <div class="hero-stat-val">2.84</div>
+        <div class="hero-stat-label">Avg CMC</div>
+      </div>
+      <div class="hero-sep"></div>
+      <div class="hero-colors">
+        <div class="cpip" style="background:#FDE68A;"></div>
+        <div class="cpip" style="background:#93C5FD;"></div>
+        <div class="cpip" style="background:#C4B5D4;"></div>
+        <div class="cpip" style="background:#86EFAC;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Action Bar ═══ -->
+<div class="action-bar">
+  <div class="tabs">
+    <button class="tab-btn active">Cards</button>
+    <button class="tab-btn">Advisor</button>
+    <button class="tab-btn">&#10022; AI Architect</button>
+  </div>
+  <div class="bar-sep"></div>
+  <div class="controls">
+    <span class="ctrl-label">Group</span>
+    <div class="ctrl-group">
+      <button class="ctrl-btn">Section</button>
+      <button class="ctrl-btn active">Type</button>
+      <button class="ctrl-btn">Color</button>
+      <button class="ctrl-btn">CMC</button>
+    </div>
+    <span class="ctrl-label" style="margin-left:6px;">View</span>
+    <div class="ctrl-group">
+      <button class="ctrl-btn active">List</button>
+      <button class="ctrl-btn">Art</button>
+      <button class="ctrl-btn">Art+</button>
+    </div>
+    <span class="ctrl-label" style="margin-left:6px;">Sort</span>
+    <div class="ctrl-group">
+      <button class="ctrl-btn active">Name</button>
+      <button class="ctrl-btn">$$&#8595;</button>
+      <button class="ctrl-btn">$$&#8593;</button>
+      <button class="ctrl-btn">CMC</button>
+    </div>
+  </div>
+  <div class="bar-actions">
+    <button class="btn btn-ghost">Copy List</button>
+    <button class="btn btn-ghost">&#128279; Share</button>
+    <button class="btn btn-primary">&#8593; Import</button>
+  </div>
+</div>
+
+<!-- ═══ Main ═══ -->
+<div class="main">
+
+  <!-- ── Card List ── -->
+  <div class="col-list">
+
+    <!-- Commander -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#a855f7;"></div>
+      <span class="sec-label" style="color:#a855f7;">Commander</span>
+      <span class="sec-cnt">(1)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(168,85,247,0.25),transparent);"></div>
+    </div>
+    <div class="cr">
+      <span class="cr-q">1</span>
+      <span class="cr-n">Atraxa, Praetors' Voice</span>
+      <span class="cr-t">Legendary Creature</span>
+      <span class="cr-m">GWUB</span>
+      <span class="cr-p teal">$18.00</span>
+      <div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div>
+    </div>
+
+    <!-- Planeswalkers -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#f59e0b;"></div>
+      <span class="sec-label" style="color:#f59e0b;">Planeswalkers</span>
+      <span class="sec-cnt">(12)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(245,158,11,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Elspeth, Sun's Champion</span><span class="cr-t">Planeswalker</span><span class="cr-m">4WW</span><span class="cr-p">$4.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Jace, the Mind Sculptor</span><span class="cr-t">Planeswalker</span><span class="cr-m">2UU</span><span class="cr-p teal">$36.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Liliana of the Veil</span><span class="cr-t">Planeswalker</span><span class="cr-m">1BB</span><span class="cr-p teal">$24.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Tamiyo, the Moon Sage</span><span class="cr-t">Planeswalker</span><span class="cr-m">3UU</span><span class="cr-p">$6.50</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Ajani, Mentor of Heroes</span><span class="cr-t">Planeswalker</span><span class="cr-m">3GW</span><span class="cr-p">$3.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="more">+ 7 more planeswalkers</div>
+
+    <!-- Creatures -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#22c55e;"></div>
+      <span class="sec-label" style="color:#22c55e;">Creatures</span>
+      <span class="sec-cnt">(22)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(34,197,94,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Deepglow Skate</span><span class="cr-t">Creature</span><span class="cr-m">4U</span><span class="cr-p">$3.50</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Vorinclex, Voice of Hunger</span><span class="cr-t">Legendary Creature</span><span class="cr-m">6GG</span><span class="cr-p">$9.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Crystalline Crawler</span><span class="cr-t">Creature</span><span class="cr-m">4</span><span class="cr-p">$1.20</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Bloom Tender</span><span class="cr-t">Creature</span><span class="cr-m">1G</span><span class="cr-p teal">$12.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Jin-Gitaxias, Core Augur</span><span class="cr-t">Legendary Creature</span><span class="cr-m">8UU</span><span class="cr-p">$4.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="more">+ 17 more creatures</div>
+
+    <!-- Instants -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#38bdf8;"></div>
+      <span class="sec-label" style="color:#38bdf8;">Instants</span>
+      <span class="sec-cnt">(8)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(56,189,248,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Swords to Plowshares</span><span class="cr-t">Instant</span><span class="cr-m">W</span><span class="cr-p">$2.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Counterspell</span><span class="cr-t">Instant</span><span class="cr-m">UU</span><span class="cr-p">$1.50</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Cyclonic Rift</span><span class="cr-t">Instant</span><span class="cr-m">1U</span><span class="cr-p teal">$12.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Teferi's Protection</span><span class="cr-t">Instant</span><span class="cr-m">2W</span><span class="cr-p teal">$28.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="more">+ 4 more instants</div>
+
+    <!-- Sorceries -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#3b82f6;"></div>
+      <span class="sec-label" style="color:#3b82f6;">Sorceries</span>
+      <span class="sec-cnt">(6)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(59,130,246,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Demonic Tutor</span><span class="cr-t">Sorcery</span><span class="cr-m">1B</span><span class="cr-p teal">$28.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Toxic Deluge</span><span class="cr-t">Sorcery</span><span class="cr-m">2B</span><span class="cr-p teal">$16.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Supreme Verdict</span><span class="cr-t">Sorcery</span><span class="cr-m">1WWU</span><span class="cr-p">$4.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+
+    <!-- Artifacts -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#94a3b8;"></div>
+      <span class="sec-label" style="color:#94a3b8;">Artifacts</span>
+      <span class="sec-cnt">(10)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(148,163,184,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Sol Ring</span><span class="cr-t">Artifact</span><span class="cr-m">1</span><span class="cr-p">$3.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Arcane Signet</span><span class="cr-t">Artifact</span><span class="cr-m">2</span><span class="cr-p">$1.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Contagion Engine</span><span class="cr-t">Artifact</span><span class="cr-m">6</span><span class="cr-p">$4.50</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="more">+ 7 more artifacts</div>
+
+    <!-- Enchantments -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#ec4899;"></div>
+      <span class="sec-label" style="color:#ec4899;">Enchantments</span>
+      <span class="sec-cnt">(5)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(236,72,153,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Doubling Season</span><span class="cr-t">Enchantment</span><span class="cr-m">4G</span><span class="cr-p teal">$42.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Inexorable Tide</span><span class="cr-t">Enchantment</span><span class="cr-m">3UU</span><span class="cr-p">$1.50</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+
+    <!-- Lands -->
+    <div class="sec-head">
+      <div class="sec-dot" style="background:#78716c;"></div>
+      <span class="sec-label" style="color:#78716c;">Lands</span>
+      <span class="sec-cnt">(35)</span>
+      <div class="sec-line" style="background:linear-gradient(to right,rgba(120,113,108,0.25),transparent);"></div>
+    </div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Command Tower</span><span class="cr-t">Land</span><span class="cr-m">&#8212;</span><span class="cr-p">$0.50</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Breeding Pool</span><span class="cr-t">Land</span><span class="cr-m">&#8212;</span><span class="cr-p teal">$14.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Watery Grave</span><span class="cr-t">Land</span><span class="cr-m">&#8212;</span><span class="cr-p teal">$11.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Overgrown Tomb</span><span class="cr-t">Land</span><span class="cr-m">&#8212;</span><span class="cr-p teal">$12.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="cr"><span class="cr-q">1</span><span class="cr-n">Godless Shrine</span><span class="cr-t">Land</span><span class="cr-m">&#8212;</span><span class="cr-p teal">$10.00</span><div class="cr-actions"><span class="cr-act">&#x2212;</span><span class="cr-act add">+</span></div></div>
+    <div class="more">+ 30 more lands</div>
+
+  </div>
+
+  <!-- ── Sidebar ── -->
+  <div class="col-sidebar">
+
+    <!-- Stats -->
+    <div class="sb-card">
+      <div class="sb-title">Deck Stats</div>
+      <div class="sb-body">
+        <div class="stat-row"><span class="stat-label">Total cards</span><span class="stat-val">99</span></div>
+        <div class="stat-row"><span class="stat-label">Unique</span><span class="stat-val">99</span></div>
+        <div class="stat-row"><span class="stat-label">Avg mana value</span><span class="stat-val">2.84</span></div>
+        <div class="stat-row"><span class="stat-label">Rares</span><span class="stat-val">38</span></div>
+        <div class="stat-row"><span class="stat-label">Mythics</span><span class="stat-val">12</span></div>
+        <div class="stat-row"><span class="stat-label">Total value</span><span class="stat-val teal">$312.00</span></div>
+      </div>
+    </div>
+
+    <!-- Mana Curve -->
+    <div class="sb-card">
+      <div class="sb-title">Mana Curve</div>
+      <div class="sb-body">
+        <div class="curve">
+          <div class="curve-col"><div class="curve-bar" style="height:30%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">0</div></div>
+          <div class="curve-col"><div class="curve-bar" style="height:38%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">1</div></div>
+          <div class="curve-col"><div class="curve-bar" style="height:72%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">2</div></div>
+          <div class="curve-col"><div class="curve-bar" style="height:100%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">3</div></div>
+          <div class="curve-col"><div class="curve-bar" style="height:82%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">4</div></div>
+          <div class="curve-col"><div class="curve-bar" style="height:55%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">5</div></div>
+          <div class="curve-col"><div class="curve-bar" style="height:28%;background:linear-gradient(to top,#0D9488,#14B8A6);"></div><div class="curve-lbl">6+</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color Distribution -->
+    <div class="sb-card">
+      <div class="sb-title">Color Distribution</div>
+      <div class="sb-body">
+        <div class="color-bar">
+          <div class="color-seg" style="flex:22;background:#FDE68A;"></div>
+          <div class="color-seg" style="flex:30;background:#93C5FD;"></div>
+          <div class="color-seg" style="flex:18;background:#C4B5D4;"></div>
+          <div class="color-seg" style="flex:15;background:#86EFAC;"></div>
+          <div class="color-seg" style="flex:15;background:#94A3B8;"></div>
+        </div>
+        <div class="color-legend">
+          <div class="color-leg"><div class="color-leg-dot" style="background:#FDE68A;"></div>W 22%</div>
+          <div class="color-leg"><div class="color-leg-dot" style="background:#93C5FD;"></div>U 30%</div>
+          <div class="color-leg"><div class="color-leg-dot" style="background:#C4B5D4;"></div>B 18%</div>
+          <div class="color-leg"><div class="color-leg-dot" style="background:#86EFAC;"></div>G 15%</div>
+          <div class="color-leg"><div class="color-leg-dot" style="background:#94A3B8;"></div>C 15%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card Types -->
+    <div class="sb-card">
+      <div class="sb-title">Card Types</div>
+      <div class="sb-body">
+        <div class="type-row"><div class="type-dot" style="background:#78716c;"></div><span class="type-name">Lands</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:35%;background:#78716c;"></div></div><span class="type-cnt">35</span></div>
+        <div class="type-row"><div class="type-dot" style="background:#22c55e;"></div><span class="type-name">Creatures</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:22%;background:#22c55e;"></div></div><span class="type-cnt">22</span></div>
+        <div class="type-row"><div class="type-dot" style="background:#f59e0b;"></div><span class="type-name">Planeswalkers</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:12%;background:#f59e0b;"></div></div><span class="type-cnt">12</span></div>
+        <div class="type-row"><div class="type-dot" style="background:#94a3b8;"></div><span class="type-name">Artifacts</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:10%;background:#94a3b8;"></div></div><span class="type-cnt">10</span></div>
+        <div class="type-row"><div class="type-dot" style="background:#38bdf8;"></div><span class="type-name">Instants</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:8%;background:#38bdf8;"></div></div><span class="type-cnt">8</span></div>
+        <div class="type-row"><div class="type-dot" style="background:#3b82f6;"></div><span class="type-name">Sorceries</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:6%;background:#3b82f6;"></div></div><span class="type-cnt">6</span></div>
+        <div class="type-row"><div class="type-dot" style="background:#ec4899;"></div><span class="type-name">Enchantments</span><div class="type-bar-bg"><div class="type-bar-fill" style="width:5%;background:#ec4899;"></div></div><span class="type-cnt">5</span></div>
+      </div>
+    </div>
+
+    <!-- Rarity -->
+    <div class="sb-card">
+      <div class="sb-title">Rarity Breakdown</div>
+      <div class="sb-body">
+        <div class="rarity-row"><div class="rarity-dot" style="background:#F59E0B;"></div><span class="rarity-name">Mythic Rare</span><span class="rarity-cnt">12</span></div>
+        <div class="rarity-row"><div class="rarity-dot" style="background:#EAB308;"></div><span class="rarity-name">Rare</span><span class="rarity-cnt">38</span></div>
+        <div class="rarity-row"><div class="rarity-dot" style="background:#94A3B8;"></div><span class="rarity-name">Uncommon</span><span class="rarity-cnt">28</span></div>
+        <div class="rarity-row"><div class="rarity-dot" style="background:#475569;"></div><span class="rarity-name">Common</span><span class="rarity-cnt">21</span></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>

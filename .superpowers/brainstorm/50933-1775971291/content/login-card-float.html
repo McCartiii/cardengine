@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Floating Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030306; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; display: flex; justify-content: center; padding: 30px; }
+
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes float-card {
+    0%,100% { transform: perspective(800px) rotateY(-2deg) rotateX(3deg) translateY(0px); }
+    25% { transform: perspective(800px) rotateY(1deg) rotateX(-1deg) translateY(-8px); }
+    50% { transform: perspective(800px) rotateY(2deg) rotateX(-3deg) translateY(-4px); }
+    75% { transform: perspective(800px) rotateY(-1deg) rotateX(1deg) translateY(-10px); }
+  }
+  @keyframes card-shadow {
+    0%,100% { filter: drop-shadow(4px 8px 30px rgba(13,148,136,0.2)) drop-shadow(0 20px 40px rgba(0,0,0,0.5)); }
+    25% { filter: drop-shadow(-2px 14px 35px rgba(13,148,136,0.25)) drop-shadow(0 24px 50px rgba(0,0,0,0.5)); }
+    50% { filter: drop-shadow(-4px 10px 40px rgba(14,165,233,0.2)) drop-shadow(0 28px 50px rgba(0,0,0,0.5)); }
+    75% { filter: drop-shadow(2px 16px 30px rgba(13,148,136,0.25)) drop-shadow(0 22px 45px rgba(0,0,0,0.5)); }
+  }
+  @keyframes holo-shift {
+    0% { background-position: 0% 50%; opacity: 0.15; }
+    50% { background-position: 100% 50%; opacity: 0.25; }
+    100% { background-position: 0% 50%; opacity: 0.15; }
+  }
+  @keyframes edge-glow {
+    0%,100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+  }
+  @keyframes glow-breathe { 0%,100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+  @keyframes mesh-drift { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(30px,-20px) scale(1.1); } 66% { transform: translate(-20px,15px) scale(0.95); } 100% { transform: translate(0,0) scale(1); } }
+  @keyframes mesh-drift-2 { 0% { transform: translate(0,0) scale(1); } 33% { transform: translate(-25px,20px) scale(1.05); } 66% { transform: translate(15px,-25px) scale(1.1); } 100% { transform: translate(0,0) scale(1); } }
+  @keyframes particle-1 { 0%,100% { transform: translate(0,0); opacity: 0.3; } 25% { transform: translate(6px,-10px); opacity: 0.6; } 50% { transform: translate(-3px,-18px); opacity: 0.4; } 75% { transform: translate(10px,-6px); opacity: 0.5; } }
+  @keyframes particle-2 { 0%,100% { transform: translate(0,0); opacity: 0.2; } 30% { transform: translate(-8px,6px); opacity: 0.5; } 60% { transform: translate(5px,-12px); opacity: 0.3; } }
+  @keyframes slide-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  @keyframes reflection-shimmer { 0% { transform: translateX(-50%) scaleY(-1) translateY(0); opacity: 0.06; } 50% { opacity: 0.1; } 100% { transform: translateX(-50%) scaleY(-1) translateY(0); opacity: 0.06; } }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 3px solid #12141e;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+    background: #070A10;
+  }
+
+  /* ── Background ── */
+  .bg { position: absolute; inset: 0; overflow: hidden; }
+
+  .mesh-1 {
+    position: absolute;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    top: -10%;
+    left: -25%;
+    background: radial-gradient(circle, rgba(13,148,136,0.12) 0%, transparent 60%);
+    filter: blur(35px);
+    animation: mesh-drift 14s ease-in-out infinite;
+  }
+
+  .mesh-2 {
+    position: absolute;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    bottom: 5%;
+    right: -20%;
+    background: radial-gradient(circle, rgba(14,165,233,0.08) 0%, transparent 60%);
+    filter: blur(30px);
+    animation: mesh-drift-2 11s ease-in-out infinite;
+  }
+
+  .mesh-3 {
+    position: absolute;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    top: 40%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(139,92,246,0.04) 0%, transparent 60%);
+    filter: blur(20px);
+  }
+
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  .p1 { width: 3px; height: 3px; background: #2DD4BF; top: 22%; left: 18%; animation: particle-1 7s ease-in-out infinite; box-shadow: 0 0 6px #2DD4BF; }
+  .p2 { width: 2px; height: 2px; background: #38BDF8; top: 30%; right: 25%; animation: particle-2 9s ease-in-out infinite; box-shadow: 0 0 4px #38BDF8; }
+  .p3 { width: 2px; height: 2px; background: #A78BFA; top: 18%; left: 55%; animation: particle-1 8s ease-in-out 2s infinite; box-shadow: 0 0 5px #A78BFA; }
+  .p4 { width: 2px; height: 2px; background: #2DD4BF; top: 35%; right: 40%; animation: particle-2 6s ease-in-out 1s infinite; box-shadow: 0 0 4px #2DD4BF; }
+
+  /* ── Content ── */
+  .content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px;
+  }
+
+  /* ── Card area ── */
+  .card-area {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 70px;
+    padding-bottom: 20px;
+  }
+
+  .card-float-wrap {
+    animation: card-shadow 6s ease-in-out infinite;
+    margin-bottom: 8px;
+  }
+
+  .playing-card {
+    width: 140px;
+    height: 196px;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    animation: float-card 6s ease-in-out infinite;
+    transform-style: preserve-3d;
+    cursor: pointer;
+  }
+
+  /* Card base */
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #101620 0%, #0C1018 40%, #0A0E16 100%);
+    border: 1px solid rgba(30,45,61,0.5);
+    overflow: hidden;
+  }
+
+  /* Holo overlay */
+  .card-holo {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: linear-gradient(
+      135deg,
+      rgba(13,148,136,0.1) 0%,
+      rgba(14,165,233,0.08) 25%,
+      rgba(139,92,246,0.06) 50%,
+      rgba(13,148,136,0.1) 75%,
+      rgba(14,165,233,0.08) 100%
+    );
+    background-size: 200% 200%;
+    animation: holo-shift 4s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+
+  /* Top edge glow */
+  .card-edge-top {
+    position: absolute;
+    top: 0; left: 15%; right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(13,148,136,0.6), transparent);
+    box-shadow: 0 0 8px rgba(13,148,136,0.4);
+    animation: edge-glow 3s ease-in-out infinite;
+  }
+
+  /* Inner border */
+  .card-inner-border {
+    position: absolute;
+    inset: 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(30,45,61,0.3);
+  }
+
+  /* Card content */
+  .card-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+  }
+
+  .card-letters {
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, #E2E8F0 0%, #94A3B8 50%, #E2E8F0 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    margin-bottom: 4px;
+  }
+
+  .card-rule-line {
+    width: 50px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(13,148,136,0.5), transparent);
+    margin-bottom: 6px;
+  }
+
+  .card-type {
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  /* Corner pips */
+  .card-pip {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 800;
+    color: #2D4059;
+  }
+
+  .pip-tl { top: 10px; left: 10px; }
+  .pip-br { bottom: 10px; right: 10px; transform: rotate(180deg); }
+
+  /* Card art frame area */
+  .card-art-frame {
+    position: absolute;
+    top: 28px;
+    left: 8px;
+    right: 8px;
+    height: 80px;
+    border-radius: 6px;
+    background: linear-gradient(180deg, rgba(13,148,136,0.06) 0%, rgba(14,165,233,0.03) 100%);
+    border: 1px solid rgba(30,45,61,0.2);
+    overflow: hidden;
+  }
+
+  .card-art-glow {
+    position: absolute;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: radial-gradient(circle, rgba(13,148,136,0.15) 0%, transparent 70%);
+    animation: glow-breathe 3s ease-in-out infinite;
+  }
+
+  .card-art-letters {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: rgba(13,148,136,0.25);
+  }
+
+  /* Card text area */
+  .card-text-frame {
+    position: absolute;
+    bottom: 30px;
+    left: 8px;
+    right: 8px;
+    height: 44px;
+    border-radius: 5px;
+    background: rgba(10,14,22,0.5);
+    border: 1px solid rgba(30,45,61,0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .card-text-name {
+    font-size: 9px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: 0.5px;
+  }
+
+  .card-text-sub {
+    font-size: 6px;
+    color: #475569;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* Reflection */
+  .card-reflection {
+    position: absolute;
+    bottom: -50px;
+    left: 50%;
+    transform: translateX(-50%) scaleY(-1);
+    width: 140px;
+    height: 80px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #101620, #0C1018);
+    opacity: 0.06;
+    filter: blur(10px);
+    animation: reflection-shimmer 6s ease-in-out infinite;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4), transparent);
+  }
+
+  .brand-text {
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .brand-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #E2E8F0;
+    letter-spacing: -0.5px;
+    margin-bottom: 2px;
+  }
+
+  .brand-sub {
+    font-size: 11px;
+    color: #384158;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* ── Form ── */
+  .form-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 44px;
+    animation: slide-up 0.6s ease-out 0.3s both;
+  }
+
+  .input-wrap {
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 15px 18px 15px 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(30,45,61,0.4);
+    background: rgba(15,17,23,0.5);
+    backdrop-filter: blur(12px);
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .input-field:focus {
+    border-color: rgba(13,148,136,0.4);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.08), 0 0 24px rgba(13,148,136,0.04);
+  }
+
+  .input-field::placeholder { color: #1E2D3D; }
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #2D4059;
+    font-weight: 600;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .input-wrap:focus-within .input-icon { color: #0D9488; }
+
+  .meta-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+    margin-top: 2px;
+  }
+
+  .forgot {
+    font-size: 11px;
+    color: #0D9488;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-wrap { position: relative; margin-bottom: 14px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%);
+    box-shadow: 0 4px 24px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: transform 0.15s;
+  }
+
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .btn-glow {
+    position: absolute;
+    bottom: -1px;
+    left: 10%; right: 10%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #0D9488, #2DD4BF, #0EA5E9, #0D9488);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(6px);
+    opacity: 0.4;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(30,45,61,0.5), transparent); }
+  .div-text { font-size: 9px; color: #2D4059; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .social-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .social-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid rgba(30,45,61,0.35);
+    background: rgba(15,17,23,0.4);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94A3B8;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .social-btn:hover {
+    border-color: rgba(45,68,89,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    color: #E2E8F0;
+  }
+
+  .guest-row {
+    text-align: center;
+    font-size: 12px;
+    color: #283040;
+  }
+
+  .guest-row span {
+    color: #384158;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 1px solid #2D4059;
+    padding-bottom: 1px;
+    transition: color 0.2s;
+  }
+
+  .guest-row span:hover { color: #94A3B8; }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 18px;
+    max-width: 380px;
+  }
+  .demo-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone">
+    <div class="bg">
+      <div class="mesh-1"></div>
+      <div class="mesh-2"></div>
+      <div class="mesh-3"></div>
+      <div class="particle p1"></div>
+      <div class="particle p2"></div>
+      <div class="particle p3"></div>
+      <div class="particle p4"></div>
+    </div>
+
+    <div class="content">
+      <div class="card-area">
+        <div class="card-float-wrap">
+          <div class="playing-card">
+            <div class="card-face">
+              <div class="card-holo"></div>
+              <div class="card-edge-top"></div>
+              <div class="card-inner-border"></div>
+
+              <!-- Corner pips -->
+              <div class="card-pip pip-tl">CE</div>
+              <div class="card-pip pip-br">CE</div>
+
+              <!-- Art frame -->
+              <div class="card-art-frame">
+                <div class="card-art-glow"></div>
+                <div class="card-art-letters">CE</div>
+              </div>
+
+              <!-- Text frame -->
+              <div class="card-text-frame">
+                <div class="card-text-name">Card Engine</div>
+                <div class="card-text-sub">Scan . Collect . Master</div>
+              </div>
+            </div>
+          </div>
+          <div class="card-reflection"></div>
+        </div>
+
+        <div class="brand-text">
+          <div class="brand-title">Card Engine</div>
+          <div class="brand-sub">Scan . Collect . Master</div>
+        </div>
+      </div>
+
+      <div class="form-area">
+        <div class="input-wrap">
+          <input class="input-field" placeholder="Email address" />
+          <div class="input-icon">@</div>
+        </div>
+        <div class="input-wrap">
+          <input class="input-field" type="password" placeholder="Password" />
+          <div class="input-icon" style="font-size:12px;">*</div>
+        </div>
+
+        <div class="meta-row">
+          <div class="forgot">Forgot password?</div>
+        </div>
+
+        <div class="btn-wrap">
+          <button class="btn-primary">
+            <span class="btn-shimmer"></span>
+            <span style="position:relative;z-index:1;">Sign In</span>
+          </button>
+          <div class="btn-glow"></div>
+        </div>
+
+        <div class="divider">
+          <div class="div-line"></div>
+          <div class="div-text">or continue with</div>
+          <div class="div-line"></div>
+        </div>
+
+        <div class="social-row">
+          <div class="social-btn"><span style="font-size:17px;font-weight:500;"></span> Apple</div>
+          <div class="social-btn"><span style="font-size:14px;font-weight:700;color:#4285F4;">G</span> Google</div>
+        </div>
+
+        <div class="guest-row">or <span>explore as guest</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-label">
+    <h3>Floating Playing Card</h3>
+    <p>CE styled as an MTG card — art frame with glowing interior, text frame with the brand name, corner pips, holographic shimmer overlay, teal edge glow that breathes. The card floats with 3D perspective rotation (tilts and bobs) and a shifting drop shadow. Blurred reflection underneath. Drifting ambient mesh orbs and particles in the background.</p>
+  </div>
+</div>
+
+</body>
+</html>

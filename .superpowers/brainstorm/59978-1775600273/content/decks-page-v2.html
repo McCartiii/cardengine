@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decks Page v2</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0A0D13; color: #E2E8F0;
+  font-family: -apple-system, system-ui, sans-serif;
+  min-height: 100vh; padding: 36px 28px;
+}
+
+.page { max-width: 860px; margin: 0 auto; }
+
+/* ── Header ── */
+.page-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 28px;
+}
+.page-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+.page-sub { color: #475569; font-size: 13px; margin-top: 3px; }
+
+/* ── Grid ── */
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* ── New Deck ── */
+.new-deck-card {
+  border: 2px dashed #1E2D3D;
+  border-radius: 20px;
+  min-height: 220px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer;
+  transition: all 0.2s;
+}
+.new-deck-card:hover {
+  border-color: #0D9488;
+  background: rgba(13,148,136,0.04);
+}
+.new-deck-plus {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  background: rgba(13,148,136,0.1);
+  border: 1.5px solid rgba(13,148,136,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: #0D9488;
+  transition: all 0.2s;
+}
+.new-deck-card:hover .new-deck-plus {
+  background: rgba(13,148,136,0.18);
+  border-color: #0D9488;
+}
+.new-deck-label { font-size: 14px; font-weight: 700; color: #0D9488; }
+.new-deck-sub { font-size: 11px; color: #475569; }
+
+/* ── Deck Card ── */
+.deck-card {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1.5px solid #1E2D3D;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s, border-color 0.2s;
+  text-decoration: none;
+  display: block;
+  position: relative;
+}
+.deck-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: #2D4059;
+  box-shadow: 0 20px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+/* Hero — art mosaic */
+.deck-hero {
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+}
+.deck-hero-bg {
+  position: absolute; inset: 0;
+}
+/* Stack of 3 cards fanned right */
+.cards-fan {
+  position: absolute;
+  right: -10px; top: -8px;
+  display: flex;
+  align-items: flex-start;
+}
+.fan-card {
+  width: 72px; height: 100px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: -4px 4px 20px rgba(0,0,0,0.6);
+  position: absolute;
+  right: 0;
+}
+.fan-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fan-card-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+}
+
+/* Overlay: gradient left + bottom scrim */
+.deck-hero-overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+
+/* Content sitting over hero */
+.deck-hero-content {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 14px 16px 12px;
+  z-index: 3;
+}
+.deck-format-badge {
+  display: inline-flex;
+  padding: 2px 8px; border-radius: 5px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+.deck-name {
+  font-size: 16px; font-weight: 800;
+  color: #F8FAFC;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+  line-height: 1.2;
+}
+
+/* Color pips */
+.color-pips { display: flex; gap: 4px; margin-top: 5px; }
+.color-pip {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* Card body */
+.deck-body {
+  padding: 11px 16px 13px;
+  background: #161B27;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.deck-stat-left { font-size: 12px; color: #475569; }
+.deck-stat-right { font-size: 13px; font-weight: 700; color: #0D9488; }
+.deck-commander-row {
+  padding: 7px 16px 0;
+  background: #161B27;
+  font-size: 11px; color: #64748B;
+  display: flex; align-items: center; gap: 5px;
+}
+
+/* ── Modal ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.modal {
+  background: #13182290;
+  backdrop-filter: blur(20px);
+  border: 1.5px solid #2D4059;
+  border-radius: 24px;
+  padding: 28px;
+  width: 100%; max-width: 380px;
+  animation: pop-in 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes pop-in {
+  from { opacity:0; transform:scale(0.92) translateY(10px); }
+  to   { opacity:1; transform:scale(1)    translateY(0); }
+}
+.modal-title { font-size: 20px; font-weight: 800; color: #E2E8F0; margin-bottom: 22px; letter-spacing: -0.3px; }
+.field-label { font-size: 10px; font-weight: 700; color: #475569; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 7px; }
+.field-input {
+  width: 100%; background: #0A0D13;
+  border: 1.5px solid #1E2D3D; border-radius: 12px;
+  padding: 11px 14px; color: #E2E8F0; font-size: 14px;
+  outline: none; transition: border-color 0.15s;
+}
+.field-input:focus { border-color: #0D9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+.field-input::placeholder { color: #475569; }
+.format-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.format-pill {
+  padding: 8px 6px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; text-align: center;
+  cursor: pointer; border: 1.5px solid #1E2D3D;
+  color: #94A3B8; background: #1E2535;
+  transition: all 0.15s;
+}
+.format-pill:hover { border-color: #2D4059; color: #E2E8F0; }
+.format-pill.active { background: rgba(13,148,136,0.12); color: #2DD4BF; border-color: #0D9488; }
+.modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+.btn-primary {
+  flex: 1; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 700;
+  background: linear-gradient(135deg,#0D9488,#14B8A6);
+  color: white; border: none; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(13,148,136,0.4);
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.9; }
+.btn-cancel {
+  padding: 12px 18px; border-radius: 12px; font-size: 13px;
+  background: #1E2535; color: #475569;
+  border: 1.5px solid #1E2D3D; cursor: pointer;
+  transition: color 0.15s;
+}
+.btn-cancel:hover { color: #94A3B8; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">My Decks</div>
+      <div class="page-sub">4 decks · $726 total value</div>
+    </div>
+  </div>
+
+  <div class="deck-grid">
+
+    <!-- New Deck -->
+    <div class="new-deck-card" onclick="document.getElementById('modal').style.display='flex'">
+      <div class="new-deck-plus">+</div>
+      <div class="new-deck-label">New Deck</div>
+      <div class="new-deck-sub">Import or build from scratch</div>
+    </div>
+
+    <!-- Atraxa EDH -->
+    <div class="deck-card" onclick="">
+      <div class="deck-hero">
+        <div class="deck-hero-bg" style="background: linear-gradient(135deg, #1A1225 0%, #2D1B4E 40%, #0A1F0E 100%)"></div>
+        <!-- fan of 3 cards -->
+        <div style="position:absolute;right:-4px;top:10px">
+          <div style="position:relative;width:120px;height:120px">
+            <div class="fan-card" style="right:68px;top:10px;transform:rotate(-12deg);opacity:0.7;z-index:1">
+              <img src="https://cards.scryfall.io/small/front/e/b/eb0e0603-7a08-4ed4-9d5e-c1b90cff3622.jpg" onerror="this.innerHTML='🧙';this.style.background='#1A1225'" alt="">
+            </div>
+            <div class="fan-card" style="right:36px;top:4px;transform:rotate(-5deg);opacity:0.85;z-index:2">
+              <img src="https://cards.scryfall.io/small/front/6/3/63cda4a1-3f77-4e13-b3c7-d63b73cc54a7.jpg" onerror="this.innerHTML='⚗️';this.style.background='#2D1B4E'" alt="">
+            </div>
+            <div class="fan-card" style="right:0;top:0;transform:rotate(4deg);z-index:3">
+              <img src="https://cards.scryfall.io/small/front/d/0/d0a2c867-8191-4a2e-87ef-cbea5b258e03.jpg" onerror="this.innerHTML='✨';this.style.background='#0A1F0E'" alt="">
+            </div>
+          </div>
+        </div>
+        <div class="deck-hero-overlay" style="background: linear-gradient(to right, #1A1225 35%, rgba(26,18,37,0.6) 65%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 45%)"></div>
+        <div class="deck-hero-content">
+          <div class="deck-format-badge" style="background:rgba(129,140,248,0.18);color:#818CF8">Commander</div>
+          <div class="deck-name">Atraxa Superfriends</div>
+          <div class="color-pips">
+            <div class="color-pip" style="background:#FDE68A"></div>
+            <div class="color-pip" style="background:#93C5FD"></div>
+            <div class="color-pip" style="background:#C4B5D4"></div>
+            <div class="color-pip" style="background:#86EFAC"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-commander-row">⚜ Atraxa, Praetors' Voice</div>
+      <div class="deck-body">
+        <span class="deck-stat-left">100 cards · Updated today</span>
+        <span class="deck-stat-right">$320</span>
+      </div>
+    </div>
+
+    <!-- Aggro Red -->
+    <div class="deck-card" onclick="">
+      <div class="deck-hero">
+        <div class="deck-hero-bg" style="background: linear-gradient(135deg, #1C0E0E 0%, #5C1A1A 50%, #2A0E0E 100%)"></div>
+        <div style="position:absolute;right:-4px;top:10px">
+          <div style="position:relative;width:120px;height:120px">
+            <div class="fan-card" style="right:68px;top:10px;transform:rotate(-10deg);opacity:0.7;z-index:1">
+              <img src="https://cards.scryfall.io/small/front/e/0/e0b3d8f5-c0be-4987-84ba-c87b9c7fbb44.jpg" onerror="this.style.background='#5C1A1A';this.innerHTML='🔥'" alt="">
+            </div>
+            <div class="fan-card" style="right:36px;top:4px;transform:rotate(-4deg);opacity:0.85;z-index:2">
+              <img src="https://cards.scryfall.io/small/front/c/e/ce711943-c1a1-43a0-8b89-8d169cfb8e06.jpg" onerror="this.style.background='#3d0f0f';this.innerHTML='⚡'" alt="">
+            </div>
+            <div class="fan-card" style="right:0;top:0;transform:rotate(5deg);z-index:3">
+              <img src="https://cards.scryfall.io/small/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg" onerror="this.style.background='#2A0E0E';this.innerHTML='💥'" alt="">
+            </div>
+          </div>
+        </div>
+        <div class="deck-hero-overlay" style="background: linear-gradient(to right, #1C0E0E 35%, rgba(28,14,14,0.6) 65%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 45%)"></div>
+        <div class="deck-hero-content">
+          <div class="deck-format-badge" style="background:rgba(244,63,94,0.18);color:#F43F5E">Standard</div>
+          <div class="deck-name">Aggro Red Burn</div>
+          <div class="color-pips">
+            <div class="color-pip" style="background:#FCA5A5"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body">
+        <span class="deck-stat-left">60 cards · Updated 2d ago</span>
+        <span class="deck-stat-right">$42</span>
+      </div>
+    </div>
+
+    <!-- UW Control -->
+    <div class="deck-card" onclick="">
+      <div class="deck-hero">
+        <div class="deck-hero-bg" style="background: linear-gradient(135deg, #0F1E35 0%, #1E3A5F 50%, #1A1810 100%)"></div>
+        <div style="position:absolute;right:-4px;top:10px">
+          <div style="position:relative;width:120px;height:120px">
+            <div class="fan-card" style="right:68px;top:10px;transform:rotate(-10deg);opacity:0.7;z-index:1">
+              <img src="https://cards.scryfall.io/small/front/5/0/50a5ef76-7f28-4f8d-8241-3e6c9eaad66e.jpg" onerror="this.style.background='#1E3A5F';this.innerHTML='🌊'" alt="">
+            </div>
+            <div class="fan-card" style="right:36px;top:4px;transform:rotate(-4deg);opacity:0.85;z-index:2">
+              <img src="https://cards.scryfall.io/small/front/1/6/16cf9c5e-8b46-4867-ba96-eb3041f78af1.jpg" onerror="this.style.background='#2A2510';this.innerHTML='🛡️'" alt="">
+            </div>
+            <div class="fan-card" style="right:0;top:0;transform:rotate(5deg);z-index:3">
+              <img src="https://cards.scryfall.io/small/front/f/4/f4eef8a4-4b8b-4f67-8577-dfc0cef85b6b.jpg" onerror="this.style.background='#0F1E35';this.innerHTML='❄️'" alt="">
+            </div>
+          </div>
+        </div>
+        <div class="deck-hero-overlay" style="background: linear-gradient(to right, #0F1E35 35%, rgba(15,30,53,0.6) 65%, transparent 100%), linear-gradient(to top, #161B27 0%, transparent 45%)"></div>
+        <div class="deck-hero-content">
+          <div class="deck-format-badge" style="background:rgba(56,189,248,0.18);color:#38BDF8">Modern</div>
+          <div class="deck-name">UW Tempo Control</div>
+          <div class="color-pips">
+            <div class="color-pip" style="background:#FDE68A"></div>
+            <div class="color-pip" style="background:#93C5FD"></div>
+          </div>
+        </div>
+      </div>
+      <div class="deck-body">
+        <span class="deck-stat-left">60 cards · Updated 5d ago</span>
+        <span class="deck-stat-right">$180</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal">
+      <div class="modal-title">New Deck</div>
+      <div style="margin-bottom:18px">
+        <div class="field-label">Deck Name</div>
+        <input class="field-input" placeholder="My Awesome Deck" id="deck-name-input">
+      </div>
+      <div>
+        <div class="field-label">Format</div>
+        <div class="format-grid">
+          <div class="format-pill active" onclick="selectFormat(this)">Commander</div>
+          <div class="format-pill" onclick="selectFormat(this)">Standard</div>
+          <div class="format-pill" onclick="selectFormat(this)">Modern</div>
+          <div class="format-pill" onclick="selectFormat(this)">Pioneer</div>
+          <div class="format-pill" onclick="selectFormat(this)">Legacy</div>
+          <div class="format-pill" onclick="selectFormat(this)">Pauper</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary">Create Deck →</button>
+        <button class="btn-cancel" onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+function selectFormat(el) {
+  document.querySelectorAll('.format-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

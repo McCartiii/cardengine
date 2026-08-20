@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { asCardId } from "@cardengine/engine";
+import { MTG_FORMATS, MtgRulesEngine } from "@cardengine/mtg-adapter";
 import { prisma } from "../db.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
 import { fetchEdhrecCommander } from "../services/edhrec.js";
@@ -24,77 +26,35 @@ const SUPPORTED_FORMATS = [
   "explorer",
 ] as const;
 
-// Format legality: max deck size and singleton rules
-const FORMAT_RULES: Record<string, { deckSize: number; sideboardSize: number; singleton: boolean; commanderAllowed: boolean }> = {
-  commander:  { deckSize: 100, sideboardSize: 0,  singleton: true,  commanderAllowed: true  },
-  oathbreaker:{ deckSize: 60,  sideboardSize: 0,  singleton: true,  commanderAllowed: true  },
-  brawl:      { deckSize: 60,  sideboardSize: 0,  singleton: true,  commanderAllowed: true  },
-  standard:   { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  pioneer:    { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  modern:     { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  legacy:     { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  vintage:    { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  pauper:     { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  historic:   { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-  explorer:   { deckSize: 60,  sideboardSize: 15, singleton: false, commanderAllowed: false },
-};
+// Deck legality is delegated to the shared rules engine (@cardengine/mtg-adapter)
+// so the API and every other consumer validate decks identically. Formats without
+// a bundle are not validated (matches previous behavior for unknown formats).
+const rulesEngine = new MtgRulesEngine();
 
 function checkLegality(
   cards: Array<{ cardName: string; quantity: number; section: string }>,
   format: string
 ): { valid: boolean; issues: string[] } {
-  const rules = FORMAT_RULES[format];
-  if (!rules) return { valid: true, issues: [] };
+  const bundle = MTG_FORMATS[format];
+  if (!bundle) return { valid: true, issues: [] };
 
-  const issues: string[] = [];
-  const mainboard = cards.filter((c) => c.section === "mainboard");
-  const sideboard = cards.filter((c) => c.section === "sideboard");
-  const commander = cards.filter((c) => c.section === "commander");
+  const result = rulesEngine.validateDeck({
+    deck: {
+      cards: cards.map((c) => ({
+        cardId: asCardId(c.cardName),
+        quantity: c.quantity,
+        // Commander cards count toward the main-deck size (100 incl. commander),
+        // so the "commander" section maps to the main board.
+        board: c.section === "sideboard" ? ("side" as const) : ("main" as const),
+      })),
+    },
+    format: bundle,
+  });
 
-  const mainCount = mainboard.reduce((s, c) => s + c.quantity, 0);
-  const sideCount = sideboard.reduce((s, c) => s + c.quantity, 0);
-
-  if (rules.commanderAllowed && commander.length === 0 && format !== "oathbreaker") {
-    // soft warning, not hard error
-  }
-
-  const totalMain = rules.commanderAllowed
-    ? mainCount + commander.reduce((s, c) => s + c.quantity, 0)
-    : mainCount;
-
-  if (totalMain < rules.deckSize) {
-    issues.push(`Deck has ${totalMain} cards; minimum is ${rules.deckSize}`);
-  }
-
-  if (rules.sideboardSize > 0 && sideCount > rules.sideboardSize) {
-    issues.push(`Sideboard has ${sideCount} cards; max is ${rules.sideboardSize}`);
-  }
-
-  if (rules.singleton) {
-    const nameCounts = new Map<string, number>();
-    for (const c of [...mainboard, ...sideboard]) {
-      const n = c.cardName.toLowerCase();
-      nameCounts.set(n, (nameCounts.get(n) ?? 0) + c.quantity);
-    }
-    for (const [name, qty] of nameCounts) {
-      // Basic lands and cards with "A deck can have any number" are exempt
-      const BASICS = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes", "snow-covered plains", "snow-covered island", "snow-covered swamp", "snow-covered mountain", "snow-covered forest"]);
-      if (!BASICS.has(name) && qty > 1) {
-        issues.push(`"${name}" appears ${qty}× (singleton format)`);
-      }
-    }
-  } else {
-    for (const c of [...mainboard, ...sideboard]) {
-      if (c.quantity > 4) {
-        const BASICS = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes"]);
-        if (!BASICS.has(c.cardName.toLowerCase())) {
-          issues.push(`"${c.cardName}" has ${c.quantity} copies; max is 4`);
-        }
-      }
-    }
-  }
-
-  return { valid: issues.length === 0, issues };
+  return {
+    valid: result.isLegal,
+    issues: result.violations.map((v) => (v.cardId ? `${v.message} (${v.cardId})` : v.message)),
+  };
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────

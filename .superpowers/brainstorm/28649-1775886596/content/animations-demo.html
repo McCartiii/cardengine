@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Counter — Animation Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060609; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; color: white; overflow-x: hidden; }
+
+  /* ── Animations ── */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-6px) rotate(-0.5deg); }
+    30% { transform: translateX(5px) rotate(0.5deg); }
+    45% { transform: translateX(-4px); }
+    60% { transform: translateX(3px); }
+    75% { transform: translateX(-2px); }
+  }
+
+  @keyframes shake-big {
+    0%, 100% { transform: translateX(0); }
+    10% { transform: translateX(-12px) rotate(-1.5deg); }
+    20% { transform: translateX(10px) rotate(1.5deg); }
+    30% { transform: translateX(-8px) rotate(-1deg); }
+    40% { transform: translateX(7px) rotate(0.5deg); }
+    50% { transform: translateX(-5px); }
+    60% { transform: translateX(4px); }
+    70% { transform: translateX(-2px); }
+  }
+
+  @keyframes pulse-red {
+    0% { color: white; text-shadow: 0 0 60px rgba(124,58,237,0.25); }
+    25% { color: #ff4444; text-shadow: 0 0 40px rgba(255,0,0,0.5), 0 0 80px rgba(255,0,0,0.2); }
+    100% { color: white; text-shadow: 0 0 60px rgba(124,58,237,0.25); }
+  }
+
+  @keyframes pulse-red-big {
+    0% { color: white; text-shadow: 0 0 60px rgba(124,58,237,0.25); transform: scale(1); }
+    15% { color: #ff2222; text-shadow: 0 0 60px rgba(255,0,0,0.7), 0 0 120px rgba(255,0,0,0.3); transform: scale(1.12); }
+    30% { transform: scale(0.95); }
+    50% { color: #ff4444; transform: scale(1.02); }
+    100% { color: white; text-shadow: 0 0 60px rgba(124,58,237,0.25); transform: scale(1); }
+  }
+
+  @keyframes pulse-green {
+    0% { color: white; }
+    25% { color: #4ade80; text-shadow: 0 0 30px rgba(74,222,128,0.5), 0 0 60px rgba(74,222,128,0.2); }
+    100% { color: white; }
+  }
+
+  @keyframes pulse-green-big {
+    0% { color: white; transform: scale(1); }
+    20% { color: #4ade80; text-shadow: 0 0 50px rgba(74,222,128,0.6), 0 0 100px rgba(74,222,128,0.3); transform: scale(1.08); }
+    40% { transform: scale(0.97); }
+    100% { color: white; transform: scale(1); }
+  }
+
+  @keyframes border-flash-red {
+    0% { border-color: rgba(124,58,237,0.15); box-shadow: 0 0 30px rgba(124,58,237,0.05); }
+    20% { border-color: rgba(255,50,50,0.6); box-shadow: 0 0 40px rgba(255,0,0,0.15), inset 0 0 30px rgba(255,0,0,0.05); }
+    100% { border-color: rgba(124,58,237,0.15); box-shadow: 0 0 30px rgba(124,58,237,0.05); }
+  }
+
+  @keyframes border-flash-green {
+    0% { border-color: rgba(124,58,237,0.15); }
+    20% { border-color: rgba(74,222,128,0.5); box-shadow: 0 0 30px rgba(74,222,128,0.1), inset 0 0 20px rgba(74,222,128,0.03); }
+    100% { border-color: rgba(124,58,237,0.15); }
+  }
+
+  @keyframes edge-glow-flare {
+    0% { opacity: 1; filter: brightness(1); }
+    20% { opacity: 1; filter: brightness(3); }
+    100% { opacity: 1; filter: brightness(1); }
+  }
+
+  @keyframes vignette-red {
+    0% { box-shadow: inset 0 0 60px transparent; }
+    20% { box-shadow: inset 0 0 80px rgba(255,0,0,0.12); }
+    100% { box-shadow: inset 0 0 60px transparent; }
+  }
+
+  @keyframes danger-pulse {
+    0%, 100% { color: #ff4444; text-shadow: 0 0 20px rgba(255,0,0,0.3); }
+    50% { color: #ff6666; text-shadow: 0 0 40px rgba(255,0,0,0.5); }
+  }
+
+  @keyframes number-roll-down {
+    0% { transform: translateY(-20px); opacity: 0.3; }
+    40% { transform: translateY(3px); }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes number-roll-up {
+    0% { transform: translateY(20px); opacity: 0.3; }
+    40% { transform: translateY(-3px); }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes delta-float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    60% { opacity: 0.8; }
+    100% { opacity: 0; transform: translateY(-40px) scale(0.7); }
+  }
+
+  @keyframes delta-float-down {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    60% { opacity: 0.8; }
+    100% { opacity: 0; transform: translateY(40px) scale(0.7); }
+  }
+
+  @keyframes eliminated-in {
+    0% { opacity: 0; transform: scale(0.8); }
+    50% { transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes skull-pulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(255,0,0,0.3)); }
+    50% { transform: scale(1.1); filter: drop-shadow(0 0 20px rgba(255,0,0,0.5)); }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* ── Layout ── */
+  .demo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 375px);
+    gap: 40px;
+    padding: 30px;
+    justify-content: center;
+  }
+
+  .demo-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .demo-label {
+    text-align: center;
+    margin-top: 14px;
+    max-width: 340px;
+  }
+  .demo-label h3 { font-size: 13px; font-weight: 700; color: white; margin-bottom: 4px; }
+  .demo-label p { font-size: 10px; color: #555; line-height: 1.6; }
+
+  /* ── Phone ── */
+  .phone-frame {
+    width: 375px;
+    height: 420px;
+    background: #08080e;
+    border-radius: 36px;
+    border: 3px solid #1a1a25;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    padding: 16px 10px 10px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Player card ── */
+  .player-card {
+    flex: 1;
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 50% 40%, rgba(124,58,237,0.12) 0%, rgba(124,58,237,0.03) 50%, #0c0c16 100%);
+    border: 1px solid rgba(124,58,237,0.15);
+    box-shadow: 0 0 30px rgba(124,58,237,0.05), inset 0 1px 0 rgba(124,58,237,0.08);
+  }
+
+  .edge-glow {
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #7c3aed, transparent);
+    box-shadow: 0 0 12px rgba(124,58,237,0.4);
+    border-radius: 0 0 4px 4px;
+  }
+
+  .player-name {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(167,139,250,0.6);
+    margin-bottom: 2px;
+  }
+
+  .life-total {
+    font-size: 88px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -4px;
+    color: white;
+    text-shadow: 0 0 60px rgba(124,58,237,0.25), 0 2px 4px rgba(0,0,0,0.5);
+    position: relative;
+    display: inline-block;
+  }
+
+  .life-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0.2;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  .timer-badge {
+    position: absolute;
+    top: 12px; right: 14px;
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.04);
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* ── Delta floater ── */
+  .delta {
+    position: absolute;
+    font-size: 28px;
+    font-weight: 800;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .delta-minus {
+    color: #ff4444;
+    text-shadow: 0 0 20px rgba(255,0,0,0.5);
+    animation: delta-float-up 1.2s ease-out forwards;
+  }
+
+  .delta-plus {
+    color: #4ade80;
+    text-shadow: 0 0 20px rgba(74,222,128,0.5);
+    animation: delta-float-up 1.2s ease-out forwards;
+  }
+
+  .delta-big {
+    font-size: 36px;
+  }
+
+  /* ── Eliminated state ── */
+  .eliminated-card {
+    background: radial-gradient(ellipse at 50% 40%, rgba(255,0,0,0.06) 0%, rgba(20,0,0,0.3) 50%, #0a0a10 100%) !important;
+    border-color: rgba(255,0,0,0.15) !important;
+  }
+
+  .eliminated-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.7);
+    border-radius: 20px;
+    animation: eliminated-in 0.6s ease-out;
+  }
+
+  .eliminated-skull {
+    font-size: 56px;
+    animation: skull-pulse 2s ease-in-out infinite;
+  }
+
+  .eliminated-text {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #ff4444;
+    margin-top: 8px;
+    text-shadow: 0 0 20px rgba(255,0,0,0.3);
+  }
+
+  .eliminated-name {
+    font-size: 13px;
+    color: rgba(167,139,250,0.5);
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  /* ── Danger state (low life) ── */
+  .danger-card {
+    border-color: rgba(255,50,50,0.25) !important;
+    box-shadow: 0 0 40px rgba(255,0,0,0.08), inset 0 0 40px rgba(255,0,0,0.03) !important;
+  }
+
+  .danger-life {
+    animation: danger-pulse 1.5s ease-in-out infinite;
+  }
+
+  .danger-edge {
+    background: linear-gradient(90deg, transparent, #ff3333, transparent) !important;
+    box-shadow: 0 0 16px rgba(255,0,0,0.5) !important;
+    animation: glow-pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ── Buttons row ── */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .demo-btn {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .demo-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+  .demo-btn:active { transform: scale(0.95); }
+
+  .demo-btn.red { border-color: rgba(255,50,50,0.3); color: #ff6666; }
+  .demo-btn.red:hover { background: rgba(255,50,50,0.15); }
+  .demo-btn.green { border-color: rgba(74,222,128,0.3); color: #4ade80; }
+  .demo-btn.green:hover { background: rgba(74,222,128,0.15); }
+
+  .section-title {
+    text-align: center;
+    padding: 30px 0 10px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #333;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="section-title">Tap the buttons to preview each animation</div>
+
+<div class="demo-grid">
+
+  <!-- ── COLUMN 1: Take Damage ── -->
+  <div class="demo-col">
+    <div class="phone-frame" id="dmg-phone">
+      <div class="player-card" id="dmg-card">
+        <div class="edge-glow" id="dmg-edge"></div>
+        <div class="timer-badge">14:28</div>
+        <div class="player-name">Player 1</div>
+        <div class="life-total" id="dmg-life">40</div>
+        <div class="life-label">life</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="demo-btn red" onclick="takeDamage(1)">−1</button>
+      <button class="demo-btn red" onclick="takeDamage(3)">−3</button>
+      <button class="demo-btn red" onclick="takeDamage(5)">−5</button>
+      <button class="demo-btn red" onclick="takeDamage(10)">−10</button>
+      <button class="demo-btn" onclick="resetDmg()">Reset</button>
+    </div>
+    <div class="demo-label">
+      <h3>Taking Damage</h3>
+      <p>Small hits: number pulses red, card border flashes. Big hits (5+): violent shake, number scales up then down, red vignette floods the card. Floating −N drifts upward and fades.</p>
+    </div>
+  </div>
+
+  <!-- ── COLUMN 2: Gain Life ── -->
+  <div class="demo-col">
+    <div class="phone-frame" id="heal-phone">
+      <div class="player-card" id="heal-card">
+        <div class="edge-glow" id="heal-edge"></div>
+        <div class="timer-badge">12:05</div>
+        <div class="player-name">Player 1</div>
+        <div class="life-total" id="heal-life">28</div>
+        <div class="life-label">life</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="demo-btn green" onclick="gainLife(1)">+1</button>
+      <button class="demo-btn green" onclick="gainLife(3)">+3</button>
+      <button class="demo-btn green" onclick="gainLife(5)">+5</button>
+      <button class="demo-btn green" onclick="gainLife(10)">+10</button>
+      <button class="demo-btn" onclick="resetHeal()">Reset</button>
+    </div>
+    <div class="demo-label">
+      <h3>Gaining Life</h3>
+      <p>Number pulses green with a soft glow. Big gains (5+): number scales up with green bloom, border flashes green. Floating +N drifts up. Satisfying but less dramatic than damage.</p>
+    </div>
+  </div>
+
+  <!-- ── COLUMN 3: Danger / Eliminated ── -->
+  <div class="demo-col">
+    <div class="phone-frame" id="state-phone">
+      <div class="player-card" id="state-card">
+        <div class="edge-glow" id="state-edge"></div>
+        <div class="timer-badge">03:12</div>
+        <div class="player-name">Player 1</div>
+        <div class="life-total" id="state-life">5</div>
+        <div class="life-label">life</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="demo-btn" onclick="showDanger()">Low Life (≤5)</button>
+      <button class="demo-btn red" onclick="showEliminated()">Eliminated</button>
+      <button class="demo-btn" onclick="resetState()">Reset</button>
+    </div>
+    <div class="demo-label">
+      <h3>Danger & Elimination</h3>
+      <p>At 5 or below: life total pulses red continuously, edge glow turns red and throbs. At 0: skull overlay slides in with scale bounce, "ELIMINATED" text, card darkens. Everything feels urgent.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Damage animations ──
+  let dmgLife = 40;
+  const dmgEl = document.getElementById('dmg-life');
+  const dmgCard = document.getElementById('dmg-card');
+  const dmgEdge = document.getElementById('dmg-edge');
+
+  function takeDamage(n) {
+    dmgLife = Math.max(0, dmgLife - n);
+    const isBig = n >= 5;
+
+    // Shake
+    dmgCard.style.animation = 'none';
+    dmgCard.offsetHeight;
+    dmgCard.style.animation = isBig ? 'shake-big 0.6s ease-out, border-flash-red 0.8s ease-out, vignette-red 0.8s ease-out' : 'shake 0.4s ease-out, border-flash-red 0.6s ease-out';
+
+    // Number pulse
+    dmgEl.style.animation = 'none';
+    dmgEl.offsetHeight;
+    dmgEl.style.animation = isBig ? 'pulse-red-big 0.8s ease-out' : 'pulse-red 0.6s ease-out';
+
+    // Edge flare
+    dmgEdge.style.animation = 'none';
+    dmgEdge.offsetHeight;
+    dmgEdge.style.animation = 'edge-glow-flare 0.5s ease-out';
+
+    // Floating delta
+    const delta = document.createElement('div');
+    delta.className = `delta delta-minus ${isBig ? 'delta-big' : ''}`;
+    delta.textContent = `−${n}`;
+    delta.style.top = '40%';
+    delta.style.left = '50%';
+    delta.style.transform = 'translateX(-50%)';
+    dmgCard.appendChild(delta);
+    setTimeout(() => delta.remove(), 1200);
+
+    // Roll number
+    dmgEl.style.animation += ', number-roll-down 0.3s ease-out';
+
+    // Update display
+    animateNumber(dmgEl, dmgLife, 300);
+
+    // Danger state
+    if (dmgLife <= 5 && dmgLife > 0) {
+      dmgCard.classList.add('danger-card');
+      dmgEl.classList.add('danger-life');
+      dmgEdge.classList.add('danger-edge');
+    }
+  }
+
+  function resetDmg() {
+    dmgLife = 40;
+    dmgEl.textContent = '40';
+    dmgCard.style.animation = '';
+    dmgEl.style.animation = '';
+    dmgCard.classList.remove('danger-card');
+    dmgEl.classList.remove('danger-life');
+    dmgEdge.classList.remove('danger-edge');
+  }
+
+  // ── Heal animations ──
+  let healLife = 28;
+  const healEl = document.getElementById('heal-life');
+  const healCard = document.getElementById('heal-card');
+  const healEdge = document.getElementById('heal-edge');
+
+  function gainLife(n) {
+    healLife += n;
+    const isBig = n >= 5;
+
+    healCard.style.animation = 'none';
+    healCard.offsetHeight;
+    healCard.style.animation = 'border-flash-green 0.6s ease-out';
+
+    healEl.style.animation = 'none';
+    healEl.offsetHeight;
+    healEl.style.animation = isBig ? 'pulse-green-big 0.7s ease-out' : 'pulse-green 0.5s ease-out';
+
+    const delta = document.createElement('div');
+    delta.className = `delta delta-plus ${isBig ? 'delta-big' : ''}`;
+    delta.textContent = `+${n}`;
+    delta.style.top = '40%';
+    delta.style.left = '50%';
+    delta.style.transform = 'translateX(-50%)';
+    healCard.appendChild(delta);
+    setTimeout(() => delta.remove(), 1200);
+
+    animateNumber(healEl, healLife, 300);
+  }
+
+  function resetHeal() {
+    healLife = 28;
+    healEl.textContent = '28';
+    healCard.style.animation = '';
+    healEl.style.animation = '';
+  }
+
+  // ── State demos ──
+  const stateCard = document.getElementById('state-card');
+  const stateLife = document.getElementById('state-life');
+  const stateEdge = document.getElementById('state-edge');
+
+  function showDanger() {
+    stateCard.classList.add('danger-card');
+    stateLife.classList.add('danger-life');
+    stateEdge.classList.add('danger-edge');
+    stateLife.textContent = '3';
+    // Remove eliminated if shown
+    const overlay = stateCard.querySelector('.eliminated-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  function showEliminated() {
+    stateCard.classList.add('danger-card');
+    stateLife.textContent = '0';
+    stateEdge.classList.add('danger-edge');
+    // Remove existing overlay
+    const existing = stateCard.querySelector('.eliminated-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'eliminated-overlay';
+    overlay.innerHTML = `
+      <div class="eliminated-skull">💀</div>
+      <div class="eliminated-text">Eliminated</div>
+      <div class="eliminated-name">Player 1</div>
+    `;
+    stateCard.appendChild(overlay);
+  }
+
+  function resetState() {
+    stateCard.classList.remove('danger-card');
+    stateLife.classList.remove('danger-life');
+    stateEdge.classList.remove('danger-edge');
+    stateLife.textContent = '5';
+    const overlay = stateCard.querySelector('.eliminated-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  // ── Animated number ──
+  function animateNumber(el, target, duration) {
+    const start = parseInt(el.textContent);
+    const startTime = performance.now();
+    function tick(now) {
+      const p = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(start + (target - start) * eased);
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+</script>
+</body>
+</html>

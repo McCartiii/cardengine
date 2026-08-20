@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import type { ScanCandidate } from "../lib/api";
+import { commitScanToCollection } from "../lib/scanCommit";
 
 export interface PendingScan {
-  /** Unique key for this pending scan session entry */
   key: string;
   candidate: ScanCandidate;
   quantity: number;
-  /** Whether this has been committed to the server yet */
+  matchMethod: "hash" | "ocr" | "api";
   added: boolean;
   addedAt?: number;
 }
@@ -14,10 +14,15 @@ export interface PendingScan {
 interface ScanState {
   pending: PendingScan[];
   isScanning: boolean;
+  autoAddToCollection: boolean;
+  hashIndexReady: boolean;
   detectedName: string | null;
   detectedPrice: string | null;
+  lastMatchMethod: "hash" | "ocr" | null;
+  lastAddedName: string | null;
+  lastAddedAt: number | null;
 
-  addPending: (candidate: ScanCandidate) => void;
+  addPending: (candidate: ScanCandidate, matchMethod?: "hash" | "ocr" | "api") => Promise<void>;
   incrementQty: (key: string) => void;
   decrementQty: (key: string) => void;
   markAdded: (key: string) => void;
@@ -25,31 +30,61 @@ interface ScanState {
   setDetectedName: (name: string | null) => void;
   setDetectedPrice: (price: string | null) => void;
   setScanning: (v: boolean) => void;
+  setHashIndexReady: (v: boolean) => void;
+  setAutoAddToCollection: (v: boolean) => void;
   reset: () => void;
 }
 
 export const useScanStore = create<ScanState>((set, get) => ({
   pending: [],
   isScanning: true,
+  autoAddToCollection: true,
+  hashIndexReady: false,
   detectedName: null,
   detectedPrice: null,
+  lastMatchMethod: null,
+  lastAddedName: null,
+  lastAddedAt: null,
 
-  addPending(candidate) {
+  async addPending(candidate, matchMethod = "api") {
     const existing = get().pending.find(
       (p) => p.candidate.variantId === candidate.variantId && !p.added
     );
+
+    let key: string;
+
     if (existing) {
-      // Same card already pending — just bump quantity
+      key = existing.key;
       set((s) => ({
         pending: s.pending.map((p) =>
           p.key === existing.key ? { ...p, quantity: p.quantity + 1 } : p
         ),
+        lastMatchMethod: matchMethod === "api" ? s.lastMatchMethod : matchMethod,
       }));
     } else {
-      const key = `${candidate.variantId}-${Date.now()}`;
+      key = `${candidate.variantId}-${Date.now()}`;
       set((s) => ({
-        pending: [{ key, candidate, quantity: 1, added: false }, ...s.pending],
+        pending: [
+          {
+            key,
+            candidate,
+            quantity: 1,
+            matchMethod,
+            added: false,
+          },
+          ...s.pending,
+        ],
+        lastMatchMethod: matchMethod === "api" ? s.lastMatchMethod : matchMethod,
       }));
+    }
+
+    if (get().autoAddToCollection) {
+      try {
+        await commitScanToCollection(candidate.variantId, 1);
+        get().markAdded(key);
+      } catch {
+        // Manual add via tray still available
+      }
     }
   },
 
@@ -70,10 +105,13 @@ export const useScanStore = create<ScanState>((set, get) => ({
   },
 
   markAdded(key) {
+    const entry = get().pending.find((p) => p.key === key);
     set((s) => ({
       pending: s.pending.map((p) =>
         p.key === key ? { ...p, added: true, addedAt: Date.now() } : p
       ),
+      lastAddedName: entry?.candidate.name ?? s.lastAddedName,
+      lastAddedAt: Date.now(),
     }));
   },
 
@@ -93,7 +131,21 @@ export const useScanStore = create<ScanState>((set, get) => ({
     set({ isScanning: v });
   },
 
+  setHashIndexReady(v) {
+    set({ hashIndexReady: v });
+  },
+
+  setAutoAddToCollection(v) {
+    set({ autoAddToCollection: v });
+  },
+
   reset() {
-    set({ pending: [], detectedName: null, detectedPrice: null, isScanning: true });
+    set({
+      pending: [],
+      detectedName: null,
+      detectedPrice: null,
+      lastMatchMethod: null,
+      isScanning: true,
+    });
   },
 }));

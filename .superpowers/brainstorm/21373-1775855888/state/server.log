@@ -1,0 +1,7 @@
+{"type":"server-started","port":61071,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61071","screen_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/content","state_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/state"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/content/editor-layouts.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/content/editor-layouts-2.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/content/editor-combo-hifi.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/content/deck-create-flow.html"}
+{"type":"screen-updated","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/21373-1775855888/content/deck-create-flow.html"}
+{"type":"server-stopped","reason":"idle timeout"}

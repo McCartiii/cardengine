@@ -1,0 +1,8 @@
+{"type":"server-started","port":55307,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:55307","screen_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content","state_dir":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/state"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content/holo-style.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content/button-style.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content/card-loading.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content/card-loading-2.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content/card-loading-3.html"}
+{"type":"screen-added","file":"/Users/carterchurch/card-engine-platform/.superpowers/brainstorm/26351-1775543721/content/card-loading-4.html"}
+{"type":"server-stopped","reason":"idle timeout"}

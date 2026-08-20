@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Real MTG Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030306; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; color: white; display: flex; justify-content: center; padding: 30px; }
+
+  @keyframes card-entrance {
+    0% { top: 50%; left: 50%; width: 86%; height: 86%; transform: translate(-50%,-50%) perspective(1000px) rotateY(90deg); opacity: 0; }
+    18% { transform: translate(-50%,-50%) perspective(1000px) rotateY(-6deg); opacity: 1; }
+    30% { transform: translate(-50%,-50%) perspective(1000px) rotateY(3deg); }
+    45% { top: 50%; left: 50%; width: 86%; height: 86%; transform: translate(-50%,-50%) perspective(1000px) rotateY(0deg); }
+    78% { top: 16px; left: 50%; width: 100px; height: 140px; transform: translate(-50%,0) perspective(1000px) rotateY(-2deg) rotateX(2deg); }
+    100% { top: 16px; left: 50%; width: 100px; height: 140px; transform: translate(-50%,0) perspective(1000px) rotateY(-2deg) rotateX(2deg); }
+  }
+  @keyframes card-bob {
+    0%,100% { transform: translate(-50%,0) perspective(800px) rotateY(-1.5deg) rotateX(2deg) translateY(0); }
+    25% { transform: translate(-50%,0) perspective(800px) rotateY(1deg) rotateX(-1deg) translateY(-4px); }
+    50% { transform: translate(-50%,0) perspective(800px) rotateY(1.5deg) rotateX(-2deg) translateY(-2px); }
+    75% { transform: translate(-50%,0) perspective(800px) rotateY(-0.5deg) rotateX(0.5deg) translateY(-5px); }
+  }
+  @keyframes foil-move { 0% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } 100% { background-position: 0% 0%; } }
+  @keyframes holo-spin { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+  @keyframes sparkle { 0%,100% { opacity: 0; transform: scale(0) rotate(0); } 15% { opacity: 1; transform: scale(1) rotate(20deg); } 30% { opacity: 0; transform: scale(0) rotate(45deg); } }
+  @keyframes sweep { 0% { left: -50%; } 100% { left: 150%; } }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  @keyframes form-up { 0% { opacity: 0; transform: translateY(50px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes brand-in { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+  @keyframes neon-drift { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.12; } 50% { transform: translate(20px,-15px) scale(1.1); opacity: 0.2; } }
+  @keyframes neon-drift-2 { 0%,100% { transform: translate(0,0); opacity: 0.08; } 50% { transform: translate(-18px,12px); opacity: 0.16; } }
+  @keyframes particle-wander { 0%,100% { transform: translate(0,0); opacity: 0.12; } 25% { transform: translate(5px,-8px); opacity: 0.4; } 75% { transform: translate(-4px,-6px); opacity: 0.3; } }
+  @keyframes edge-pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    border-radius: 44px;
+    border: 3px solid #1a1a22;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+    background: #1C1C24;
+  }
+
+  /* ── Background ── */
+  .bg { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+  .neon { position: absolute; border-radius: 50%; filter: blur(50px); }
+  .n1 { width: 250px; height: 250px; top: 25%; left: -15%; background: radial-gradient(circle, rgba(0,255,200,0.16) 0%, transparent 70%); animation: neon-drift 14s ease-in-out infinite; }
+  .n2 { width: 200px; height: 200px; top: 50%; right: -18%; background: radial-gradient(circle, rgba(255,0,200,0.12) 0%, transparent 70%); animation: neon-drift-2 12s ease-in-out infinite; }
+  .n3 { width: 200px; height: 200px; bottom: 10%; left: 10%; background: radial-gradient(circle, rgba(0,140,255,0.13) 0%, transparent 70%); animation: neon-drift 16s ease-in-out 3s infinite; }
+  .n4 { width: 150px; height: 150px; top: 8%; right: 10%; background: radial-gradient(circle, rgba(160,80,255,0.08) 0%, transparent 70%); animation: neon-drift-2 18s ease-in-out 2s infinite; }
+
+  .bp { position: absolute; border-radius: 50%; }
+  .bp1 { width: 3px; height: 3px; background: #00FFC8; top: 32%; left: 20%; animation: particle-wander 7s infinite; box-shadow: 0 0 8px #00FFC8; }
+  .bp2 { width: 2px; height: 2px; background: #FF00C8; top: 50%; right: 24%; animation: particle-wander 9s 1s infinite; box-shadow: 0 0 6px #FF00C8; }
+  .bp3 { width: 2px; height: 2px; background: #0096FF; top: 65%; left: 50%; animation: particle-wander 6s 2s infinite; box-shadow: 0 0 6px #0096FF; }
+  .bp4 { width: 2px; height: 2px; background: #00FFC8; top: 40%; right: 38%; animation: particle-wander 8s 0.5s infinite; box-shadow: 0 0 6px #00FFC8; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     THE CARD — structured like a real MTG card
+     ═══════════════════════════════════════════════════════════════ */
+
+  .card-wrap {
+    position: absolute;
+    z-index: 10;
+    transform-style: preserve-3d;
+    animation: card-entrance 3.5s cubic-bezier(0.22,1,0.36,1) forwards, card-bob 7s ease-in-out 3.5s infinite;
+    filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(0,255,200,0.08));
+  }
+
+  .mtg {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: inherit;
+    overflow: hidden;
+  }
+
+  /* Black border — the outermost layer */
+  .mtg-border {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #0A0A0E;
+  }
+
+  /* Inner card frame — the colored frame area */
+  .mtg-frame {
+    position: absolute;
+    inset: 3%;
+    border-radius: 6px;
+    /* Dark steel / artifact-style frame */
+    background: linear-gradient(
+      180deg,
+      #2A2A32 0%,
+      #22222A 8%,
+      #1E1E26 20%,
+      #1A1A22 50%,
+      #1E1E26 80%,
+      #22222A 92%,
+      #2A2A32 100%
+    );
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+
+  /* Frame texture — subtle noise */
+  .mtg-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* ── Title Bar ── */
+  .mtg-title-bar {
+    position: absolute;
+    top: 3%;
+    left: 4%;
+    right: 4%;
+    height: 8%;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, #28282F, #202028);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .mtg-card-name {
+    font-size: clamp(7px, 2.5vw, 13px);
+    font-weight: 700;
+    color: #E8E8EC;
+    letter-spacing: 0.2px;
+  }
+
+  .mtg-mana-row { display: flex; gap: 2px; }
+
+  .mtg-mana-pip {
+    width: clamp(8px, 2.8vw, 14px);
+    height: clamp(8px, 2.8vw, 14px);
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.4);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .pip-generic { background: radial-gradient(circle at 35% 30%, #BFBFBF, #787878); }
+  .pip-u { background: radial-gradient(circle at 35% 30%, #6CB5F5, #1A5FA0); }
+  .pip-b { background: radial-gradient(circle at 35% 30%, #6E6E80, #1A1A2A); }
+
+  /* ── Art Box ── */
+  .mtg-art-box {
+    position: absolute;
+    top: 12%;
+    left: 4%;
+    right: 4%;
+    height: 40%;
+    border-radius: 2px;
+    border: 2px solid #0E0E12;
+    overflow: hidden;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+    background: #060608;
+  }
+
+  /* The actual foil art inside the box */
+  .art-foil-base {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 20%, rgba(0,255,200,0.5) 0%, transparent 40%),
+      radial-gradient(ellipse at 75% 40%, rgba(0,120,255,0.45) 0%, transparent 40%),
+      radial-gradient(ellipse at 45% 70%, rgba(180,50,255,0.4) 0%, transparent 35%),
+      radial-gradient(ellipse at 65% 15%, rgba(255,0,180,0.3) 0%, transparent 35%),
+      radial-gradient(ellipse at 20% 60%, rgba(255,200,0,0.25) 0%, transparent 30%),
+      radial-gradient(ellipse at 80% 75%, rgba(0,200,255,0.3) 0%, transparent 35%),
+      linear-gradient(150deg, #0A0A14, #080812);
+    background-size: 200% 200%;
+    animation: foil-move 12s ease-in-out infinite;
+  }
+
+  .art-holo {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(
+      from 0deg,
+      rgba(0,255,200,0.12), rgba(0,120,255,0.1), rgba(180,50,255,0.12),
+      rgba(255,0,180,0.1), rgba(255,200,0,0.08), rgba(0,255,200,0.12)
+    );
+    animation: holo-spin 18s linear infinite;
+    mix-blend-mode: color-dodge;
+    opacity: 0.5;
+  }
+
+  .art-specular {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      130deg, transparent 25%, rgba(255,255,255,0.04) 40%,
+      rgba(255,255,255,0.1) 44%, rgba(255,255,255,0.04) 48%, transparent 60%
+    );
+    background-size: 200% 200%;
+    animation: foil-move 7s ease-in-out infinite reverse;
+  }
+
+  .art-sweep-bar {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 25%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    transform: skewX(-18deg);
+    animation: sweep 5s ease-in-out infinite;
+  }
+
+  /* Sparkle crosses inside art */
+  .art-sparkle {
+    position: absolute;
+    z-index: 3;
+  }
+  .art-sparkle::before, .art-sparkle::after {
+    content: '';
+    position: absolute;
+    background: white;
+    border-radius: 1px;
+    box-shadow: 0 0 4px white, 0 0 8px rgba(255,255,255,0.4);
+  }
+  .art-sparkle::before { width: 1px; height: var(--sz, 8px); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .art-sparkle::after { width: var(--sz, 8px); height: 1px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+  .as1 { --sz: 10px; top: 15%; left: 20%; animation: sparkle 2.8s infinite; }
+  .as2 { --sz: 7px; top: 35%; right: 15%; animation: sparkle 3.2s 0.6s infinite; }
+  .as3 { --sz: 9px; top: 55%; left: 40%; animation: sparkle 2.5s 1.2s infinite; }
+  .as4 { --sz: 6px; top: 20%; left: 60%; animation: sparkle 3s 0.3s infinite; }
+  .as5 { --sz: 8px; top: 65%; right: 25%; animation: sparkle 2.7s 1.8s infinite; }
+  .as6 { --sz: 5px; top: 40%; left: 15%; animation: sparkle 3.5s 0.9s infinite; }
+  .as7 { --sz: 7px; top: 75%; left: 55%; animation: sparkle 2.3s 2.1s infinite; }
+  .as8 { --sz: 6px; top: 25%; right: 35%; animation: sparkle 2.9s 1.5s infinite; }
+  .as9 { --sz: 8px; top: 50%; right: 40%; animation: sparkle 3.3s 0.4s infinite; }
+  .as10 { --sz: 5px; top: 80%; left: 30%; animation: sparkle 2.6s 2.4s infinite; }
+
+  /* CE letters centered in art */
+  .art-ce {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: clamp(28px, 14vw, 70px);
+    font-weight: 900;
+    letter-spacing: -2px;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 2px 10px rgba(0,0,0,0.6), 0 0 30px rgba(0,255,200,0.2);
+    z-index: 4;
+  }
+
+  /* ── Type Line ── */
+  .mtg-type-bar {
+    position: absolute;
+    top: 53.5%;
+    left: 4%;
+    right: 4%;
+    height: 6%;
+    background: linear-gradient(180deg, #24242C, #1E1E26);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .mtg-type-text {
+    font-size: clamp(4.5px, 1.6vw, 8px);
+    font-weight: 600;
+    color: #C0C0C8;
+    letter-spacing: 0.2px;
+  }
+
+  .mtg-set-symbol {
+    width: clamp(6px, 2.2vw, 12px);
+    height: clamp(6px, 2.2vw, 12px);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    background: radial-gradient(circle, #FF9020, #CC6000);
+    box-shadow: 0 0 4px rgba(255,144,32,0.5);
+  }
+
+  /* ── Text Box ── */
+  .mtg-text-box {
+    position: absolute;
+    top: 61%;
+    left: 4%;
+    right: 4%;
+    bottom: 11%;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #18181E, #141418);
+    border: 1px solid rgba(255,255,255,0.04);
+    padding: 5% 6%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .mtg-rules {
+    font-size: clamp(4px, 1.5vw, 8px);
+    color: #BBBBC4;
+    line-height: 1.8;
+  }
+
+  .mtg-rules strong {
+    color: #00FFC8;
+    font-weight: 700;
+  }
+
+  .mtg-flavor {
+    font-size: clamp(3.5px, 1.3vw, 7px);
+    color: #666670;
+    font-style: italic;
+    margin-top: 6%;
+    padding-top: 5%;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    text-align: center;
+  }
+
+  /* ── P/T Box ── */
+  .mtg-pt-box {
+    position: absolute;
+    bottom: 10.5%;
+    right: 5%;
+    background: linear-gradient(135deg, #28282F, #1E1E26);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    padding: 1% 3%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+    z-index: 2;
+  }
+
+  .mtg-pt-text {
+    font-size: clamp(6px, 2.2vw, 12px);
+    font-weight: 800;
+    color: #E8E8EC;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Footer ── */
+  .mtg-footer {
+    position: absolute;
+    bottom: 2%;
+    left: 5%;
+    right: 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mtg-collector {
+    font-size: clamp(2.5px, 0.9vw, 5px);
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.2px;
+  }
+
+  .mtg-artist {
+    font-size: clamp(2.5px, 0.9vw, 5px);
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* Top edge neon glow */
+  .mtg-edge {
+    position: absolute;
+    top: 0; left: 15%; right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,200,0.4), transparent);
+    animation: edge-pulse 3s ease-in-out infinite;
+    z-index: 5;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     BRAND + FORM
+     ═══════════════════════════════════════════════════════════════ */
+
+  .brand {
+    position: absolute;
+    top: 172px;
+    left: 0; right: 0;
+    text-align: center;
+    z-index: 5;
+    animation: brand-in 0.6s ease-out 3.2s both;
+  }
+
+  .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #00FFC8;
+    letter-spacing: -0.3px;
+    text-shadow: 0 0 16px rgba(0,255,200,0.25);
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  .form-layer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 5;
+    padding: 0 24px 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    animation: form-up 0.8s ease-out 2.8s both;
+  }
+
+  .input-wrap { position: relative; margin-bottom: 10px; }
+
+  .input-field {
+    width: 100%;
+    padding: 15px 18px 15px 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(18,18,24,0.7);
+    backdrop-filter: blur(16px);
+    color: #E2E8F0;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .input-field:focus {
+    border-color: rgba(0,255,200,0.25);
+    box-shadow: 0 0 0 3px rgba(0,255,200,0.05), 0 0 20px rgba(0,255,200,0.03);
+    background: rgba(18,18,24,0.85);
+  }
+
+  .input-field::placeholder { color: rgba(255,255,255,0.12); }
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: rgba(255,255,255,0.12);
+    font-weight: 600;
+    pointer-events: none;
+    transition: color 0.3s;
+  }
+
+  .input-wrap:focus-within .input-icon { color: #00FFC8; }
+
+  .meta-row { display: flex; justify-content: flex-end; margin-bottom: 14px; margin-top: 2px; }
+  .forgot { font-size: 11px; color: #00FFC8; font-weight: 600; cursor: pointer; text-shadow: 0 0 8px rgba(0,255,200,0.15); }
+
+  .btn-wrap { position: relative; margin-bottom: 14px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0A0A10;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #00FFC8, #00D4A8);
+    box-shadow: 0 4px 24px rgba(0,255,200,0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+    transition: transform 0.15s;
+  }
+
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-shimmer {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .btn-glow {
+    position: absolute;
+    bottom: -2px;
+    left: 8%; right: 8%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #00FFC8, #00B8FF, #A050FF, #FF00C8, #00FFC8);
+    background-size: 300% 100%;
+    animation: border-flow 3s linear infinite;
+    filter: blur(10px);
+    opacity: 0.3;
+  }
+
+  .divider { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .div-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+  .div-text { font-size: 9px; color: rgba(255,255,255,0.18); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+  .social-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .social-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: rgba(18,18,24,0.5);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.45);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .social-btn:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.4); color: #E2E8F0; }
+
+  .guest-row { text-align: center; font-size: 12px; color: rgba(255,255,255,0.12); }
+  .guest-row span { color: rgba(0,255,200,0.4); font-weight: 600; cursor: pointer; border-bottom: 1px solid rgba(0,255,200,0.15); padding-bottom: 1px; }
+
+  .demo-label { text-align: center; margin-top: 18px; max-width: 440px; }
+  .demo-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .demo-label p { font-size: 11px; color: #555; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+  <div class="phone">
+    <div class="bg">
+      <div class="neon n1"></div>
+      <div class="neon n2"></div>
+      <div class="neon n3"></div>
+      <div class="neon n4"></div>
+      <div class="bp bp1"></div>
+      <div class="bp bp2"></div>
+      <div class="bp bp3"></div>
+      <div class="bp bp4"></div>
+    </div>
+
+    <!-- MTG Card -->
+    <div class="card-wrap">
+      <div class="mtg">
+        <div class="mtg-border">
+          <div class="mtg-frame">
+            <div class="mtg-edge"></div>
+
+            <!-- Title Bar -->
+            <div class="mtg-title-bar">
+              <div class="mtg-card-name">Card Engine</div>
+              <div class="mtg-mana-row">
+                <div class="mtg-mana-pip pip-generic"></div>
+                <div class="mtg-mana-pip pip-u"></div>
+                <div class="mtg-mana-pip pip-b"></div>
+              </div>
+            </div>
+
+            <!-- Art Box -->
+            <div class="mtg-art-box">
+              <div class="art-foil-base"></div>
+              <div class="art-holo"></div>
+              <div class="art-specular"></div>
+              <div class="art-sweep-bar"></div>
+              <div class="art-sparkle as1"></div>
+              <div class="art-sparkle as2"></div>
+              <div class="art-sparkle as3"></div>
+              <div class="art-sparkle as4"></div>
+              <div class="art-sparkle as5"></div>
+              <div class="art-sparkle as6"></div>
+              <div class="art-sparkle as7"></div>
+              <div class="art-sparkle as8"></div>
+              <div class="art-sparkle as9"></div>
+              <div class="art-sparkle as10"></div>
+              <div class="art-ce">CE</div>
+            </div>
+
+            <!-- Type Line -->
+            <div class="mtg-type-bar">
+              <div class="mtg-type-text">Legendary Artifact — Collection Engine</div>
+              <div class="mtg-set-symbol"></div>
+            </div>
+
+            <!-- Text Box -->
+            <div class="mtg-text-box">
+              <div class="mtg-rules">
+                <strong>Scan</strong> — Identify any card instantly.<br/><br/>
+                <strong>Collect</strong> — Track your collection with real-time pricing.<br/><br/>
+                <strong>Master</strong> — Build winning decks with AI-powered tools.
+              </div>
+              <div class="mtg-flavor">"Every collection tells a story."</div>
+            </div>
+
+            <!-- P/T Box -->
+            <div class="mtg-pt-box">
+              <div class="mtg-pt-text">∞/∞</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="mtg-footer">
+              <div class="mtg-collector">001/001 M · CE</div>
+              <div class="mtg-artist">Card Engine v1.0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brand">
+      <div class="brand-name">Card Engine</div>
+      <div class="brand-sub">Scan . Collect . Master</div>
+    </div>
+
+    <div class="form-layer">
+      <div class="input-wrap">
+        <input class="input-field" placeholder="Email address" />
+        <div class="input-icon">@</div>
+      </div>
+      <div class="input-wrap">
+        <input class="input-field" type="password" placeholder="Password" />
+        <div class="input-icon" style="font-size:12px;">*</div>
+      </div>
+
+      <div class="meta-row">
+        <div class="forgot">Forgot password?</div>
+      </div>
+
+      <div class="btn-wrap">
+        <button class="btn-primary">
+          <span class="btn-shimmer"></span>
+          <span style="position:relative;z-index:1;">Sign In</span>
+        </button>
+        <div class="btn-glow"></div>
+      </div>
+
+      <div class="divider">
+        <div class="div-line"></div>
+        <div class="div-text">or continue with</div>
+        <div class="div-line"></div>
+      </div>
+
+      <div class="social-row">
+        <div class="social-btn"><span style="font-size:17px;font-weight:500;"></span> Apple</div>
+        <div class="social-btn"><span style="font-size:14px;font-weight:700;color:#4285F4;">G</span> Google</div>
+      </div>
+
+      <div class="guest-row">or <span>explore as guest</span></div>
+    </div>
+  </div>
+
+  <div class="demo-label">
+    <h3>Real MTG Card Structure</h3>
+    <p>Black border → colored frame (dark artifact/steel) with texture → Title bar with "Card Engine" and mana pips (generic, blue, black) → Art box with clear border containing the foil art (shifting color orbs, conic holo, sparkle crosses, light sweep) → Type line with "Legendary Artifact — Collection Engine" and mythic set symbol → Text box with rules and flavor text → P/T box showing ∞/∞ → Collector number footer. All proper card anatomy. Dark gray background with neon orbs and particles.</p>
+  </div>
+</div>
+
+</body>
+</html>

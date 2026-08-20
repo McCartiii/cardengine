@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+// Type-only import: erased at build time, so tesseract.js still loads lazily.
+import type { Worker as TesseractWorker } from "tesseract.js";
 import {
   searchCardsLocal,
   addCollectionEvent,
@@ -144,7 +146,7 @@ async function matchOnline(fields: {
 export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const workerRef = useRef<any>(null);
+  const workerRef = useRef<TesseractWorker | null>(null);
   const scanLockRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -214,9 +216,10 @@ export default function ScanPage() {
         setCameraReady(true);
         setCameraError(null);
       }
-    } catch (err: any) {
+    } catch (err) {
+      const permissionDenied = err instanceof Error && err.name === "NotAllowedError";
       setCameraError(
-        err?.name === "NotAllowedError"
+        permissionDenied
           ? "Camera permission denied. Please allow camera access."
           : "Camera not available. Use manual search below."
       );
