@@ -26,19 +26,21 @@ export function registerCardRoutes(app: FastifyInstance) {
       const collNum = card.collectorNumber ?? "";
       const encodedName = encodeURIComponent(card.name);
 
-      // Fetch LIVE prices from Scryfall API for this exact card (cached 4h)
+      // Fetch LIVE prices from Scryfall API for this exact card (cached 4h).
+      // Hard timeout — a hung Scryfall call previously blanked the web card page.
       let scryfallLive: ScryfallLiveData | null = scryfallCache.get(scryfallId) ?? null;
       if (!scryfallLive) {
         try {
           const scRes = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
             headers: { "User-Agent": "CardEngine/1.0" },
+            signal: AbortSignal.timeout(4_000),
           });
           if (scRes.ok) {
             scryfallLive = (await scRes.json()) as ScryfallLiveData;
             scryfallCache.set(scryfallId, scryfallLive);
           }
         } catch (err) {
-          app.log.warn({ err }, "[card-detail] Scryfall fetch failed; no cached data available");
+          app.log.warn({ err }, "[card-detail] Scryfall fetch failed; continuing with DB data");
         }
       }
 
@@ -50,6 +52,11 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       const storePricing: StorePricing[] = [];
 
+      // Fallback to DB price cache when Scryfall is unavailable
+      const cachedPrices = !scryfallLive
+        ? await prisma.priceCache.findMany({ where: { variantId: params.variantId } })
+        : [];
+
       // TCGplayer
       {
         const entries: StorePricing["prices"] = [];
@@ -59,6 +66,15 @@ export function registerCardRoutes(app: FastifyInstance) {
         if (usd && usd > 0) entries.push({ label: "Normal", amount: usd, currency: "USD" });
         if (usdFoil && usdFoil > 0) entries.push({ label: "Foil", amount: usdFoil, currency: "USD" });
         if (usdEtched && usdEtched > 0) entries.push({ label: "Etched", amount: usdEtched, currency: "USD" });
+        if (entries.length === 0) {
+          for (const p of cachedPrices.filter((c) => c.market === "tcgplayer" && c.currency === "USD")) {
+            entries.push({
+              label: p.kind === "foil" ? "Foil" : p.kind === "etched" ? "Etched" : "Normal",
+              amount: p.amount,
+              currency: "USD",
+            });
+          }
+        }
         storePricing.push({
           store: "TCGplayer",
           prices: entries,
@@ -77,6 +93,15 @@ export function registerCardRoutes(app: FastifyInstance) {
         if (eur && eur > 0) entries.push({ label: "Normal", amount: eur, currency: "EUR" });
         if (eurFoil && eurFoil > 0) entries.push({ label: "Foil", amount: eurFoil, currency: "EUR" });
         if (eurEtched && eurEtched > 0) entries.push({ label: "Etched", amount: eurEtched, currency: "EUR" });
+        if (entries.length === 0) {
+          for (const p of cachedPrices.filter((c) => c.market === "cardmarket" && c.currency === "EUR")) {
+            entries.push({
+              label: p.kind === "foil" ? "Foil" : p.kind === "etched" ? "Etched" : "Normal",
+              amount: p.amount,
+              currency: "EUR",
+            });
+          }
+        }
         storePricing.push({
           store: "Cardmarket",
           prices: entries,
