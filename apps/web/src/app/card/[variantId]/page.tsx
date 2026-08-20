@@ -680,7 +680,8 @@ export default function CardDetailPage() {
     setError(null);
     try {
       const res = await fetch(
-        `${API_URL}/v1/cards/${encodeURIComponent(variantId)}?historyDays=${historyDays}`
+        `${API_URL}/v1/cards/${encodeURIComponent(variantId)}?historyDays=${historyDays}`,
+        { signal: AbortSignal.timeout(15_000) }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -691,7 +692,13 @@ export default function CardDetailPage() {
         setLastUpdated(new Date());
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to fetch card");
+      const msg =
+        e instanceof Error && e.name === "TimeoutError"
+          ? "Card detail timed out — try again"
+          : e instanceof Error
+            ? e.message
+            : "Failed to fetch card";
+      setError(msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
