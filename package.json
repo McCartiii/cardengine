@@ -13,6 +13,8 @@
     "build:packages": "npm run build:engine && npm run build:mtg-adapter",
     "db:generate": "npm run db:generate --workspace=apps/api",
     "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "ingest:set": "npm run ingest:set --workspace=apps/api",
+    "ingest:scryfall": "npm run ingest:scryfall --workspace=apps/api",
     "test": "vitest run"
   },
   "keywords": [],

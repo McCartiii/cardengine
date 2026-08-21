@@ -46,6 +46,9 @@ export default function AdminPage() {
   const [token, setToken] = useState<string | null>(null);
   const [actionLog, setActionLog] = useState<string[]>([]);
   const [user, setUser] = useState<{ email?: string } | null>(null);
+  const [setCode, setSetCode] = useState("");
+  const [ingestBusy, setIngestBusy] = useState(false);
+  const [cardCount, setCardCount] = useState<number | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -66,10 +69,11 @@ export default function AdminPage() {
 
       try {
         const headers = { Authorization: `Bearer ${session.access_token}` };
-        const [reportsRes, scannerRes, rulesRes] = await Promise.all([
+        const [reportsRes, scannerRes, rulesRes, statsRes] = await Promise.all([
           fetch(`${API_URL}/admin/reports?resolved=false&limit=20`, { headers }),
           fetch(`${API_URL}/admin/telemetry/scanner-stats?days=7`, { headers }),
           fetch(`${API_URL}/admin/telemetry/rules-stats?days=7`, { headers }),
+          fetch(`${API_URL}/admin/stats`, { headers }),
         ]);
 
         if (reportsRes.status === 403) {
@@ -81,6 +85,10 @@ export default function AdminPage() {
         if (reportsRes.ok) setReports((await reportsRes.json()).reports ?? []);
         if (scannerRes.ok) setScannerStats(await scannerRes.json());
         if (rulesRes.ok) setRulesStats(await rulesRes.json());
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          setCardCount(typeof stats.cards === "number" ? stats.cards : null);
+        }
       } catch {
         setError("Failed to load admin data.");
       }
@@ -131,6 +139,48 @@ export default function AdminPage() {
       logAction(`Banned user ${id.slice(0, 8)}`);
     } catch {
       logAction(`Failed to ban user ${id.slice(0, 8)}`);
+    }
+  };
+
+  const runIngest = async (body: { setCode?: string }) => {
+    if (!token || ingestBusy) return;
+    const label = body.setCode ? `set:${body.setCode}` : "full catalog";
+    if (
+      !body.setCode &&
+      !confirm("Full catalog ingest downloads ~all Scryfall cards and can take a long time. Continue?")
+    ) {
+      return;
+    }
+    setIngestBusy(true);
+    logAction(`Starting ingest (${label})...`);
+    try {
+      const res = await fetch(`${API_URL}/admin/ingest/scryfall`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        logAction(`Ingest failed: ${(data as { error?: string }).error ?? res.statusText}`);
+        return;
+      }
+      const processed = (data as { cardsProcessed?: number }).cardsProcessed ?? 0;
+      const prices = (data as { pricesUpdated?: number }).pricesUpdated ?? 0;
+      logAction(`Ingest done (${label}): ${processed} cards, ${prices} prices`);
+      const statsRes = await fetch(`${API_URL}/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        setCardCount(typeof stats.cards === "number" ? stats.cards : null);
+      }
+    } catch (e) {
+      logAction(`Ingest error: ${e instanceof Error ? e.message : "unknown"}`);
+    } finally {
+      setIngestBusy(false);
     }
   };
 
@@ -185,6 +235,45 @@ export default function AdminPage() {
             Admin Dashboard
           </h1>
           <Badge variant="danger">ADMIN</Badge>
+        </div>
+
+        {/* Card catalog / new-set sync */}
+        <div className="mt-8 rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-text-primary">Card catalog</h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                When a new set hits Scryfall, sync just that set code (fast). Full refresh is for
+                rebuilds only.
+              </p>
+              <p className="mt-2 text-xs text-text-muted">
+                DB cards: {cardCount != null ? cardCount.toLocaleString() : "—"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={setCode}
+              onChange={(e) => setSetCode(e.target.value.toLowerCase().trim())}
+              placeholder="Set code (e.g. eoe, spm)"
+              maxLength={5}
+              className="w-full sm:w-56 rounded-xl border border-border bg-bg px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+            />
+            <Button
+              disabled={ingestBusy || setCode.length < 3}
+              onClick={() => runIngest({ setCode })}
+            >
+              {ingestBusy ? "Syncing…" : "Sync set"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={ingestBusy}
+              onClick={() => runIngest({})}
+            >
+              Full catalog refresh
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
