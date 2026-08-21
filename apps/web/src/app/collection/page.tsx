@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { downloadAndStoreBundle, searchCardsLocal, type LocalCard } from "@/lib/store/cardStore";
+import { searchCardsLocal, type LocalCard } from "@/lib/store/cardStore";
 import { runWebSync } from "@/lib/store/sync";
 import Link from "next/link";
 import { NavBar } from "@/components/ui/NavBar";
 import { Badge } from "@/components/ui/Badge";
-import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 import { getIdentityStyle } from "@/lib/identity";
 import { CardImage } from "@/components/ui/CardImage";
 
@@ -78,12 +78,8 @@ export default function CollectionPage() {
   const [cards, setCards] = useState<CardWithPrice[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("popular");
-  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [user, setUser] = useState<{ email?: string } | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState<{
-    downloaded: number;
-    total: number | null;
-  } | null>(null);
   const [watchlistAdded, setWatchlistAdded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -95,27 +91,20 @@ export default function CollectionPage() {
     loadUser();
   }, []);
 
+  // Sync collection events only — do NOT download the full MTG catalog.
+  // Search hits the API; local IndexedDB is a fallback if the API is down.
   useEffect(() => {
-    async function init() {
-      try {
-        await downloadAndStoreBundle(API_URL, (downloaded, total) => {
-          setDownloadProgress({ downloaded, total });
-        });
-        await runWebSync();
-      } catch (err) {
-        console.warn("Init error:", err);
-      }
-      setDownloadProgress(null);
-      setLoading(false);
-    }
-    init();
+    runWebSync().catch((err) => console.warn("Sync error:", err));
   }, []);
 
   useEffect(() => {
     if (!searchQuery) {
       setCards([]);
+      setSearching(false);
       return;
     }
+    let cancelled = false;
+    setSearching(true);
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
@@ -123,16 +112,26 @@ export default function CollectionPage() {
         );
         if (res.ok) {
           const data = await res.json();
-          setCards(data.cards ?? []);
+          if (!cancelled) setCards(data.cards ?? []);
           return;
         }
+        const results = await searchCardsLocal(searchQuery, 50);
+        if (!cancelled) setCards(results);
       } catch {
-        // Fallback to local
+        try {
+          const results = await searchCardsLocal(searchQuery, 50);
+          if (!cancelled) setCards(results);
+        } catch {
+          if (!cancelled) setCards([]);
+        }
+      } finally {
+        if (!cancelled) setSearching(false);
       }
-      const results = await searchCardsLocal(searchQuery, 50);
-      setCards(results);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchQuery, sortBy]);
 
   useEffect(() => {
@@ -213,32 +212,11 @@ export default function CollectionPage() {
           </select>
         </div>
 
-        {loading ? (
-          <div className="mt-10">
-            {downloadProgress ? (
-              <div className="text-center animate-fade-in">
-                <p className="text-text-secondary text-sm">
-                  Downloading cards... {downloadProgress.downloaded.toLocaleString()}
-                  {downloadProgress.total ? ` / ${downloadProgress.total.toLocaleString()}` : ""}
-                </p>
-                {downloadProgress.total && downloadProgress.total > 0 && (
-                  <div className="mx-auto mt-4 h-2 w-64 overflow-hidden rounded-full bg-surface-sunken">
-                    <div
-                      className="h-full rounded-full bg-tab-collection transition-all duration-300"
-                      style={{
-                        width: `${Math.min((downloadProgress.downloaded / downloadProgress.total) * 100, 100)}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <SkeletonCard key={i} />
-                ))}
-              </div>
-            )}
+        {searching ? (
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : cards.length === 0 && searchQuery ? (
           <div className="mt-16 text-center animate-fade-in">
