@@ -12,6 +12,7 @@ import { checkWatchlistAlerts } from "./jobs/watchlistCheck.js";
 import { runMetaSnapshotJob } from "./jobs/metaSnapshotJob.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerCollectionRoutes } from "./routes/collection.js";
+import { registerMarketRoutes } from "./routes/market.js";
 import { registerDeckAdvisorRoutes } from "./routes/deckAdvisor.js";
 import { registerWatchlistRoutes } from "./routes/watchlist.js";
 import { registerProfileRoutes } from "./routes/profile.js";
@@ -124,6 +125,7 @@ app.get("/v1/bundles/:game/hashes", async (req) => {
 // ── Route modules ──
 registerCardRoutes(app);
 registerCollectionRoutes(app);
+registerMarketRoutes(app);
 registerDeckAdvisorRoutes(app);
 registerWatchlistRoutes(app);
 registerProfileRoutes(app);

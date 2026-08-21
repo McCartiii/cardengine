@@ -38,6 +38,39 @@ export interface CardVariant {
   priceUsd?: number | null;
 }
 
+export interface MarketCard {
+  variantId: string;
+  name: string;
+  setId: string | null;
+  collectorNumber: string | null;
+  rarity: string | null;
+  imageUri: string | null;
+  priceUsd: number | null;
+  bestUsd: number | null;
+  bestMarket: string | null;
+  prices: Array<{ market: string; kind: string; currency: string; amount: number }>;
+  sparkline: number[];
+  deltaPct: number | null;
+  previousUsd: number | null;
+}
+
+export interface MarketHome {
+  generatedAt: string;
+  movers: MarketCard[];
+  newCards: MarketCard[];
+  popular: MarketCard[];
+  featured: {
+    card: MarketCard;
+    history: Array<{
+      at: string;
+      market: string;
+      kind: string;
+      currency: string;
+      amount: number;
+    }>;
+  } | null;
+}
+
 export interface Deck {
   id: string;
   name: string;
@@ -141,5 +174,9 @@ export const api = {
   profile: {
     get: () => request<{ id: string; displayName: string | null; avatarUrl: string | null; createdAt: string }>("GET", "/v1/profile"),
     update: (data: { displayName?: string }) => request<{ ok: boolean }>("PUT", "/v1/profile", data),
+  },
+
+  market: {
+    home: () => request<MarketHome>("GET", "/v1/market/home"),
   },
 };

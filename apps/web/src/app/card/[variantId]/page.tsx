@@ -741,17 +741,22 @@ export default function CardDetailPage() {
     });
   }, []);
 
-  // Find the "best" price to display as the headline
+  // Lowest USD listing across stores (Normal/market first), then any USD, then first price
   const headlinePrice = useMemo(() => {
     if (!data) return null;
+    const candidates: Array<{ store: string; label: string; amount: number; currency: string }> = [];
     for (const sp of data.storePricing) {
-      const usd = sp.prices.find((p) => p.currency === "USD" && p.label === "Normal");
-      if (usd) return { store: sp.store, ...usd };
+      for (const p of sp.prices) {
+        if (p.amount > 0) candidates.push({ store: sp.store, ...p });
+      }
     }
-    for (const sp of data.storePricing) {
-      if (sp.prices.length > 0) return { store: sp.store, ...sp.prices[0] };
-    }
-    return null;
+    const usdNormal = candidates.filter(
+      (p) => p.currency === "USD" && (p.label === "Normal" || p.label === "Market")
+    );
+    const pool = usdNormal.length > 0 ? usdNormal : candidates.filter((p) => p.currency === "USD");
+    const list = pool.length > 0 ? pool : candidates;
+    if (list.length === 0) return null;
+    return list.reduce((a, b) => (a.amount < b.amount ? a : b));
   }, [data]);
 
   if (loading) {
@@ -973,6 +978,26 @@ export default function CardDetailPage() {
                     </Button>
                   </div>
 
+                  {headlinePrice && (
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-accent/30 bg-accent-light px-4 py-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-accent-text">
+                          Best buy
+                        </p>
+                        <p className="text-lg font-bold tabular-nums text-text-primary">
+                          {currencyFormat(headlinePrice.amount, headlinePrice.currency)}
+                          <span className="ml-2 text-sm font-medium text-text-secondary">
+                            {headlinePrice.store}
+                            {headlinePrice.label !== "Normal" ? ` · ${headlinePrice.label}` : ""}
+                          </span>
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-text-muted">
+                        Lowest listed price we have for this printing
+                      </p>
+                    </div>
+                  )}
+
                   {/* Stores WITH live prices */}
                   <div className="space-y-3">
                     {storesWithPrices.map((sp) => {
@@ -998,10 +1023,17 @@ export default function CardDetailPage() {
                             )}
                           </div>
                           <div className="divide-y divide-border">
-                            {sp.prices.map((p) => (
+                            {sp.prices.map((p) => {
+                              const isBest =
+                                headlinePrice &&
+                                sp.store === headlinePrice.store &&
+                                p.label === headlinePrice.label &&
+                                p.currency === headlinePrice.currency &&
+                                p.amount === headlinePrice.amount;
+                              return (
                               <div
                                 key={`${sp.store}-${p.label}-${p.currency}`}
-                                className="flex items-center justify-between px-4 py-2.5"
+                                className={`flex items-center justify-between px-4 py-2.5 ${isBest ? "bg-accent-light" : ""}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Badge variant={config.badgeVariant}>
@@ -1010,12 +1042,16 @@ export default function CardDetailPage() {
                                   <span className="text-[10px] text-text-muted">
                                     {p.currency}
                                   </span>
+                                  {isBest && (
+                                    <Badge variant="success">Best</Badge>
+                                  )}
                                 </div>
                                 <span className="text-base font-bold tabular-nums text-text-primary">
                                   {currencyFormat(p.amount, p.currency)}
                                 </span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
