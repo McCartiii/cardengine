@@ -8,7 +8,9 @@
     "start": "prisma db push --accept-data-loss && node dist/index.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "ingest:scryfall": "tsx src/jobs/scryfallIngest.ts",
+    "ingest:set": "tsx src/jobs/scryfallIngest.ts"
   },
   "engines": {
     "node": ">=20.19"

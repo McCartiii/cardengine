@@ -295,7 +295,128 @@ async function processCardBatch(
   return { cards: cardRows.length, prices: priceRows.length };
 }
 
-export async function ingestScryfallBulk(options?: { maxCards?: number }) {
+async function hashCardBatch(batch: ScryfallCard[]): Promise<Map<string, HashData>> {
+  const HASH_CONCURRENCY = 10;
+  const hashResults: Map<string, HashData> = new Map();
+  for (let j = 0; j < batch.length; j += HASH_CONCURRENCY) {
+    const chunk = batch.slice(j, j + HASH_CONCURRENCY);
+    await Promise.all(
+      chunk.map(async (c) => {
+        const isFoil = c.finishes?.includes("foil") && !c.finishes?.includes("nonfoil");
+        const variantId = `scryfall:${c.id}${isFoil ? "-foil" : ""}`;
+        const imageUri = extractImageUri(c);
+        const faceImageUri = c.card_faces?.[0]?.image_uris?.normal ?? null;
+        const foilImageUri = faceImageUri && faceImageUri !== imageUri ? faceImageUri : null;
+        const [hashes, foilHashes] = await Promise.all([
+          imageUri ? computeHashes(imageUri) : Promise.resolve(null),
+          foilImageUri ? computeHashes(foilImageUri) : Promise.resolve(null),
+        ]);
+        hashResults.set(variantId, {
+          dHash: hashes?.dHash ?? null,
+          pHash: hashes?.pHash ?? null,
+          foilDHash: foilHashes?.dHash ?? null,
+          foilPHash: foilHashes?.pHash ?? null,
+        });
+      })
+    );
+  }
+  return hashResults;
+}
+
+function shouldIngestCard(card: ScryfallCard): boolean {
+  return (
+    card.lang === "en" &&
+    card.layout !== "token" &&
+    card.layout !== "art_series" &&
+    (card.games?.includes("paper") ?? true)
+  );
+}
+
+async function ingestCardList(
+  cards: ScryfallCard[],
+  label: string,
+  options?: { maxCards?: number; skipHashes?: boolean }
+): Promise<{ cardsProcessed: number; pricesUpdated: number }> {
+  const BATCH_SIZE = 200;
+  let cardsProcessed = 0;
+  let pricesUpdated = 0;
+  const limit = options?.maxCards;
+  const toProcess = limit ? cards.slice(0, limit) : cards;
+
+  for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+    const batch = toProcess.slice(i, i + BATCH_SIZE);
+    const hashResults = options?.skipHashes
+      ? new Map<string, HashData>()
+      : await hashCardBatch(batch);
+    const result = await processCardBatch(batch, hashResults);
+    cardsProcessed += result.cards;
+    pricesUpdated += result.prices;
+    console.log(`[${label}] Processed ${cardsProcessed}/${toProcess.length} cards...`);
+  }
+
+  return { cardsProcessed, pricesUpdated };
+}
+
+/**
+ * Fast path for new-set releases: pull one set from Scryfall search API
+ * instead of downloading the full ~200MB default_cards dump.
+ */
+export async function ingestScryfallSet(
+  setCode: string,
+  options?: { maxCards?: number; skipHashes?: boolean }
+) {
+  const code = setCode.trim().toLowerCase();
+  if (!/^[a-z0-9]{3,5}$/.test(code)) {
+    throw new Error(`Invalid set code: ${setCode}`);
+  }
+
+  console.log(`[scryfall-set] Fetching set:${code} from Scryfall search API...`);
+  const cards: ScryfallCard[] = [];
+  let nextUrl: string | null =
+    `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`set:${code} lang:en`)}&unique=prints&order=set`;
+
+  while (nextUrl) {
+    const res = await fetch(nextUrl, {
+      headers: { "User-Agent": "CardEngine/1.0" },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status === 404) break;
+    if (!res.ok) throw new Error(`Scryfall search returned ${res.status}`);
+    const page = (await res.json()) as {
+      data: ScryfallCard[];
+      has_more?: boolean;
+      next_page?: string;
+    };
+    for (const card of page.data ?? []) {
+      if (shouldIngestCard(card)) cards.push(card);
+    }
+    nextUrl = page.has_more && page.next_page ? page.next_page : null;
+    if (nextUrl) await new Promise((r) => setTimeout(r, 100)); // Scryfall rate limit
+  }
+
+  if (cards.length === 0) {
+    throw new Error(`No English paper cards found for set "${code}". Is it on Scryfall yet?`);
+  }
+
+  console.log(`[scryfall-set] Found ${cards.length} cards for set:${code}`);
+  const result = await ingestCardList(cards, `scryfall-set:${code}`, options);
+  console.log(`[scryfall-set] Done. Cards: ${result.cardsProcessed}, Prices: ${result.pricesUpdated}`);
+  return { setCode: code, ...result };
+}
+
+export async function ingestScryfallBulk(options?: {
+  maxCards?: number;
+  setCode?: string;
+  skipHashes?: boolean;
+}) {
+  // Prefer the fast set path when a set code is provided
+  if (options?.setCode) {
+    return ingestScryfallSet(options.setCode, {
+      maxCards: options.maxCards,
+      skipHashes: options.skipHashes,
+    });
+  }
+
   console.log("[scryfall-ingest] Fetching bulk data catalog...");
   const bulkRes = await fetch(SCRYFALL_BULK_API);
   if (!bulkRes.ok) throw new Error(`Scryfall bulk API returned ${bulkRes.status}`);
@@ -316,7 +437,6 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   const rl = createInterface({ input: nodeStream, crlfDelay: Infinity });
 
   const BATCH_SIZE = 200;
-  const HASH_CONCURRENCY = 10;
   let batch: ScryfallCard[] = [];
   let cardsProcessed = 0;
   let pricesUpdated = 0;
@@ -335,45 +455,16 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
       continue;
     }
 
-    // Same filter as before
-    if (
-      card.lang !== "en" ||
-      card.layout === "token" ||
-      card.layout === "art_series" ||
-      !(card.games?.includes("paper") ?? true)
-    ) {
-      continue;
-    }
+    if (!shouldIngestCard(card)) continue;
 
     if (options?.maxCards && cardsProcessed + batch.length >= options.maxCards) break;
 
     batch.push(card);
 
     if (batch.length >= BATCH_SIZE) {
-      // Compute perceptual hashes for batch (10 concurrent to avoid rate limiting)
-      const hashResults: Map<string, HashData> = new Map();
-      for (let j = 0; j < batch.length; j += HASH_CONCURRENCY) {
-        const chunk = batch.slice(j, j + HASH_CONCURRENCY);
-        await Promise.all(
-          chunk.map(async (c) => {
-            const isFoil = c.finishes?.includes("foil") && !c.finishes?.includes("nonfoil");
-            const variantId = `scryfall:${c.id}${isFoil ? "-foil" : ""}`;
-            const imageUri = extractImageUri(c);
-            const faceImageUri = c.card_faces?.[0]?.image_uris?.normal ?? null;
-            const foilImageUri = faceImageUri && faceImageUri !== imageUri ? faceImageUri : null;
-            const [hashes, foilHashes] = await Promise.all([
-              imageUri ? computeHashes(imageUri) : Promise.resolve(null),
-              foilImageUri ? computeHashes(foilImageUri) : Promise.resolve(null),
-            ]);
-            hashResults.set(variantId, {
-              dHash: hashes?.dHash ?? null,
-              pHash: hashes?.pHash ?? null,
-              foilDHash: foilHashes?.dHash ?? null,
-              foilPHash: foilHashes?.pHash ?? null,
-            });
-          })
-        );
-      }
+      const hashResults = options?.skipHashes
+        ? new Map<string, HashData>()
+        : await hashCardBatch(batch);
 
       const result = await processCardBatch(batch, hashResults);
       cardsProcessed += result.cards;
@@ -387,30 +478,9 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   }
 
   if (batch.length > 0) {
-    const hashResults: Map<string, HashData> = new Map();
-    const HASH_CONCURRENCY = 10;
-    for (let j = 0; j < batch.length; j += HASH_CONCURRENCY) {
-      const chunk = batch.slice(j, j + HASH_CONCURRENCY);
-      await Promise.all(
-        chunk.map(async (c) => {
-          const isFoil = c.finishes?.includes("foil") && !c.finishes?.includes("nonfoil");
-          const variantId = `scryfall:${c.id}${isFoil ? "-foil" : ""}`;
-          const imageUri = extractImageUri(c);
-          const faceImageUri = c.card_faces?.[0]?.image_uris?.normal ?? null;
-          const foilImageUri = faceImageUri && faceImageUri !== imageUri ? faceImageUri : null;
-          const [hashes, foilHashes] = await Promise.all([
-            imageUri ? computeHashes(imageUri) : Promise.resolve(null),
-            foilImageUri ? computeHashes(foilImageUri) : Promise.resolve(null),
-          ]);
-          hashResults.set(variantId, {
-            dHash: hashes?.dHash ?? null,
-            pHash: hashes?.pHash ?? null,
-            foilDHash: foilHashes?.dHash ?? null,
-            foilPHash: foilHashes?.pHash ?? null,
-          });
-        })
-      );
-    }
+    const hashResults = options?.skipHashes
+      ? new Map<string, HashData>()
+      : await hashCardBatch(batch);
     const result = await processCardBatch(batch, hashResults);
     cardsProcessed += result.cards;
     pricesUpdated += result.prices;
@@ -420,14 +490,25 @@ export async function ingestScryfallBulk(options?: { maxCards?: number }) {
   return { cardsProcessed, pricesUpdated };
 }
 
-// Allow running as a standalone script
+// Allow running as a standalone script:
+//   SET_CODE=eoe npx tsx src/jobs/scryfallIngest.ts
+//   npx tsx src/jobs/scryfallIngest.ts   # full bulk
 const isDirectRun =
   process.argv[1]?.endsWith("scryfallIngest.ts") ||
   process.argv[1]?.endsWith("scryfallIngest.js");
 if (isDirectRun) {
-  ingestScryfallBulk({
-    maxCards: parseInt(process.env.MAX_CARDS ?? "0") || undefined,
-  })
+  const setCode = process.env.SET_CODE?.trim() || undefined;
+  const run = setCode
+    ? ingestScryfallSet(setCode, {
+        maxCards: parseInt(process.env.MAX_CARDS ?? "0") || undefined,
+        skipHashes: process.env.SKIP_HASHES === "true",
+      })
+    : ingestScryfallBulk({
+        maxCards: parseInt(process.env.MAX_CARDS ?? "0") || undefined,
+        skipHashes: process.env.SKIP_HASHES === "true",
+      });
+
+  run
     .then((r) => {
       console.log("[scryfall-ingest] Result:", r);
       process.exit(0);

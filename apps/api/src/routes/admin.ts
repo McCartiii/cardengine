@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { requireAdmin } from "../middleware/admin.js";
-import { ingestScryfallBulk } from "../jobs/scryfallIngest.js";
+import { ingestScryfallBulk, ingestScryfallSet } from "../jobs/scryfallIngest.js";
 
 export function registerAdminRoutes(app: FastifyInstance) {
   // ── Admin: stats ──
@@ -18,7 +18,7 @@ export function registerAdminRoutes(app: FastifyInstance) {
     return { users, cards, decks, collections, watchlist, notifications };
   });
 
-  // ── Admin: Scryfall ingest ──
+  // ── Admin: Scryfall ingest (full bulk or single set) ──
   app.post(
     "/admin/ingest/scryfall",
     {
@@ -27,10 +27,25 @@ export function registerAdminRoutes(app: FastifyInstance) {
     },
     async (req) => {
       const body = z
-        .object({ maxCards: z.number().optional() })
+        .object({
+          /** Scryfall set code, e.g. "eoe" — preferred for new-set releases */
+          setCode: z.string().min(3).max(5).optional(),
+          maxCards: z.number().optional(),
+          skipHashes: z.boolean().optional(),
+        })
         .default({})
         .parse(req.body ?? {});
-      const result = await ingestScryfallBulk({ maxCards: body.maxCards });
+
+      const result = body.setCode
+        ? await ingestScryfallSet(body.setCode, {
+            maxCards: body.maxCards,
+            skipHashes: body.skipHashes,
+          })
+        : await ingestScryfallBulk({
+            maxCards: body.maxCards,
+            skipHashes: body.skipHashes,
+          });
+
       return { ok: true, ...result };
     }
   );
