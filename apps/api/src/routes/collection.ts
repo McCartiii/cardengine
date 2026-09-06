@@ -75,7 +75,7 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       .object({
         q: z.string().optional(),
         market: z.string().default("tcgplayer"),
-        kind: z.string().default("normal"),
+        kind: z.string().default("auto"),
         currency: z.string().default("USD"),
         sort: z.enum(["name", "value", "qty", "added"]).default("value"),
         page: z.coerce.number().int().min(1).default(1),
@@ -119,15 +119,28 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       where: {
         variantId: { in: variantIds },
         market: query.market,
-        kind: query.kind,
         currency: query.currency,
+        ...(query.kind === "auto"
+          ? { kind: { in: ["market", "foil"] } }
+          : { kind: query.kind === "normal" ? "market" : query.kind }),
       },
     });
-    const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+    const pricesByVariant = new Map<string, typeof prices>();
+    for (const price of prices) {
+      const entries = pricesByVariant.get(price.variantId) ?? [];
+      entries.push(price);
+      pricesByVariant.set(price.variantId, entries);
+    }
 
     const cards = variants.map((v) => {
       const qty = qtys.get(v.variantId) ?? 0;
-      const price = priceMap.get(v.variantId) ?? null;
+      const preferredKind = v.variantId.endsWith("-foil") ? "foil" : "market";
+      const price =
+        pricesByVariant
+          .get(v.variantId)
+          ?.find((entry) =>
+            query.kind === "auto" ? entry.kind === preferredKind : true
+          )?.amount ?? null;
       return {
         variantId: v.variantId,
         name: v.name,
@@ -178,7 +191,7 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     const query = z
       .object({
         market: z.string().default("tcgplayer"),
-        kind: z.string().default("normal"),
+        kind: z.string().default("auto"),
         currency: z.string().default("USD"),
       })
       .parse(req.query);
@@ -204,16 +217,29 @@ export function registerCollectionRoutes(app: FastifyInstance) {
             where: {
               variantId: { in: variantIds },
               market: query.market,
-              kind: query.kind,
               currency: query.currency,
+              ...(query.kind === "auto"
+                ? { kind: { in: ["market", "foil"] } }
+                : { kind: query.kind === "normal" ? "market" : query.kind }),
             },
           })
         : [];
-    const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+    const pricesByVariant = new Map<string, typeof prices>();
+    for (const price of prices) {
+      const entries = pricesByVariant.get(price.variantId) ?? [];
+      entries.push(price);
+      pricesByVariant.set(price.variantId, entries);
+    }
 
     let totalValue = 0;
     const breakdown = owned.map(([variantId, qty]) => {
-      const price = priceMap.get(variantId) ?? 0;
+      const preferredKind = variantId.endsWith("-foil") ? "foil" : "market";
+      const price =
+        pricesByVariant
+          .get(variantId)
+          ?.find((entry) =>
+            query.kind === "auto" ? entry.kind === preferredKind : true
+          )?.amount ?? 0;
       totalValue += price * qty;
       return { variantId, qty, price, lineValue: price * qty };
     });
@@ -234,20 +260,48 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       .object({
         variantIds: z.array(z.string()).min(1).max(500),
         market: z.string().default("tcgplayer"),
+        kind: z.string().default("auto"),
+        currency: z.string().default("USD"),
       })
       .parse(req.body);
 
     const prices = await prisma.priceCache.findMany({
-      where: { variantId: { in: body.variantIds }, market: body.market },
+      where: {
+        variantId: { in: body.variantIds },
+        market: body.market,
+        currency: body.currency,
+        ...(body.kind === "auto"
+          ? { kind: { in: ["market", "foil"] } }
+          : { kind: body.kind === "normal" ? "market" : body.kind }),
+      },
     });
 
-    const priceMap: Record<string, { amount: number; currency: string; updatedAt: string }> = {};
-    for (const p of prices) {
-      priceMap[p.variantId] = {
-        amount: p.amount,
-        currency: p.currency,
-        updatedAt: p.updatedAt.toISOString(),
-      };
+    const pricesByVariant = new Map<string, typeof prices>();
+    for (const price of prices) {
+      const entries = pricesByVariant.get(price.variantId) ?? [];
+      entries.push(price);
+      pricesByVariant.set(price.variantId, entries);
+    }
+
+    const priceMap: Record<
+      string,
+      { amount: number; currency: string; kind: string; updatedAt: string }
+    > = {};
+    for (const variantId of body.variantIds) {
+      const preferredKind = variantId.endsWith("-foil") ? "foil" : "market";
+      const price = pricesByVariant
+        .get(variantId)
+        ?.find((entry) =>
+          body.kind === "auto" ? entry.kind === preferredKind : true
+        );
+      if (price) {
+        priceMap[variantId] = {
+          amount: price.amount,
+          currency: price.currency,
+          kind: price.kind,
+          updatedAt: price.updatedAt.toISOString(),
+        };
+      }
     }
 
     return { market: body.market, prices: priceMap };

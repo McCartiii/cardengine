@@ -741,7 +741,8 @@ export default function CardDetailPage() {
     });
   }, []);
 
-  // Lowest USD listing across stores (Normal/market first), then any USD, then first price
+  // Compare like-for-like finishes only. A foil price is not a valid substitute
+  // for a nonfoil copy (and vice versa).
   const headlinePrice = useMemo(() => {
     if (!data) return null;
     const candidates: Array<{ store: string; label: string; amount: number; currency: string }> = [];
@@ -750,11 +751,18 @@ export default function CardDetailPage() {
         if (p.amount > 0) candidates.push({ store: sp.store, ...p });
       }
     }
-    const usdNormal = candidates.filter(
-      (p) => p.currency === "USD" && (p.label === "Normal" || p.label === "Market")
-    );
-    const pool = usdNormal.length > 0 ? usdNormal : candidates.filter((p) => p.currency === "USD");
-    const list = pool.length > 0 ? pool : candidates;
+    const preferredLabels = data.card.variantId.endsWith("-foil")
+      ? new Set(["Foil"])
+      : new Set(["Normal", "Market"]);
+    const matchingFinish = candidates.filter((p) => preferredLabels.has(p.label));
+    const matchingUsd = matchingFinish.filter((p) => p.currency === "USD");
+    const matchingEur = matchingFinish.filter((p) => p.currency === "EUR");
+    const list =
+      matchingUsd.length > 0
+        ? matchingUsd
+        : matchingEur.length > 0
+          ? matchingEur
+          : matchingFinish;
     if (list.length === 0) return null;
     return list.reduce((a, b) => (a.amount < b.amount ? a : b));
   }, [data]);
@@ -993,7 +1001,7 @@ export default function CardDetailPage() {
                         </p>
                       </div>
                       <p className="text-[11px] text-text-muted">
-                        Lowest listed price we have for this printing
+                        Lowest comparable {headlinePrice.currency} estimate for this printing and finish
                       </p>
                     </div>
                   )}

@@ -318,12 +318,11 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       function bestUsdPrice(vId: string): number {
         const cardPrices = priceMap.get(vId) ?? [];
-        const usd = cardPrices.find((p) => p.currency === "USD" && p.kind === "market");
-        if (usd) return usd.amount;
-        const anyUsd = cardPrices.find((p) => p.currency === "USD");
-        if (anyUsd) return anyUsd.amount;
-        const anyEur = cardPrices.find((p) => p.currency === "EUR" && p.kind === "market");
-        if (anyEur) return anyEur.amount;
+        const preferredKind = vId.endsWith("-foil") ? "foil" : "market";
+        const preferredUsd = cardPrices.find(
+          (p) => p.currency === "USD" && p.kind === preferredKind
+        );
+        if (preferredUsd) return preferredUsd.amount;
         return 0;
       }
 
@@ -336,6 +335,8 @@ export function registerCardRoutes(app: FastifyInstance) {
         sorted.sort((a, b) => {
           const pa = bestUsdPrice(a.variantId);
           const pb = bestUsdPrice(b.variantId);
+          if (pa === 0 && pb !== 0) return 1;
+          if (pb === 0 && pa !== 0) return -1;
           return query.sort === "price-asc" ? pa - pb : pb - pa;
         });
       } else if (isPopularSort) {
@@ -368,8 +369,15 @@ export function registerCardRoutes(app: FastifyInstance) {
         total: paginated.length,
         cards: paginated.map((c) => {
           const cardPrices = priceMap.get(c.variantId) ?? [];
-          const usdMarket = cardPrices.find((p) => p.currency === "USD" && p.kind === "market");
-          const eurMarket = cardPrices.find((p) => p.currency === "EUR" && p.kind === "market");
+          const preferredKind = c.variantId.endsWith("-foil") ? "foil" : "market";
+          const usdMarket =
+            cardPrices.find(
+              (p) => p.currency === "USD" && p.kind === preferredKind
+            );
+          const eurMarket =
+            cardPrices.find(
+              (p) => p.currency === "EUR" && p.kind === preferredKind
+            );
           return {
             variantId: c.variantId,
             cardId: c.cardId,

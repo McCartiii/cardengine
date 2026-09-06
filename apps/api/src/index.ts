@@ -135,13 +135,22 @@ registerTelemetryRoutes(app);
 registerDeckRoutes(app);
 registerDeckAgentRoutes(app);
 
-// ── Daily pricing refresh job ──
-const DAILY_MS = 24 * 60 * 60 * 1000;
+// ── Pricing refresh job ──
+// Scryfall publishes prices daily and considers bulk prices dangerously stale
+// after 24 hours. Refresh on boot as well as on an interval: a long interval
+// alone may never fire on frequently restarted Railway instances.
+const configuredPriceRefreshMs = Number(process.env.PRICE_REFRESH_INTERVAL_MS);
+const PRICE_REFRESH_MS =
+  Number.isFinite(configuredPriceRefreshMs) && configuredPriceRefreshMs >= 60_000
+    ? configuredPriceRefreshMs
+    : 12 * 60 * 60 * 1000;
 
 async function runDailyPriceRefresh() {
   const ran = await withAdvisoryLock("priceRefresh", async () => {
     console.log("[price-refresh] Starting daily price refresh...");
-    await ingestScryfallBulk();
+    // Refresh prices for known printings without rewriting catalog metadata or
+    // downloading and hashing every card image.
+    await ingestScryfallBulk({ pricesOnly: true });
     console.log("[price-refresh] Daily price refresh complete.");
   }).catch((err) => {
     console.error("[price-refresh] Error:", err);
@@ -151,8 +160,11 @@ async function runDailyPriceRefresh() {
 }
 
 if (process.env.ENABLE_PRICE_REFRESH !== "false") {
-  setInterval(runDailyPriceRefresh, DAILY_MS);
-  console.log("[price-refresh] Scheduled daily price refresh (with leader lock).");
+  setTimeout(runDailyPriceRefresh, 5_000);
+  setInterval(runDailyPriceRefresh, PRICE_REFRESH_MS);
+  console.log(
+    `[price-refresh] Scheduled boot refresh and ${PRICE_REFRESH_MS}ms interval (with leader lock).`
+  );
 }
 
 // ── Watchlist check job (hourly) ──

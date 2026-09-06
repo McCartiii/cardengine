@@ -162,9 +162,10 @@ const PRICE_FIELDS: Array<{
 
 async function processCardBatch(
   cards: ScryfallCard[],
-  hashResults: Map<string, HashData>
+  hashResults: Map<string, HashData>,
+  options?: { pricesOnly?: boolean }
 ): Promise<{ cards: number; prices: number }> {
-  const cardRows = cards.map((card) => {
+  let cardRows = cards.map((card) => {
     const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
     const variantId = `scryfall:${card.id}${isFoil ? "-foil" : ""}`;
     const hashes = hashResults.get(variantId) ?? { dHash: null, pHash: null, foilDHash: null, foilPHash: null };
@@ -191,7 +192,7 @@ async function processCardBatch(
     };
   });
 
-  const priceRows: { market: string; variantId: string; kind: string; currency: string; amount: number }[] = [];
+  let priceRows: { market: string; variantId: string; kind: string; currency: string; amount: number }[] = [];
   for (const card of cards) {
     const isFoil = card.finishes?.includes("foil") && !card.finishes?.includes("nonfoil");
     const variantId = `scryfall:${card.id}${isFoil ? "-foil" : ""}`;
@@ -206,9 +207,21 @@ async function processCardBatch(
     }
   }
 
+  if (options?.pricesOnly) {
+    // A price refresh must not rewrite the whole catalog or create orphaned
+    // cache rows. Only refresh printings already present in CardVariant.
+    const existing = await prisma.cardVariant.findMany({
+      where: { variantId: { in: cardRows.map((row) => row.variantId) } },
+      select: { variantId: true },
+    });
+    const existingIds = new Set(existing.map((row) => row.variantId));
+    cardRows = cardRows.filter((row) => existingIds.has(row.variantId));
+    priceRows = priceRows.filter((row) => existingIds.has(row.variantId));
+  }
+
   await prisma.$transaction(
     async (tx) => {
-      if (cardRows.length > 0) {
+      if (cardRows.length > 0 && !options?.pricesOnly) {
         const values: unknown[] = [];
         const placeholders: string[] = [];
         let paramIdx = 1;
@@ -251,6 +264,18 @@ async function processCardBatch(
              "updatedAt" = NOW()`,
           ...values
         );
+      }
+
+      // Scryfall's current card object is authoritative for these feeds.
+      // Remove old values first so a price that has become null does not
+      // remain in the cache forever.
+      if (cardRows.length > 0) {
+        await tx.priceCache.deleteMany({
+          where: {
+            variantId: { in: cardRows.map((row) => row.variantId) },
+            market: { in: ["tcgplayer", "cardmarket", "mtgo"] },
+          },
+        });
       }
 
       if (priceRows.length > 0) {
@@ -408,6 +433,7 @@ export async function ingestScryfallBulk(options?: {
   maxCards?: number;
   setCode?: string;
   skipHashes?: boolean;
+  pricesOnly?: boolean;
 }) {
   // Prefer the fast set path when a set code is provided
   if (options?.setCode) {
@@ -462,11 +488,13 @@ export async function ingestScryfallBulk(options?: {
     batch.push(card);
 
     if (batch.length >= BATCH_SIZE) {
-      const hashResults = options?.skipHashes
+      const hashResults = options?.skipHashes || options?.pricesOnly
         ? new Map<string, HashData>()
         : await hashCardBatch(batch);
 
-      const result = await processCardBatch(batch, hashResults);
+      const result = await processCardBatch(batch, hashResults, {
+        pricesOnly: options?.pricesOnly,
+      });
       cardsProcessed += result.cards;
       pricesUpdated += result.prices;
       batch = [];
@@ -478,10 +506,12 @@ export async function ingestScryfallBulk(options?: {
   }
 
   if (batch.length > 0) {
-    const hashResults = options?.skipHashes
+    const hashResults = options?.skipHashes || options?.pricesOnly
       ? new Map<string, HashData>()
       : await hashCardBatch(batch);
-    const result = await processCardBatch(batch, hashResults);
+    const result = await processCardBatch(batch, hashResults, {
+      pricesOnly: options?.pricesOnly,
+    });
     cardsProcessed += result.cards;
     pricesUpdated += result.prices;
   }

@@ -102,6 +102,13 @@ model PriceCache {
   @@index([variantId])
 }
 
+model JobLease {
+  name      String   @id
+  ownerId   String
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+}
+
 model WatchlistEntry {
   id              String   @id @default(cuid())
   userId          String
