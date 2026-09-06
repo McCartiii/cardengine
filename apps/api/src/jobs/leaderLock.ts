@@ -37,6 +37,7 @@ export async function withAdvisoryLock(
       "expiresAt" = EXCLUDED."expiresAt",
       "updatedAt" = NOW()
     WHERE "JobLease"."expiresAt" <= NOW()
+       OR "JobLease"."updatedAt" <= NOW() - INTERVAL '15 minutes'
     RETURNING "ownerId"
   `;
   const acquired = claimed[0]?.ownerId === ownerId;
