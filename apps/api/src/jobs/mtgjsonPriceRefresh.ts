@@ -12,7 +12,7 @@ const { streamObject } = streamObjectModule;
 
 const MTGJSON_BASE = "https://mtgjson.com/api/v5";
 const MAP_CONCURRENCY = 4;
-const WRITE_BATCH_SIZE = 500;
+const WRITE_BATCH_SIZE = 2_000;
 
 interface MtgjsonSetCard {
   uuid: string;
@@ -212,7 +212,7 @@ async function stagePriceBatch(runId: string, rows: PriceRow[]): Promise<void> {
 }
 
 async function promoteSnapshot(runId: string): Promise<number> {
-  return prisma.$transaction(
+  const promoted = await prisma.$transaction(
     async (tx) => {
       const promoted = await tx.$executeRaw`
         INSERT INTO "PriceCache"
@@ -225,20 +225,6 @@ async function promoteSnapshot(runId: string): Promise<number> {
           "amount" = EXCLUDED."amount",
           "source" = EXCLUDED."source",
           "updatedAt" = NOW()
-      `;
-
-      await tx.$executeRaw`
-        INSERT INTO "PricePoint"
-          ("id", "at", "market", "kind", "currency", "amount", "variantId", "source")
-        SELECT 'pp-mtgjson-' || "variantId" || '-' || "market" || '-' ||
-               "kind" || '-' || "sourceDate"::date::text,
-               "sourceDate", "market", "kind", "currency", "amount",
-               "variantId", 'mtgjson'
-        FROM "PriceStage"
-        WHERE "runId" = ${runId}
-        ON CONFLICT ("id") DO UPDATE SET
-          "amount" = EXCLUDED."amount",
-          "source" = EXCLUDED."source"
       `;
 
       await tx.$executeRaw`
@@ -255,11 +241,29 @@ async function promoteSnapshot(runId: string): Promise<number> {
           )
       `;
 
-      await tx.priceStage.deleteMany({ where: { runId } });
       return promoted;
     },
-    { timeout: 5 * 60 * 1000 }
+    { timeout: 10 * 60 * 1000 }
   );
+
+  // History can lag behind the now-atomic current-price promotion. Keeping it
+  // outside that transaction prevents a large history insert from rolling
+  // back an otherwise valid current snapshot.
+  await prisma.$executeRaw`
+    INSERT INTO "PricePoint"
+      ("id", "at", "market", "kind", "currency", "amount", "variantId", "source")
+    SELECT 'pp-mtgjson-' || "variantId" || '-' || "market" || '-' ||
+           "kind" || '-' || "sourceDate"::date::text,
+           "sourceDate", "market", "kind", "currency", "amount",
+           "variantId", 'mtgjson'
+    FROM "PriceStage"
+    WHERE "runId" = ${runId}
+    ON CONFLICT ("id") DO UPDATE SET
+      "amount" = EXCLUDED."amount",
+      "source" = EXCLUDED."source"
+  `;
+  await prisma.priceStage.deleteMany({ where: { runId } });
+  return promoted;
 }
 
 async function runMtgjsonRefresh(runId: string) {
