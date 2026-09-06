@@ -1,6 +1,14 @@
-import { gunzipSync } from "node:zlib";
+import { createGunzip } from "node:zlib";
 import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
+import streamJson from "stream-json";
+import pickModule from "stream-json/filters/Pick.js";
+import streamObjectModule from "stream-json/streamers/StreamObject.js";
 import { prisma } from "../db.js";
+
+const { parser } = streamJson;
+const { pick } = pickModule;
+const { streamObject } = streamObjectModule;
 
 const MTGJSON_BASE = "https://mtgjson.com/api/v5";
 const MAP_CONCURRENCY = 4;
@@ -307,24 +315,39 @@ async function runMtgjsonRefresh(runId: string) {
 
   const response = await fetch(`${MTGJSON_BASE}/AllPricesToday.json.gz`, {
     headers: { "User-Agent": "CardEngine/1.0" },
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(20 * 60_000),
   });
   if (!response.ok) {
     throw new Error(`MTGJSON AllPricesToday returned ${response.status}`);
   }
-  const compressed = Buffer.from(await response.arrayBuffer());
-  const payload = JSON.parse(
-    gunzipSync(compressed).toString("utf8")
-  ) as MtgjsonPriceFile;
-  const fallbackDate = payload.meta?.date ?? "";
-  const feedEntries = Object.entries(payload.data ?? {});
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fallbackDate) || feedEntries.length < 50_000) {
-    throw new Error(
-      `MTGJSON snapshot failed validation: date=${fallbackDate || "missing"}, cards=${feedEntries.length}`
-    );
-  }
+  if (!response.body) throw new Error("MTGJSON response had no body");
+
+  const modifiedHeader = response.headers.get("last-modified");
+  const modifiedAt = modifiedHeader ? new Date(modifiedHeader) : null;
+  const fallbackDate =
+    modifiedAt && !Number.isNaN(modifiedAt.getTime())
+      ? modifiedAt.toISOString().slice(0, 10)
+      : "";
+
+  const pipeline = Readable.fromWeb(
+      response.body as unknown as import("node:stream/web").ReadableStream<Uint8Array>
+    )
+    .pipe(createGunzip())
+    .pipe(parser())
+    .pipe(pick({ filter: "data" }))
+    .pipe(streamObject());
+
   const providerCoverage = new Map<string, number>();
-  for (const [, entry] of feedEntries) {
+  let feedEntryCount = 0;
+  let pending: PriceRow[] = [];
+  let pricesUpdated = 0;
+  for await (const item of pipeline as AsyncIterable<{
+    key: string;
+    value: NonNullable<MtgjsonPriceFile["data"]>[string];
+  }>) {
+    feedEntryCount += 1;
+    const uuid = item.key;
+    const entry = item.value;
     for (const [provider, lists] of Object.entries(entry.paper ?? {})) {
       let count = 0;
       for (const points of [lists.retail, lists.buylist]) {
@@ -337,6 +360,29 @@ async function runMtgjsonRefresh(runId: string) {
         (providerCoverage.get(provider) ?? 0) + count
       );
     }
+    const variantIds = variantsByUuid.get(uuid);
+    if (!variantIds) continue;
+    for (const variantId of variantIds) {
+      pending.push(...rowsForVariant(variantId, entry, fallbackDate));
+      if (pending.length >= WRITE_BATCH_SIZE) {
+        await stagePriceBatch(runId, pending);
+        pricesUpdated += pending.length;
+        pending = [];
+      }
+    }
+  }
+  if (pending.length > 0) {
+    await stagePriceBatch(runId, pending);
+    pricesUpdated += pending.length;
+  }
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(fallbackDate) ||
+    feedEntryCount < 50_000
+  ) {
+    throw new Error(
+      `MTGJSON snapshot failed validation: date=${fallbackDate || "missing"}, cards=${feedEntryCount}`
+    );
   }
   const requiredProviders = [
     "tcgplayer",
@@ -356,25 +402,6 @@ async function runMtgjsonRefresh(runId: string) {
         )
         .join(", ")}`
     );
-  }
-
-  let pending: PriceRow[] = [];
-  let pricesUpdated = 0;
-  for (const [uuid, entry] of feedEntries) {
-    const variantIds = variantsByUuid.get(uuid);
-    if (!variantIds) continue;
-    for (const variantId of variantIds) {
-      pending.push(...rowsForVariant(variantId, entry, fallbackDate));
-      if (pending.length >= WRITE_BATCH_SIZE) {
-        await stagePriceBatch(runId, pending);
-        pricesUpdated += pending.length;
-        pending = [];
-      }
-    }
-  }
-  if (pending.length > 0) {
-    await stagePriceBatch(runId, pending);
-    pricesUpdated += pending.length;
   }
 
   const minimumExpectedPrices = Math.max(
