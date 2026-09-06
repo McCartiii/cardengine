@@ -336,6 +336,35 @@ async function buildHome(): Promise<HomePayload> {
 }
 
 export function registerMarketRoutes(app: FastifyInstance) {
+  app.get("/v1/prices/status", async () => {
+    const [lease, mappedVariants, mtgjsonPrices, stagedPrices, latestPoint] =
+      await Promise.all([
+        prisma.jobLease.findUnique({ where: { name: "priceRefresh" } }),
+        prisma.cardVariant.count({ where: { mtgjsonUuid: { not: null } } }),
+        prisma.priceCache.count({ where: { source: "mtgjson" } }),
+        prisma.priceStage.count(),
+        prisma.pricePoint.findFirst({
+          where: { source: "mtgjson" },
+          orderBy: { at: "desc" },
+          select: { at: true },
+        }),
+      ]);
+    return {
+      source: "mtgjson",
+      mappedVariants,
+      cachedPrices: mtgjsonPrices,
+      stagedPrices,
+      latestSourceDate: latestPoint?.at.toISOString().slice(0, 10) ?? null,
+      refresh: lease
+        ? {
+            status: "running",
+            startedOrRenewedAt: lease.updatedAt.toISOString(),
+            leaseExpiresAt: lease.expiresAt.toISOString(),
+          }
+        : { status: mtgjsonPrices > 0 ? "ready" : "waiting" },
+    };
+  });
+
   app.get("/v1/market/home", async () => {
     if (cache && Date.now() - cache.at < CACHE_MS) return cache.data;
     const data = await buildHome();
