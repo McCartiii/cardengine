@@ -274,6 +274,7 @@ async function processCardBatch(
           where: {
             variantId: { in: cardRows.map((row) => row.variantId) },
             market: { in: ["tcgplayer", "cardmarket", "mtgo"] },
+            source: "scryfall",
           },
         });
       }
@@ -289,11 +290,13 @@ async function processCardBatch(
         }
 
         await tx.$executeRawUnsafe(
-          `INSERT INTO "PriceCache" ("id", "market", "variantId", "kind", "currency", "amount", "updatedAt")
-           VALUES ${pPlaceholders.map((p) => p.replace(/^\(/, "(gen_random_uuid(), ").replace(/\)$/, ", NOW())"))}
+          `INSERT INTO "PriceCache" ("id", "market", "variantId", "kind", "currency", "amount", "source", "updatedAt")
+           VALUES ${pPlaceholders.map((p) => p.replace(/^\(/, "(gen_random_uuid(), ").replace(/\)$/, ", 'scryfall', NOW())"))}
            ON CONFLICT ("market", "variantId", "kind", "currency") DO UPDATE SET
              "amount" = EXCLUDED."amount",
-             "updatedAt" = NOW()`,
+             "source" = EXCLUDED."source",
+             "updatedAt" = NOW()
+           WHERE "PriceCache"."source" <> 'mtgjson'`,
           ...pValues
         );
 
@@ -307,8 +310,8 @@ async function processCardBatch(
           hValues.push(deterministicId, row.market, row.kind, row.currency, row.amount, row.variantId);
         }
         await tx.$executeRawUnsafe(
-          `INSERT INTO "PricePoint" ("id", "at", "market", "kind", "currency", "amount", "variantId")
-           VALUES ${hPlaceholders.join(", ")}
+          `INSERT INTO "PricePoint" ("id", "at", "market", "kind", "currency", "amount", "variantId", "source")
+           VALUES ${hPlaceholders.map((p) => p.replace(/\)$/, ", 'scryfall')")).join(", ")}
            ON CONFLICT ("id") DO NOTHING`,
           ...hValues
         );
@@ -517,6 +520,74 @@ export async function ingestScryfallBulk(options?: {
   }
 
   console.log(`[scryfall-ingest] Done. Cards: ${cardsProcessed}, Prices: ${pricesUpdated}`);
+  return { cardsProcessed, pricesUpdated };
+}
+
+/**
+ * Refresh Scryfall estimates only for known printings that MTGJSON could not
+ * map. The collection endpoint accepts 75 IDs per request, avoiding another
+ * full bulk download for a small fallback set.
+ */
+export async function refreshScryfallFallbackPrices() {
+  const variants = await prisma.cardVariant.findMany({
+    where: {
+      mtgjsonUuid: null,
+      variantId: { startsWith: "scryfall:" },
+    },
+    select: { variantId: true },
+  });
+  const ids = Array.from(
+    new Set(
+      variants.flatMap((variant) => {
+        const match = /^scryfall:([0-9a-f-]{36})(?:-foil)?$/i.exec(
+          variant.variantId
+        );
+        return match?.[1] ? [match[1]] : [];
+      })
+    )
+  );
+
+  let cardsProcessed = 0;
+  let pricesUpdated = 0;
+  for (let i = 0; i < ids.length; i += 75) {
+    const chunk = ids.slice(i, i + 75);
+    try {
+      const response = await fetch("https://api.scryfall.com/cards/collection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "CardEngine/1.0",
+        },
+        body: JSON.stringify({
+          identifiers: chunk.map((id) => ({ id })),
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) {
+        throw new Error(`Scryfall collection returned ${response.status}`);
+      }
+      const payload = (await response.json()) as { data?: ScryfallCard[] };
+      const result = await processCardBatch(
+        payload.data ?? [],
+        new Map<string, HashData>(),
+        { pricesOnly: true }
+      );
+      cardsProcessed += result.cards;
+      pricesUpdated += result.prices;
+    } catch (error) {
+      console.warn(
+        `[scryfall-fallback] Failed IDs ${i + 1}-${i + chunk.length}`,
+        error
+      );
+    }
+    if (i + 75 < ids.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  console.log(
+    `[scryfall-fallback] Refreshed ${pricesUpdated} prices for ${cardsProcessed} unmapped printings`
+  );
   return { cardsProcessed, pricesUpdated };
 }
 

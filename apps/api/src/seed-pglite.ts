@@ -45,10 +45,12 @@ async function main() {
   // Create all tables from Prisma schema
   const tables = [
     `CREATE TABLE IF NOT EXISTS "User" ("id" TEXT PRIMARY KEY, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "minorSafe" BOOLEAN NOT NULL DEFAULT true, "date_of_birth" TIMESTAMP(3), "display_name" TEXT, "avatar_url" TEXT)`,
-    `CREATE TABLE IF NOT EXISTS "CardVariant" ("variantId" TEXT PRIMARY KEY, "game" TEXT NOT NULL, "cardId" TEXT NOT NULL, "printingId" TEXT NOT NULL, "name" TEXT NOT NULL, "setId" TEXT, "collectorNumber" TEXT, "oracle_text" TEXT, "type_line" TEXT, "colors" JSONB, "color_identity" JSONB, "cmc" DOUBLE PRECISION, "mana_cost" TEXT, "rarity" TEXT, "image_uri" TEXT, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS "CardVariant" ("variantId" TEXT PRIMARY KEY, "game" TEXT NOT NULL, "cardId" TEXT NOT NULL, "printingId" TEXT NOT NULL, "name" TEXT NOT NULL, "setId" TEXT, "collectorNumber" TEXT, "oracle_text" TEXT, "type_line" TEXT, "colors" JSONB, "color_identity" JSONB, "cmc" DOUBLE PRECISION, "mana_cost" TEXT, "rarity" TEXT, "image_uri" TEXT, "mtgjson_uuid" TEXT, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS "CollectionEvent" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "at" TIMESTAMP(3) NOT NULL, "type" TEXT NOT NULL, "variantId" TEXT NOT NULL, "payload" JSONB NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS "PricePoint" ("id" TEXT PRIMARY KEY, "at" TIMESTAMP(3) NOT NULL, "market" TEXT NOT NULL, "kind" TEXT NOT NULL, "currency" TEXT NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "variantId" TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS "PriceCache" ("id" TEXT PRIMARY KEY, "market" TEXT NOT NULL, "kind" TEXT NOT NULL, "currency" TEXT NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "variantId" TEXT NOT NULL, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS "PricePoint" ("id" TEXT PRIMARY KEY, "at" TIMESTAMP(3) NOT NULL, "market" TEXT NOT NULL, "kind" TEXT NOT NULL, "currency" TEXT NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "source" TEXT NOT NULL DEFAULT 'scryfall', "variantId" TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS "PriceCache" ("id" TEXT PRIMARY KEY, "market" TEXT NOT NULL, "kind" TEXT NOT NULL, "currency" TEXT NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "source" TEXT NOT NULL DEFAULT 'scryfall', "variantId" TEXT NOT NULL, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS "JobLease" ("name" TEXT PRIMARY KEY, "ownerId" TEXT NOT NULL, "expiresAt" TIMESTAMP(3) NOT NULL, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS "PriceStage" ("runId" TEXT NOT NULL, "market" TEXT NOT NULL, "variantId" TEXT NOT NULL, "kind" TEXT NOT NULL, "currency" TEXT NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "sourceDate" TIMESTAMP(3) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY ("runId", "market", "variantId", "kind", "currency"))`,
     `CREATE TABLE IF NOT EXISTS "WatchlistEntry" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "variantId" TEXT NOT NULL, "market" TEXT NOT NULL, "kind" TEXT NOT NULL, "currency" TEXT NOT NULL, "thresholdAmount" DOUBLE PRECISION NOT NULL, "direction" TEXT NOT NULL, "enabled" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS "Notification" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "type" TEXT NOT NULL, "title" TEXT NOT NULL, "body" TEXT NOT NULL, "data" JSONB, "read" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS "Shop" ("id" TEXT PRIMARY KEY, "name" TEXT NOT NULL, "address" TEXT, "city" TEXT, "state" TEXT, "zip" TEXT, "country" TEXT NOT NULL DEFAULT 'US', "lat" DOUBLE PRECISION, "lng" DOUBLE PRECISION, "phone" TEXT, "website" TEXT, "hours" TEXT, "category" TEXT NOT NULL DEFAULT 'card_shop', "verified" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -59,11 +61,16 @@ async function main() {
     `CREATE TABLE IF NOT EXISTS "RulesDisagreement" ("id" TEXT PRIMARY KEY, "userId" TEXT, "formatId" TEXT NOT NULL, "game" TEXT NOT NULL DEFAULT 'mtg', "deckHash" TEXT, "violationCode" TEXT NOT NULL, "userDisputed" BOOLEAN NOT NULL DEFAULT false, "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE INDEX IF NOT EXISTS "CardVariant_game_name_idx" ON "CardVariant"("game", "name")`,
     `CREATE INDEX IF NOT EXISTS "CardVariant_game_setId_collectorNumber_idx" ON "CardVariant"("game", "setId", "collectorNumber")`,
+    `CREATE INDEX IF NOT EXISTS "CardVariant_mtgjson_uuid_idx" ON "CardVariant"("mtgjson_uuid")`,
+    `CREATE INDEX IF NOT EXISTS "PriceStage_runId_idx" ON "PriceStage"("runId")`,
     `CREATE INDEX IF NOT EXISTS "CollectionEvent_userId_at_idx" ON "CollectionEvent"("userId", "at")`,
     `CREATE INDEX IF NOT EXISTS "CollectionEvent_variantId_at_idx" ON "CollectionEvent"("variantId", "at")`,
     `CREATE INDEX IF NOT EXISTS "PricePoint_market_variantId_at_idx" ON "PricePoint"("market", "variantId", "at")`,
     `CREATE INDEX IF NOT EXISTS "PriceCache_variantId_idx" ON "PriceCache"("variantId")`,
     `CREATE UNIQUE INDEX IF NOT EXISTS "PriceCache_market_variantId_kind_currency_key" ON "PriceCache"("market", "variantId", "kind", "currency")`,
+    `ALTER TABLE "CardVariant" ADD COLUMN IF NOT EXISTS "mtgjson_uuid" TEXT`,
+    `ALTER TABLE "PricePoint" ADD COLUMN IF NOT EXISTS "source" TEXT NOT NULL DEFAULT 'scryfall'`,
+    `ALTER TABLE "PriceCache" ADD COLUMN IF NOT EXISTS "source" TEXT NOT NULL DEFAULT 'scryfall'`,
   ];
   for (const sql of tables) await exec(sql);
 
@@ -87,15 +94,15 @@ async function main() {
 
     for (const c of cards) {
       await pglite.query(
-        `INSERT INTO "CardVariant" ("variantId", "game", "cardId", "printingId", "name", "setId", "collectorNumber", "oracle_text", "type_line", "colors", "color_identity", "cmc", "mana_cost", "rarity", "image_uri", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        `INSERT INTO "CardVariant" ("variantId", "game", "cardId", "printingId", "name", "setId", "collectorNumber", "oracle_text", "type_line", "colors", "color_identity", "cmc", "mana_cost", "rarity", "image_uri", "mtgjson_uuid", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          ON CONFLICT ("variantId") DO NOTHING`,
         [
           c.variantId, c.game, c.cardId, c.printingId, c.name, c.setId,
           c.collectorNumber, c.oracle_text, c.type_line,
           c.colors ? JSON.stringify(c.colors) : null,
           c.color_identity ? JSON.stringify(c.color_identity) : null,
-          c.cmc, c.mana_cost, c.rarity, c.image_uri,
+          c.cmc, c.mana_cost, c.rarity, c.image_uri, c.mtgjson_uuid,
           c.updatedAt || new Date().toISOString(),
         ]
       );
@@ -113,10 +120,10 @@ async function main() {
   const prices = (await supabaseGet("PriceCache", "select=*&limit=5000")) as Record<string, unknown>[];
   for (const p of prices) {
     await pglite.query(
-      `INSERT INTO "PriceCache" ("id", "market", "kind", "currency", "amount", "variantId", "updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `INSERT INTO "PriceCache" ("id", "market", "kind", "currency", "amount", "source", "variantId", "updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT DO NOTHING`,
-      [p.id, p.market, p.kind, p.currency, p.amount, p.variantId, p.updatedAt || new Date().toISOString()]
+      [p.id, p.market, p.kind, p.currency, p.amount, p.source || "scryfall", p.variantId, p.updatedAt || new Date().toISOString()]
     );
   }
 

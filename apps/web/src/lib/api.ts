@@ -48,7 +48,14 @@ export interface MarketCard {
   priceUsd: number | null;
   bestUsd: number | null;
   bestMarket: string | null;
-  prices: Array<{ market: string; kind: string; currency: string; amount: number }>;
+  prices: Array<{
+    market: string;
+    kind: string;
+    currency: string;
+    amount: number;
+    source: string;
+    updatedAt: string;
+  }>;
   sparkline: number[];
   deltaPct: number | null;
   previousUsd: number | null;

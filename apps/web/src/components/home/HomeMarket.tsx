@@ -151,9 +151,9 @@ export function HomeMarket() {
       {featured && (
         <section>
           <SectionTitle
-            kicker="Best price"
-            title="Live market chart"
-            hint="Lowest USD across TCGPlayer, Cardmarket, and MTGO — history from daily snapshots."
+            kicker="Daily market estimate"
+            title="Multi-market price chart"
+            hint="Retail estimates from MTGJSON providers, matched to the exact printing and finish."
           />
           <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border bg-surface">
             <div className="flex flex-col gap-6 p-5 md:flex-row md:items-start">
@@ -186,7 +186,7 @@ export function HomeMarket() {
                 <div className="mt-4 flex flex-wrap items-end gap-6">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-accent-text">
-                      Best buy
+                      Lowest estimate
                     </p>
                     <p className="font-stat text-3xl font-bold tabular-nums text-text-primary">
                       {formatUsd(featured.card.bestUsd ?? featured.card.priceUsd)}

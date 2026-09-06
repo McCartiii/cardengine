@@ -52,25 +52,52 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       const storePricing: StorePricing[] = [];
 
-      // Fallback to DB price cache when Scryfall is unavailable
-      const cachedPrices = !scryfallLive
-        ? await prisma.priceCache.findMany({ where: { variantId: params.variantId } })
-        : [];
+      // MTGJSON cache is the primary multi-provider estimate. Scryfall's live
+      // card object remains a fallback for newly released/unmapped printings.
+      const cachedPrices = await prisma.priceCache.findMany({
+        where: { variantId: params.variantId },
+      });
+      const cachedRetailEntries = (market: string, currency: string) =>
+        cachedPrices
+          .filter(
+            (price) =>
+              price.market === market &&
+              price.currency === currency &&
+              !price.kind.startsWith("buylist-")
+          )
+          .map((price) => ({
+            label:
+              price.kind === "foil"
+                ? "Foil"
+                : price.kind === "etched"
+                  ? "Etched"
+                  : "Normal",
+            amount: price.amount,
+            currency: price.currency,
+          }));
 
       // TCGplayer
       {
-        const entries: StorePricing["prices"] = [];
+        const entries: StorePricing["prices"] = cachedRetailEntries(
+          "tcgplayer",
+          "USD"
+        );
         const usd = scryfallLive?.prices?.usd ? parseFloat(scryfallLive.prices.usd) : null;
         const usdFoil = scryfallLive?.prices?.usd_foil ? parseFloat(scryfallLive.prices.usd_foil) : null;
         const usdEtched = scryfallLive?.prices?.usd_etched ? parseFloat(scryfallLive.prices.usd_etched) : null;
-        if (usd && usd > 0) entries.push({ label: "Normal", amount: usd, currency: "USD" });
-        if (usdFoil && usdFoil > 0) entries.push({ label: "Foil", amount: usdFoil, currency: "USD" });
-        if (usdEtched && usdEtched > 0) entries.push({ label: "Etched", amount: usdEtched, currency: "USD" });
-        if (entries.length === 0) {
-          for (const p of cachedPrices.filter((c) => c.market === "tcgplayer" && c.currency === "USD")) {
+        for (const fallback of [
+          { label: "Normal", amount: usd },
+          { label: "Foil", amount: usdFoil },
+          { label: "Etched", amount: usdEtched },
+        ]) {
+          if (
+            fallback.amount &&
+            fallback.amount > 0 &&
+            !entries.some((entry) => entry.label === fallback.label)
+          ) {
             entries.push({
-              label: p.kind === "foil" ? "Foil" : p.kind === "etched" ? "Etched" : "Normal",
-              amount: p.amount,
+              label: fallback.label,
+              amount: fallback.amount,
               currency: "USD",
             });
           }
@@ -86,18 +113,26 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       // Cardmarket
       {
-        const entries: StorePricing["prices"] = [];
+        const entries: StorePricing["prices"] = cachedRetailEntries(
+          "cardmarket",
+          "EUR"
+        );
         const eur = scryfallLive?.prices?.eur ? parseFloat(scryfallLive.prices.eur) : null;
         const eurFoil = scryfallLive?.prices?.eur_foil ? parseFloat(scryfallLive.prices.eur_foil) : null;
         const eurEtched = scryfallLive?.prices?.eur_etched ? parseFloat(scryfallLive.prices.eur_etched) : null;
-        if (eur && eur > 0) entries.push({ label: "Normal", amount: eur, currency: "EUR" });
-        if (eurFoil && eurFoil > 0) entries.push({ label: "Foil", amount: eurFoil, currency: "EUR" });
-        if (eurEtched && eurEtched > 0) entries.push({ label: "Etched", amount: eurEtched, currency: "EUR" });
-        if (entries.length === 0) {
-          for (const p of cachedPrices.filter((c) => c.market === "cardmarket" && c.currency === "EUR")) {
+        for (const fallback of [
+          { label: "Normal", amount: eur },
+          { label: "Foil", amount: eurFoil },
+          { label: "Etched", amount: eurEtched },
+        ]) {
+          if (
+            fallback.amount &&
+            fallback.amount > 0 &&
+            !entries.some((entry) => entry.label === fallback.label)
+          ) {
             entries.push({
-              label: p.kind === "foil" ? "Foil" : p.kind === "etched" ? "Etched" : "Normal",
-              amount: p.amount,
+              label: fallback.label,
+              amount: fallback.amount,
               currency: "EUR",
             });
           }
@@ -114,8 +149,20 @@ export function registerCardRoutes(app: FastifyInstance) {
       // Card Kingdom
       storePricing.push({
         store: "Card Kingdom",
-        prices: [],
+        prices: cachedRetailEntries("cardkingdom", "USD"),
         buyUrl: `https://www.cardkingdom.com/catalog/search?search=header&filter%5Bname%5D=${encodedName}`,
+      });
+
+      storePricing.push({
+        store: "Cardsphere",
+        prices: cachedRetailEntries("cardsphere", "USD"),
+        buyUrl: `https://www.cardsphere.com/search?q=${encodedName}`,
+      });
+
+      storePricing.push({
+        store: "Mana Pool",
+        prices: cachedRetailEntries("manapool", "USD"),
+        buyUrl: `https://manapool.com/card/${encodedName}`,
       });
 
       // eBay
@@ -180,14 +227,30 @@ export function registerCardRoutes(app: FastifyInstance) {
         orderBy: { at: "asc" },
       });
 
-      let combinedHistory = priceHistory.map((p) => ({
-        at: p.at.toISOString(),
-        market: p.market,
-        kind: p.kind,
-        currency: p.currency,
-        amount: p.amount,
-        variantId: p.variantId,
-      }));
+      const historyBySeriesAndDay = new Map<string, (typeof priceHistory)[number]>();
+      for (const point of priceHistory) {
+        const key = [
+          point.at.toISOString().slice(0, 10),
+          point.market,
+          point.kind,
+          point.currency,
+        ].join(":");
+        const current = historyBySeriesAndDay.get(key);
+        if (!current || (point.source === "mtgjson" && current.source !== "mtgjson")) {
+          historyBySeriesAndDay.set(key, point);
+        }
+      }
+
+      let combinedHistory = Array.from(historyBySeriesAndDay.values())
+        .filter((p) => !p.kind.startsWith("buylist-"))
+        .map((p) => ({
+          at: p.at.toISOString(),
+          market: p.market,
+          kind: p.kind,
+          currency: p.currency,
+          amount: p.amount,
+          variantId: p.variantId,
+        }));
 
       // Add today's live prices if not already in history
       const now = new Date().toISOString();
@@ -298,11 +361,25 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       const priceMap = new Map<
         string,
-        Array<{ market: string; kind: string; currency: string; amount: number }>
+        Array<{
+          market: string;
+          kind: string;
+          currency: string;
+          amount: number;
+          source: string;
+          updatedAt: string;
+        }>
       >();
       for (const p of prices) {
         const arr = priceMap.get(p.variantId) ?? [];
-        arr.push({ market: p.market, kind: p.kind, currency: p.currency, amount: p.amount });
+        arr.push({
+          market: p.market,
+          kind: p.kind,
+          currency: p.currency,
+          amount: p.amount,
+          source: p.source,
+          updatedAt: p.updatedAt.toISOString(),
+        });
         priceMap.set(p.variantId, arr);
       }
 
@@ -319,9 +396,11 @@ export function registerCardRoutes(app: FastifyInstance) {
       function bestUsdPrice(vId: string): number {
         const cardPrices = priceMap.get(vId) ?? [];
         const preferredKind = vId.endsWith("-foil") ? "foil" : "market";
-        const preferredUsd = cardPrices.find(
+        const preferredUsd = cardPrices
+          .filter(
           (p) => p.currency === "USD" && p.kind === preferredKind
-        );
+          )
+          .sort((a, b) => a.amount - b.amount)[0];
         if (preferredUsd) return preferredUsd.amount;
         return 0;
       }
@@ -371,13 +450,17 @@ export function registerCardRoutes(app: FastifyInstance) {
           const cardPrices = priceMap.get(c.variantId) ?? [];
           const preferredKind = c.variantId.endsWith("-foil") ? "foil" : "market";
           const usdMarket =
-            cardPrices.find(
+            cardPrices
+              .filter(
               (p) => p.currency === "USD" && p.kind === preferredKind
-            );
+              )
+              .sort((a, b) => a.amount - b.amount)[0];
           const eurMarket =
-            cardPrices.find(
+            cardPrices
+              .filter(
               (p) => p.currency === "EUR" && p.kind === preferredKind
-            );
+              )
+              .sort((a, b) => a.amount - b.amount)[0];
           return {
             variantId: c.variantId,
             cardId: c.cardId,
@@ -400,6 +483,8 @@ export function registerCardRoutes(app: FastifyInstance) {
               kind: p.kind,
               currency: p.currency,
               amount: p.amount,
+              source: p.source,
+              updatedAt: p.updatedAt,
             })),
           };
         }),

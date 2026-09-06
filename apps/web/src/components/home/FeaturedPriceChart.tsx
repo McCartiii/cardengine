@@ -14,6 +14,9 @@ const MARKET_LABEL: Record<string, string> = {
   tcgplayer: "TCGPlayer",
   cardmarket: "Cardmarket",
   mtgo: "Cardhoarder",
+  cardkingdom: "Card Kingdom",
+  cardsphere: "Cardsphere",
+  manapool: "Mana Pool",
 };
 
 export interface ChartPoint {

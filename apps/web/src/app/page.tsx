@@ -34,7 +34,7 @@ export default async function Home() {
           className="mt-4 max-w-lg text-base font-medium text-text-secondary animate-slide-up md:text-lg"
           style={{ animationDelay: "60ms" }}
         >
-          Track the best price across markets. Build decks. Scan what you own.
+          Compare daily prices across markets. Build decks. Scan what you own.
         </p>
 
         <div

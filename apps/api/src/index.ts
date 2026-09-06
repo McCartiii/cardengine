@@ -6,7 +6,11 @@ import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { ZodError } from "zod";
 import { prisma, dbReady } from "./db.js";
-import { ingestScryfallBulk } from "./jobs/scryfallIngest.js";
+import {
+  ingestScryfallBulk,
+  refreshScryfallFallbackPrices,
+} from "./jobs/scryfallIngest.js";
+import { refreshMtgjsonPrices } from "./jobs/mtgjsonPriceRefresh.js";
 import { withAdvisoryLock } from "./jobs/leaderLock.js";
 import { checkWatchlistAlerts } from "./jobs/watchlistCheck.js";
 import { runMetaSnapshotJob } from "./jobs/metaSnapshotJob.js";
@@ -136,22 +140,24 @@ registerDeckRoutes(app);
 registerDeckAgentRoutes(app);
 
 // ── Pricing refresh job ──
-// Scryfall publishes prices daily and considers bulk prices dangerously stale
-// after 24 hours. Refresh on boot as well as on an interval: a long interval
-// alone may never fire on frequently restarted Railway instances.
+// MTGJSON publishes a daily multi-provider snapshot. Refresh on boot as well
+// as on an interval: a long interval alone may never fire on frequently
+// restarted Railway instances.
 const configuredPriceRefreshMs = Number(process.env.PRICE_REFRESH_INTERVAL_MS);
 const PRICE_REFRESH_MS =
   Number.isFinite(configuredPriceRefreshMs) && configuredPriceRefreshMs >= 60_000
     ? configuredPriceRefreshMs
-    : 12 * 60 * 60 * 1000;
+    : 24 * 60 * 60 * 1000;
 
 async function runDailyPriceRefresh() {
   const ran = await withAdvisoryLock("priceRefresh", async () => {
-    console.log("[price-refresh] Starting daily price refresh...");
-    // Refresh prices for known printings without rewriting catalog metadata or
-    // downloading and hashing every card image.
-    await ingestScryfallBulk({ pricesOnly: true });
-    console.log("[price-refresh] Daily price refresh complete.");
+    console.log("[price-refresh] Starting MTGJSON multi-provider refresh...");
+    try {
+      await refreshMtgjsonPrices();
+      console.log("[price-refresh] MTGJSON refresh complete.");
+    } finally {
+      await refreshScryfallFallbackPrices();
+    }
   }).catch((err) => {
     console.error("[price-refresh] Error:", err);
     return false;

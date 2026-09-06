@@ -16,7 +16,14 @@ export interface MarketCard {
   priceUsd: number | null;
   bestUsd: number | null;
   bestMarket: string | null;
-  prices: Array<{ market: string; kind: string; currency: string; amount: number }>;
+  prices: Array<{
+    market: string;
+    kind: string;
+    currency: string;
+    amount: number;
+    source: string;
+    updatedAt: string;
+  }>;
   sparkline: number[];
   deltaPct: number | null;
   previousUsd: number | null;
@@ -45,25 +52,40 @@ let cache: { at: number; data: HomePayload } | null = null;
 const CACHE_MS = 10 * 60 * 1000;
 
 function usdMarketPrices(
-  rows: Array<{ variantId: string; market: string; kind: string; currency: string; amount: number }>
+  rows: Array<{
+    variantId: string;
+    market: string;
+    kind: string;
+    currency: string;
+    amount: number;
+    source: string;
+    updatedAt: Date;
+  }>
 ) {
   const map = new Map<string, MarketCard["prices"]>();
   for (const r of rows) {
     const arr = map.get(r.variantId) ?? [];
-    arr.push({ market: r.market, kind: r.kind, currency: r.currency, amount: r.amount });
+    arr.push({
+      market: r.market,
+      kind: r.kind,
+      currency: r.currency,
+      amount: r.amount,
+      source: r.source,
+      updatedAt: r.updatedAt.toISOString(),
+    });
     map.set(r.variantId, arr);
   }
   return map;
 }
 
-function bestUsd(prices: MarketCard["prices"]): { amount: number; market: string } | null {
-  const usd = prices.filter((p) => p.currency === "USD" && p.kind === "market" && p.amount > 0);
-  if (usd.length === 0) {
-    const anyUsd = prices.filter((p) => p.currency === "USD" && p.amount > 0);
-    if (anyUsd.length === 0) return null;
-    const min = anyUsd.reduce((a, b) => (a.amount < b.amount ? a : b));
-    return { amount: min.amount, market: min.market };
-  }
+function bestUsd(
+  prices: MarketCard["prices"],
+  finish: "market" | "foil"
+): { amount: number; market: string } | null {
+  const usd = prices.filter(
+    (p) => p.currency === "USD" && p.kind === finish && p.amount > 0
+  );
+  if (usd.length === 0) return null;
   const min = usd.reduce((a, b) => (a.amount < b.amount ? a : b));
   return { amount: min.amount, market: min.market };
 }
@@ -84,8 +106,14 @@ async function hydrateCards(
     const c = byId.get(id);
     if (!c) continue;
     const p = priceMap.get(id) ?? [];
-    const tcg = p.find((x) => x.market === "tcgplayer" && x.kind === "market" && x.currency === "USD");
-    const best = bestUsd(p);
+    const preferredKind = id.endsWith("-foil") ? "foil" : "market";
+    const tcg = p.find(
+      (x) =>
+        x.market === "tcgplayer" &&
+        x.kind === preferredKind &&
+        x.currency === "USD"
+    );
+    const best = bestUsd(p, preferredKind);
     const extra = extras?.get(id);
     out.push({
       variantId: c.variantId,
@@ -116,6 +144,7 @@ async function fetchSparklines(variantIds: string[]): Promise<Map<string, number
       market: "tcgplayer",
       kind: "market",
       currency: "USD",
+      source: "mtgjson",
       at: { gte: since },
     },
     orderBy: { at: "asc" },
@@ -141,6 +170,7 @@ async function topMovers(): Promise<MarketCard[]> {
       SELECT "variantId", amount, at
       FROM "PricePoint"
       WHERE market = 'tcgplayer' AND kind = 'market' AND currency = 'USD'
+        AND source = 'mtgjson'
         AND at >= NOW() - INTERVAL '14 days'
     ),
     latest AS (
@@ -249,10 +279,25 @@ async function featuredChart(cards: MarketCard[]): Promise<FeaturedChart | null>
     cards[0];
   if (!pick) return null;
   const since = new Date(Date.now() - 90 * 86_400_000);
-  const history = await prisma.pricePoint.findMany({
-    where: { variantId: pick.variantId, at: { gte: since } },
+  let history = await prisma.pricePoint.findMany({
+    where: {
+      variantId: pick.variantId,
+      source: "mtgjson",
+      kind: { not: { startsWith: "buylist-" } },
+      at: { gte: since },
+    },
     orderBy: { at: "asc" },
   });
+  if (history.length === 0) {
+    history = await prisma.pricePoint.findMany({
+      where: {
+        variantId: pick.variantId,
+        source: "scryfall",
+        at: { gte: since },
+      },
+      orderBy: { at: "asc" },
+    });
+  }
   return {
     card: pick,
     history: history.map((p) => ({
