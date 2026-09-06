@@ -212,57 +212,73 @@ async function stagePriceBatch(runId: string, rows: PriceRow[]): Promise<void> {
 }
 
 async function promoteSnapshot(runId: string): Promise<number> {
-  const promoted = await prisma.$transaction(
-    async (tx) => {
-      const promoted = await tx.$executeRaw`
+  const promotionStartedAt = new Date();
+  let promoted = 0;
+
+  while (true) {
+    // One statement keeps cache, history, and removal from staging consistent
+    // for each bounded batch while staying below hosted-Postgres statement
+    // timeouts.
+    const batchSize = await prisma.$executeRaw`
+      WITH batch AS MATERIALIZED (
+        SELECT "runId", "market", "variantId", "kind", "currency",
+               "amount", "sourceDate"
+        FROM "PriceStage"
+        WHERE "runId" = ${runId}
+        LIMIT ${WRITE_BATCH_SIZE}
+      ),
+      cache_upsert AS (
         INSERT INTO "PriceCache"
           ("id", "market", "variantId", "kind", "currency", "amount", "source", "updatedAt")
         SELECT gen_random_uuid(), "market", "variantId", "kind", "currency",
                "amount", 'mtgjson', NOW()
-        FROM "PriceStage"
-        WHERE "runId" = ${runId}
+        FROM batch
         ON CONFLICT ("market", "variantId", "kind", "currency") DO UPDATE SET
           "amount" = EXCLUDED."amount",
           "source" = EXCLUDED."source",
           "updatedAt" = NOW()
-      `;
+        RETURNING 1
+      ),
+      history_upsert AS (
+        INSERT INTO "PricePoint"
+          ("id", "at", "market", "kind", "currency", "amount", "variantId", "source")
+        SELECT 'pp-mtgjson-' || "variantId" || '-' || "market" || '-' ||
+               "kind" || '-' || "sourceDate"::date::text,
+               "sourceDate", "market", "kind", "currency", "amount",
+               "variantId", 'mtgjson'
+        FROM batch
+        ON CONFLICT ("id") DO UPDATE SET
+          "amount" = EXCLUDED."amount",
+          "source" = EXCLUDED."source"
+        RETURNING 1
+      )
+      DELETE FROM "PriceStage" AS stage
+      USING batch
+      WHERE stage."runId" = batch."runId"
+        AND stage."market" = batch."market"
+        AND stage."variantId" = batch."variantId"
+        AND stage."kind" = batch."kind"
+        AND stage."currency" = batch."currency"
+    `;
+    if (batchSize === 0) break;
+    promoted += batchSize;
+  }
 
-      await tx.$executeRaw`
-        DELETE FROM "PriceCache" AS cache
-        WHERE cache."source" = 'mtgjson'
-          AND NOT EXISTS (
-            SELECT 1
-            FROM "PriceStage" AS stage
-            WHERE stage."runId" = ${runId}
-              AND stage."market" = cache."market"
-              AND stage."variantId" = cache."variantId"
-              AND stage."kind" = cache."kind"
-              AND stage."currency" = cache."currency"
-          )
-      `;
+  // Sweep stale keys only after every replacement batch succeeded.
+  while (true) {
+    const removed = await prisma.$executeRaw`
+      DELETE FROM "PriceCache"
+      WHERE ctid IN (
+        SELECT ctid
+        FROM "PriceCache"
+        WHERE "source" = 'mtgjson'
+          AND "updatedAt" < ${promotionStartedAt}
+        LIMIT ${WRITE_BATCH_SIZE}
+      )
+    `;
+    if (removed === 0) break;
+  }
 
-      return promoted;
-    },
-    { timeout: 10 * 60 * 1000 }
-  );
-
-  // History can lag behind the now-atomic current-price promotion. Keeping it
-  // outside that transaction prevents a large history insert from rolling
-  // back an otherwise valid current snapshot.
-  await prisma.$executeRaw`
-    INSERT INTO "PricePoint"
-      ("id", "at", "market", "kind", "currency", "amount", "variantId", "source")
-    SELECT 'pp-mtgjson-' || "variantId" || '-' || "market" || '-' ||
-           "kind" || '-' || "sourceDate"::date::text,
-           "sourceDate", "market", "kind", "currency", "amount",
-           "variantId", 'mtgjson'
-    FROM "PriceStage"
-    WHERE "runId" = ${runId}
-    ON CONFLICT ("id") DO UPDATE SET
-      "amount" = EXCLUDED."amount",
-      "source" = EXCLUDED."source"
-  `;
-  await prisma.priceStage.deleteMany({ where: { runId } });
   return promoted;
 }
 
