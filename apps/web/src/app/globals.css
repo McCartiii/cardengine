@@ -1,89 +1,113 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   Card Engine — Dark Slate + Teal Design Tokens
+   Card Engine — Sapphire + Five-Jewel Identity
+   Shared web tokens (mobile can adopt the same hexes next).
+
+   Neutrals:  bg #050508 · surface #0D0D12 · raised #14161D · border #1E202B
+   Brand:     sapphire #4E93C8 · hover #6BAADB · tint #102B3A
+   Jewels:    gold #E8B24A · sapphire #3E7CA8 · amethyst #6E5A82
+              garnet #C24667 · emerald #2FA98C
+   Type:      Space Grotesk (UI) · JetBrains Mono (prices/counts)
+   Radius:    xs 4 · sm 6 · md 10 · lg 14 · xl 20
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
   /* Surfaces */
-  --bg:             #0F1117;
-  --surface:        #161B27;
-  --surface-raised: #1E2535;
-  --surface-sunken: #0A0D13;
+  --bg:             #050508;
+  --surface:        #0D0D12;
+  --surface-raised: #14161D;
+  --surface-sunken: #08080C;
 
   /* Text */
-  --text-primary:   #E2E8F0;
-  --text-secondary: #94A3B8;
-  --text-muted:     #475569;
-  --text-inverse:   #0F1117;
+  --text-primary:   #F5FFF8;
+  --text-secondary: #A8B0B8;
+  --text-muted:     #5E6670;
+  --text-inverse:   #050508;
 
   /* Borders */
-  --border:        #1E2D3D;
-  --border-strong: #2D4059;
-  --border-focus:  #0D9488;
+  --border:        #1E202B;
+  --border-strong: #2A2E3A;
+  --border-focus:  #4E93C8;
 
-  /* Teal accent */
-  --accent:       #0D9488;
-  --accent-hover: #14B8A6;
-  --accent-light: #0D3330;
-  --accent-text:  #2DD4BF;
+  /* Brand sapphire */
+  --accent:       #4E93C8;
+  --accent-hover: #6BAADB;
+  --accent-light: #102B3A;
+  --accent-text:  #8CC8E4;
+  --accent-active: #8CC8E4;
 
-  /* Per-tab colors */
-  --tab-collection: #22C55E;  --tab-collection-bg: #0C2018;
-  --tab-scan:       #F43F5E;  --tab-scan-bg:       #2A0A12;
-  --tab-deck:       #818CF8;  --tab-deck-bg:       #1A1B3A;
-  --tab-map:        #38BDF8;  --tab-map-bg:        #082030;
-  --tab-watchlist:  #FB923C;  --tab-watchlist-bg:  #2A1608;
-  --tab-settings:   #94A3B8;  --tab-settings-bg:   #141C28;
+  /* Unified tab system (sapphire active; soft tint backgrounds) */
+  --tab-collection: #4E93C8;  --tab-collection-bg: #102B3A;
+  --tab-scan:       #4E93C8;  --tab-scan-bg:       #102B3A;
+  --tab-deck:       #4E93C8;  --tab-deck-bg:       #102B3A;
+  --tab-map:        #4E93C8;  --tab-map-bg:        #102B3A;
+  --tab-watchlist:  #4E93C8;  --tab-watchlist-bg:  #102B3A;
+  --tab-settings:   #A8B0B8;  --tab-settings-bg:   #14161D;
 
   /* Semantic */
-  --success:      #22C55E;
-  --success-light: #0C2018;
-  --success-text:  #86EFAC;
-  --danger:       #F43F5E;
-  --danger-light:  #2A0A12;
-  --danger-text:   #FDA4AF;
-  --warning:      #FB923C;
-  --warning-light: #2A1608;
-  --warning-text:  #FED7AA;
+  --success:       #2FA98C;
+  --success-light: #0A1F1A;
+  --success-text:  #6ED4B8;
+  --danger:        #C24667;
+  --danger-light:  #2A1018;
+  --danger-text:   #E88A9E;
+  --warning:       #FFB020;
+  --warning-light: #2A1E08;
+  --warning-text:  #FFD080;
+  --info:          #3E7CA8;
 
-  /* Mana colors */
-  --mana-W: #2A2510; --mana-W-text: #FDE68A;
-  --mana-U: #0F1E35; --mana-U-text: #93C5FD;
-  --mana-B: #1A1225; --mana-B-text: #C4B5D4;
-  --mana-R: #2A0E0E; --mana-R-text: #FCA5A5;
-  --mana-G: #0A1F0E; --mana-G-text: #86EFAC;
+  /* Five-jewel mana (chip backgrounds + glyph text) */
+  --jewel-gold:     #E8B24A;
+  --jewel-sapphire: #3E7CA8;
+  --jewel-amethyst: #6E5A82;
+  --jewel-garnet:   #C24667;
+  --jewel-emerald:  #2FA98C;
+  --jewel-neutral:  #5E6670;
 
-  /* Identity tints — card container backgrounds by color identity */
-  --id-W-tint:      #1A1810; --id-W-border:      #4A4020; --id-W-glow:      rgba(253,230,138,0.15);
-  --id-U-tint:      #0D1824; --id-U-border:      #1E3A5F; --id-U-glow:      rgba(147,197,253,0.15);
-  --id-B-tint:      #110E1C; --id-B-border:      #2D1B4E; --id-B-glow:      rgba(196,181,212,0.12);
-  --id-R-tint:      #1C0E0E; --id-R-border:      #5C1A1A; --id-R-glow:      rgba(252,165,165,0.15);
-  --id-G-tint:      #0A160D; --id-G-border:      #14532D; --id-G-glow:      rgba(134,239,172,0.15);
-  --id-multi-tint:  #1A1508; --id-multi-border:  #5C4A1A; --id-multi-glow:  rgba(253,230,138,0.15);
-  --id-C-tint:      #111520; --id-C-border:      #1E2D3D; --id-C-glow:      rgba(148,163,184,0.10);
+  --mana-W: #2A2210; --mana-W-text: #E8B24A;
+  --mana-U: #0F1E30; --mana-U-text: #6BAADB;
+  --mana-B: #1A1524; --mana-B-text: #A890C0;
+  --mana-R: #2A1018; --mana-R-text: #E88A9E;
+  --mana-G: #0A1F1A; --mana-G-text: #6ED4B8;
+
+  /* Identity tints — card containers by color identity */
+  --id-W-tint:      #16140C; --id-W-border:      #4A3A18; --id-W-glow:      rgba(232,178,74,0.18);
+  --id-U-tint:      #0C1620; --id-U-border:      #1E3A55; --id-U-glow:      rgba(78,147,200,0.18);
+  --id-B-tint:      #121018; --id-B-border:      #2E2440; --id-B-glow:      rgba(110,90,130,0.16);
+  --id-R-tint:      #1A0E12; --id-R-border:      #5C2030; --id-R-glow:      rgba(194,70,103,0.18);
+  --id-G-tint:      #0A1612; --id-G-border:      #1A4A3A; --id-G-glow:      rgba(47,169,140,0.18);
+  --id-multi-tint:  #16140C; --id-multi-border:  #4A3A18; --id-multi-glow:  rgba(232,178,74,0.16);
+  --id-C-tint:      #101218; --id-C-border:      #1E202B; --id-C-glow:      rgba(168,176,184,0.10);
 
   /* Market colors */
-  --market-tcg:  #FB923C; --market-tcg-bg:  #2A1608;
-  --market-mkm:  #22C55E; --market-mkm-bg:  #0C2018;
-  --market-ck:   #60A5FA; --market-ck-bg:   #0C1C38;
-  --market-ebay: #F43F5E; --market-ebay-bg: #2A0A12;
-  --market-mtgo: #A78BFA; --market-mtgo-bg: #1A1030;
+  --market-tcg:  #FFB020; --market-tcg-bg:  #2A1E08;
+  --market-mkm:  #2FA98C; --market-mkm-bg:  #0A1F1A;
+  --market-ck:   #4E93C8; --market-ck-bg:   #102B3A;
+  --market-ebay: #C24667; --market-ebay-bg: #2A1018;
+  --market-mtgo: #6E5A82; --market-mtgo-bg: #1A1524;
 
   /* Rarity */
-  --rarity-mythic:       #FB923C; --rarity-mythic-bg:    #2A1206;
-  --rarity-rare:         #FBBF24; --rarity-rare-bg:      #261E06;
-  --rarity-uncommon:     #94A3B8; --rarity-uncommon-bg:  #141C28;
-  --rarity-common:       #475569; --rarity-common-bg:    #0E1420;
+  --rarity-mythic:       #C24667; --rarity-mythic-bg:    #2A1018;
+  --rarity-rare:         #E8B24A; --rarity-rare-bg:      #2A2210;
+  --rarity-uncommon:     #4E93C8; --rarity-uncommon-bg:  #102B3A;
+  --rarity-common:       #5E6670; --rarity-common-bg:    #14161D;
 
-  /* Shadows */
-  --shadow-card:       0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-card-hover: 0 20px 40px rgba(0,0,0,0.7), 0 8px 16px rgba(0,0,0,0.5);
-  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  /* Radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Shadows / elevation */
+  --shadow-card:       0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.35);
+  --shadow-card-hover: 0 16px 36px rgba(0,0,0,0.65), 0 0 24px rgba(78,147,200,0.12);
+  --shadow-elevated:   0 8px 24px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4);
   --shadow-modal:      0 24px 64px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5);
 
   /* Surface overlay for frosted glass */
-  --surface-overlay: rgba(22,27,39,0.92);
+  --surface-overlay: rgba(13,13,18,0.92);
 }
 
 /* ─── Tailwind theme inline ─── */
@@ -119,8 +143,13 @@
   --color-tab-watchlist-bg:  var(--tab-watchlist-bg);
   --color-tab-settings:      var(--tab-settings);
   --color-tab-settings-bg:   var(--tab-settings-bg);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 }
 
 /* ─── @property for animatable custom properties ─── */
@@ -136,7 +165,6 @@
   initial-value: 0deg;
 }
 
-/* ─── New keyframes ─── */
 @keyframes spin-hue {
   from { --hue-angle: 0deg; }
   to   { --hue-angle: 360deg; }
@@ -152,7 +180,7 @@
   to   { background-position: 200% 0; }
 }
 
-/* ─── Rainbow foil hover effect (applied to card image wrappers) ─── */
+/* ─── Foil hover (sapphire-tinted sheen) ─── */
 .card-foil-hover {
   position: relative;
   border-radius: inherit;
@@ -166,12 +194,12 @@
   border-radius: inherit;
   background: conic-gradient(
     from var(--hue-angle) at 50% 50%,
-    rgba(255,0,128,0.22),
-    rgba(255,180,0,0.22),
-    rgba(0,255,128,0.22),
-    rgba(0,180,255,0.22),
-    rgba(128,0,255,0.22),
-    rgba(255,0,128,0.22)
+    rgba(232,178,74,0.2),
+    rgba(78,147,200,0.22),
+    rgba(47,169,140,0.2),
+    rgba(194,70,103,0.2),
+    rgba(110,90,130,0.2),
+    rgba(232,178,74,0.2)
   );
   opacity: 0;
   mix-blend-mode: screen;
@@ -187,7 +215,7 @@
   background: linear-gradient(
     115deg,
     transparent 35%,
-    rgba(255,255,255,0.2) 50%,
+    rgba(255,255,255,0.18) 50%,
     transparent 65%
   );
   background-size: 200% 100%;
@@ -200,7 +228,7 @@
 }
 .card-foil-hover:hover {
   transform: translateY(-6px) scale(1.04);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 24px rgba(200,100,255,0.25);
+  box-shadow: var(--shadow-card-hover);
 }
 .card-foil-hover:hover::before {
   opacity: 1;
@@ -211,7 +239,6 @@
   animation: btn-sweep 1.2s ease-in-out infinite alternate;
 }
 
-/* ─── Button shimmer sweep (applied to primary/danger buttons) ─── */
 .btn-shimmer {
   position: relative;
 }
@@ -237,7 +264,6 @@
   animation: btn-sweep 0.6s ease forwards;
 }
 
-/* ─── Foil overlay (pseudo-elements only, no lift transform — for use inside positioned containers) ─── */
 .card-foil-overlay::before {
   content: '';
   position: absolute;
@@ -245,12 +271,12 @@
   border-radius: inherit;
   background: conic-gradient(
     from var(--hue-angle) at 50% 50%,
-    rgba(255,0,128,0.22),
-    rgba(255,180,0,0.22),
-    rgba(0,255,128,0.22),
-    rgba(0,180,255,0.22),
-    rgba(128,0,255,0.22),
-    rgba(255,0,128,0.22)
+    rgba(232,178,74,0.2),
+    rgba(78,147,200,0.22),
+    rgba(47,169,140,0.2),
+    rgba(194,70,103,0.2),
+    rgba(110,90,130,0.2),
+    rgba(232,178,74,0.2)
   );
   opacity: 0;
   mix-blend-mode: screen;
@@ -267,7 +293,7 @@
   background: linear-gradient(
     115deg,
     transparent 35%,
-    rgba(255,255,255,0.2) 50%,
+    rgba(255,255,255,0.18) 50%,
     transparent 65%
   );
   background-size: 200% 100%;
@@ -288,12 +314,11 @@
 body {
   background: var(--bg);
   color: var(--text-primary);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Keyframe Animations ─── */
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -320,11 +345,10 @@ body {
 }
 
 @keyframes mythic-pulse {
-  0%, 100% { filter: drop-shadow(0 0 3px rgba(251,146,60,0.6)); }
-  50%       { filter: drop-shadow(0 0 7px rgba(251,146,60,1)) drop-shadow(0 0 14px rgba(251,146,60,0.5)); }
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(194,70,103,0.6)); }
+  50%       { filter: drop-shadow(0 0 7px rgba(194,70,103,1)) drop-shadow(0 0 14px rgba(194,70,103,0.45)); }
 }
 
-/* ─── Utility animation classes ─── */
 .animate-fade-in   { animation: fadeIn  0.3s ease-out both; }
 .animate-slide-up  { animation: slideUp 0.4s ease-out both; }
 .animate-scale-in  { animation: scaleIn 0.3s ease-out both; }
@@ -338,7 +362,6 @@ body {
 .animate-pulse-soft  { animation: pulse-soft   2s ease-in-out infinite; }
 .animate-mythic-pulse { animation: mythic-pulse 2s ease-in-out infinite; }
 
-/* Staggered animation delays */
 .stagger-1 { animation-delay: 0.05s; }
 .stagger-2 { animation-delay: 0.10s; }
 .stagger-3 { animation-delay: 0.15s; }
@@ -346,7 +369,6 @@ body {
 .stagger-5 { animation-delay: 0.25s; }
 .stagger-6 { animation-delay: 0.30s; }
 
-/* ─── Card hover lift ─── */
 .card-hover {
   transition: box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
               transform   0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -356,9 +378,17 @@ body {
   transform: translateY(-3px) scale(1.015);
 }
 
-/* ─── Typography utilities ─── */
 .font-stat {
-  font-family: var(--font-geist-mono), 'Geist Mono', monospace;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+/* Jewel atmosphere for heroes */
+.jewel-atmosphere {
+  background:
+    radial-gradient(ellipse 80% 50% at 70% 20%, rgba(78,147,200,0.14), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 15% 80%, rgba(232,178,74,0.08), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 90% 70%, rgba(194,70,103,0.06), transparent 45%),
+    var(--bg);
 }

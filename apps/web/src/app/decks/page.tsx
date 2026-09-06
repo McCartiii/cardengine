@@ -7,6 +7,7 @@ import useSWR from "swr";
 import { api, type Deck } from "@/lib/api";
 import Link from "next/link";
 import { NewDeckWizard } from "./NewDeckWizard";
+import { NavBar } from "@/components/ui/NavBar";
 
 const FORMAT_COLOR: Record<string, string> = {
   standard: "#0D9488", pioneer: "#6366f1", modern: "#f59e0b", legacy: "#ec4899",
@@ -36,7 +37,9 @@ export default function DecksPage() {
   const decks = data?.decks ?? [];
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="min-h-screen bg-bg text-text-primary">
+      <NavBar user={user} />
+      <main className="mx-auto max-w-5xl px-6 py-8">
       <div className="flex items-end justify-between mb-8">
         <div>
           <h1 className="font-extrabold text-4xl text-white leading-none mb-2">Decks</h1>
@@ -114,6 +117,7 @@ export default function DecksPage() {
           onCreated={handleCreated}
         />
       )}
+      </main>
     </div>
   );
 }

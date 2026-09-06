@@ -6,12 +6,17 @@ import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { ZodError } from "zod";
 import { prisma, dbReady } from "./db.js";
-import { ingestScryfallBulk } from "./jobs/scryfallIngest.js";
+import {
+  ingestScryfallBulk,
+  refreshScryfallFallbackPrices,
+} from "./jobs/scryfallIngest.js";
+import { refreshMtgjsonPrices } from "./jobs/mtgjsonPriceRefresh.js";
 import { withAdvisoryLock } from "./jobs/leaderLock.js";
 import { checkWatchlistAlerts } from "./jobs/watchlistCheck.js";
 import { runMetaSnapshotJob } from "./jobs/metaSnapshotJob.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerCollectionRoutes } from "./routes/collection.js";
+import { registerMarketRoutes } from "./routes/market.js";
 import { registerDeckAdvisorRoutes } from "./routes/deckAdvisor.js";
 import { registerWatchlistRoutes } from "./routes/watchlist.js";
 import { registerProfileRoutes } from "./routes/profile.js";
@@ -124,6 +129,7 @@ app.get("/v1/bundles/:game/hashes", async (req) => {
 // ── Route modules ──
 registerCardRoutes(app);
 registerCollectionRoutes(app);
+registerMarketRoutes(app);
 registerDeckAdvisorRoutes(app);
 registerWatchlistRoutes(app);
 registerProfileRoutes(app);
@@ -133,14 +139,25 @@ registerTelemetryRoutes(app);
 registerDeckRoutes(app);
 registerDeckAgentRoutes(app);
 
-// ── Daily pricing refresh job ──
-const DAILY_MS = 24 * 60 * 60 * 1000;
+// ── Pricing refresh job ──
+// MTGJSON publishes a daily multi-provider snapshot. Refresh on boot as well
+// as on an interval: a long interval alone may never fire on frequently
+// restarted Railway instances.
+const configuredPriceRefreshMs = Number(process.env.PRICE_REFRESH_INTERVAL_MS);
+const PRICE_REFRESH_MS =
+  Number.isFinite(configuredPriceRefreshMs) && configuredPriceRefreshMs >= 60_000
+    ? configuredPriceRefreshMs
+    : 24 * 60 * 60 * 1000;
 
 async function runDailyPriceRefresh() {
   const ran = await withAdvisoryLock("priceRefresh", async () => {
-    console.log("[price-refresh] Starting daily price refresh...");
-    await ingestScryfallBulk();
-    console.log("[price-refresh] Daily price refresh complete.");
+    console.log("[price-refresh] Starting MTGJSON multi-provider refresh...");
+    try {
+      await refreshMtgjsonPrices();
+      console.log("[price-refresh] MTGJSON refresh complete.");
+    } finally {
+      await refreshScryfallFallbackPrices();
+    }
   }).catch((err) => {
     console.error("[price-refresh] Error:", err);
     return false;
@@ -149,8 +166,11 @@ async function runDailyPriceRefresh() {
 }
 
 if (process.env.ENABLE_PRICE_REFRESH !== "false") {
-  setInterval(runDailyPriceRefresh, DAILY_MS);
-  console.log("[price-refresh] Scheduled daily price refresh (with leader lock).");
+  setTimeout(runDailyPriceRefresh, 5_000);
+  setInterval(runDailyPriceRefresh, PRICE_REFRESH_MS);
+  console.log(
+    `[price-refresh] Scheduled boot refresh and ${PRICE_REFRESH_MS}ms interval (with leader lock).`
+  );
 }
 
 // ── Watchlist check job (hourly) ──

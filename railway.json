@@ -5,7 +5,7 @@
     "buildCommand": "npm ci && npm run build:packages && npm run build:api"
   },
   "deploy": {
-    "startCommand": "node apps/api/dist/index.js",
+    "startCommand": "npx prisma db push --config apps/api/prisma.config.ts && node apps/api/dist/index.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",

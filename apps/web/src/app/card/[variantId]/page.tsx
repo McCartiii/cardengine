@@ -210,6 +210,12 @@ function marketDisplayName(market: string): string {
       return "Cardmarket";
     case "mtgo":
       return "MTGO";
+    case "cardkingdom":
+      return "Card Kingdom";
+    case "cardsphere":
+      return "Cardsphere";
+    case "manapool":
+      return "Mana Pool";
     default:
       return market;
   }
@@ -250,6 +256,13 @@ const SERIES_COLORS: Record<string, string> = {
   "cardmarket:foil": "#14b8a6",
   "cardmarket:etched": "#06b6d4",
   "mtgo:market": "#f59e0b",
+  "cardkingdom:market": "#4E93C8",
+  "cardkingdom:foil": "#6BAADB",
+  "cardkingdom:etched": "#8CC8E4",
+  "cardsphere:market": "#C24667",
+  "cardsphere:foil": "#E88A9E",
+  "manapool:market": "#E8B24A",
+  "manapool:foil": "#FFD080",
 };
 
 const SERIES_DASH: Record<string, string> = {
@@ -260,6 +273,13 @@ const SERIES_DASH: Record<string, string> = {
   "cardmarket:foil": "6 3",
   "cardmarket:etched": "2 2",
   "mtgo:market": "",
+  "cardkingdom:market": "",
+  "cardkingdom:foil": "6 3",
+  "cardkingdom:etched": "2 2",
+  "cardsphere:market": "",
+  "cardsphere:foil": "6 3",
+  "manapool:market": "",
+  "manapool:foil": "6 3",
 };
 
 const STORE_FOR_SERIES: Record<string, string> = {
@@ -270,6 +290,13 @@ const STORE_FOR_SERIES: Record<string, string> = {
   "cardmarket:foil": "Cardmarket",
   "cardmarket:etched": "Cardmarket",
   "mtgo:market": "Cardhoarder",
+  "cardkingdom:market": "Card Kingdom",
+  "cardkingdom:foil": "Card Kingdom",
+  "cardkingdom:etched": "Card Kingdom",
+  "cardsphere:market": "Cardsphere",
+  "cardsphere:foil": "Cardsphere",
+  "manapool:market": "Mana Pool",
+  "manapool:foil": "Mana Pool",
 };
 
 interface TooltipData {
@@ -741,17 +768,30 @@ export default function CardDetailPage() {
     });
   }, []);
 
-  // Find the "best" price to display as the headline
+  // Compare like-for-like finishes only. A foil price is not a valid substitute
+  // for a nonfoil copy (and vice versa).
   const headlinePrice = useMemo(() => {
     if (!data) return null;
+    const candidates: Array<{ store: string; label: string; amount: number; currency: string }> = [];
     for (const sp of data.storePricing) {
-      const usd = sp.prices.find((p) => p.currency === "USD" && p.label === "Normal");
-      if (usd) return { store: sp.store, ...usd };
+      for (const p of sp.prices) {
+        if (p.amount > 0) candidates.push({ store: sp.store, ...p });
+      }
     }
-    for (const sp of data.storePricing) {
-      if (sp.prices.length > 0) return { store: sp.store, ...sp.prices[0] };
-    }
-    return null;
+    const preferredLabels = data.card.variantId.endsWith("-foil")
+      ? new Set(["Foil"])
+      : new Set(["Normal", "Market"]);
+    const matchingFinish = candidates.filter((p) => preferredLabels.has(p.label));
+    const matchingUsd = matchingFinish.filter((p) => p.currency === "USD");
+    const matchingEur = matchingFinish.filter((p) => p.currency === "EUR");
+    const list =
+      matchingUsd.length > 0
+        ? matchingUsd
+        : matchingEur.length > 0
+          ? matchingEur
+          : matchingFinish;
+    if (list.length === 0) return null;
+    return list.reduce((a, b) => (a.amount < b.amount ? a : b));
   }, [data]);
 
   if (loading) {
@@ -932,11 +972,11 @@ export default function CardDetailPage() {
               const storesWithoutPrices = storePricing.filter((sp) => sp.prices.length === 0 && sp.buyUrl);
               return (
                 <div className="rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow-card)] animate-slide-up" style={{ animationDelay: "100ms" }}>
-                  {/* Header with live badge + refresh */}
+                  {/* Header with source freshness + refresh */}
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                        Live Prices
+                        Current Price Estimates
                       </h2>
                       {lastUpdated && (
                         <Badge variant="success" className="gap-1.5">
@@ -973,7 +1013,27 @@ export default function CardDetailPage() {
                     </Button>
                   </div>
 
-                  {/* Stores WITH live prices */}
+                  {headlinePrice && (
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-accent/30 bg-accent-light px-4 py-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-accent-text">
+                          Lowest estimate
+                        </p>
+                        <p className="text-lg font-bold tabular-nums text-text-primary">
+                          {currencyFormat(headlinePrice.amount, headlinePrice.currency)}
+                          <span className="ml-2 text-sm font-medium text-text-secondary">
+                            {headlinePrice.store}
+                            {headlinePrice.label !== "Normal" ? ` · ${headlinePrice.label}` : ""}
+                          </span>
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-text-muted">
+                        Lowest comparable {headlinePrice.currency} estimate for this printing and finish
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Stores with current price estimates */}
                   <div className="space-y-3">
                     {storesWithPrices.map((sp) => {
                       const config = STORE_CONFIG[sp.store] ?? DEFAULT_STORE_CONFIG;
@@ -998,10 +1058,17 @@ export default function CardDetailPage() {
                             )}
                           </div>
                           <div className="divide-y divide-border">
-                            {sp.prices.map((p) => (
+                            {sp.prices.map((p) => {
+                              const isBest =
+                                headlinePrice &&
+                                sp.store === headlinePrice.store &&
+                                p.label === headlinePrice.label &&
+                                p.currency === headlinePrice.currency &&
+                                p.amount === headlinePrice.amount;
+                              return (
                               <div
                                 key={`${sp.store}-${p.label}-${p.currency}`}
-                                className="flex items-center justify-between px-4 py-2.5"
+                                className={`flex items-center justify-between px-4 py-2.5 ${isBest ? "bg-accent-light" : ""}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Badge variant={config.badgeVariant}>
@@ -1010,12 +1077,16 @@ export default function CardDetailPage() {
                                   <span className="text-[10px] text-text-muted">
                                     {p.currency}
                                   </span>
+                                  {isBest && (
+                                    <Badge variant="success">Lowest</Badge>
+                                  )}
                                 </div>
                                 <span className="text-base font-bold tabular-nums text-text-primary">
                                   {currencyFormat(p.amount, p.currency)}
                                 </span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );

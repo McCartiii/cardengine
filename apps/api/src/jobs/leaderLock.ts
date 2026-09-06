@@ -1,67 +1,74 @@
-import pg from "pg";
+import { randomUUID } from "node:crypto";
+import { prisma } from "../db.js";
 
 /**
- * Deterministic lock IDs for background jobs.
- * Each must be a unique integer. Postgres advisory locks accept bigint,
- * but small positive integers are fine and readable.
+ * Background jobs that must have at most one active runner.
  */
-const LOCK_IDS = {
-  priceRefresh:   100_001,
-  watchlistCheck: 100_002,
-  metaSnapshot:   100_003,
-} as const;
-
-export type JobName = keyof typeof LOCK_IDS;
+export type JobName = "priceRefresh" | "watchlistCheck" | "metaSnapshot";
 
 /**
- * Attempt to acquire a Postgres advisory lock, run the job, then release.
+ * Attempt to acquire a renewable database lease, run the job, then release it.
  *
  * - Non-blocking: returns immediately if another instance holds the lock.
- * - Crash-safe: lock is auto-released if the holding connection drops.
+ * - Crash-safe: an abandoned lease expires and can be reclaimed.
+ * - Pooler-safe: no session or long-running transaction is required.
  * - Returns true if the job ran on this instance, false if skipped.
- *
- * Uses a dedicated pg.Client (not a pool) so that acquire and release are
- * guaranteed to run on the same session. Session-level advisory locks
- * (pg_try_advisory_lock) do not work correctly with connection pools —
- * including Supabase's transaction-mode pooler — because acquire and
- * release may be dispatched to different backend connections.
  */
 export async function withAdvisoryLock(
   jobName: JobName,
   job: () => Promise<void>,
 ): Promise<boolean> {
-  const lockId = LOCK_IDS[jobName];
-
   // PGlite mode: no DATABASE_URL, skip locking and run job directly.
   if (!process.env.DATABASE_URL) {
     await job();
     return true;
   }
 
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
+  const ownerId = randomUUID();
+  const leaseMs = 3 * 60 * 60 * 1000;
+  const heartbeatMs = 5 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + leaseMs);
+
+  const claimed = await prisma.$queryRaw<Array<{ ownerId: string }>>`
+    INSERT INTO "JobLease" ("name", "ownerId", "expiresAt", "updatedAt")
+    VALUES (${jobName}, ${ownerId}, ${expiresAt}, NOW())
+    ON CONFLICT ("name") DO UPDATE SET
+      "ownerId" = EXCLUDED."ownerId",
+      "expiresAt" = EXCLUDED."expiresAt",
+      "updatedAt" = NOW()
+    WHERE "JobLease"."expiresAt" <= NOW()
+    RETURNING "ownerId"
+  `;
+  const acquired = claimed[0]?.ownerId === ownerId;
+
+  if (!acquired) {
+    console.log(`[leader-lock] Lease "${jobName}" held by another instance -- skipping.`);
+    return false;
+  }
+
+  console.log(`[leader-lock] Acquired lease "${jobName}" -- running job.`);
+  const heartbeat = setInterval(async () => {
+    try {
+      await prisma.jobLease.updateMany({
+        where: { name: jobName, ownerId },
+        data: { expiresAt: new Date(Date.now() + leaseMs) },
+      });
+    } catch (error) {
+      console.error(`[leader-lock] Failed to renew lease "${jobName}"`, error);
+    }
+  }, heartbeatMs);
+  heartbeat.unref();
 
   try {
-    const { rows } = await client.query<{ pg_try_advisory_lock: boolean }>(
-      "SELECT pg_try_advisory_lock($1)",
-      [lockId],
-    );
-    const acquired = rows[0]?.pg_try_advisory_lock === true;
-
-    if (!acquired) {
-      console.log(`[leader-lock] Lock "${jobName}" (${lockId}) held by another instance -- skipping.`);
-      return false;
-    }
-
-    console.log(`[leader-lock] Acquired lock "${jobName}" (${lockId}) -- running job.`);
-    try {
-      await job();
-      return true;
-    } finally {
-      await client.query("SELECT pg_advisory_unlock($1)", [lockId]);
-      console.log(`[leader-lock] Released lock "${jobName}" (${lockId}).`);
-    }
+    await job();
+    return true;
   } finally {
-    await client.end();
+    clearInterval(heartbeat);
+    await prisma.jobLease
+      .deleteMany({ where: { name: jobName, ownerId } })
+      .catch((error) =>
+        console.error(`[leader-lock] Failed to release lease "${jobName}"`, error)
+      );
+    console.log(`[leader-lock] Released lease "${jobName}".`);
   }
 }

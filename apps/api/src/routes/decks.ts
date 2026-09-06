@@ -160,7 +160,7 @@ export function registerDeckRoutes(app: FastifyInstance) {
     const variantIds = deck.cards.flatMap((c) => (c.variantId ? [c.variantId] : []));
     const prices = variantIds.length > 0
       ? await prisma.priceCache.findMany({
-          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "normal", currency: "USD" },
+          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "market", currency: "USD" },
         })
       : [];
     const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
@@ -355,7 +355,7 @@ export function registerDeckRoutes(app: FastifyInstance) {
     const variantIds = deck.cards.map((c) => c.variantId).filter(Boolean) as string[];
     const prices = variantIds.length > 0
       ? await prisma.priceCache.findMany({
-          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "normal", currency: "USD" },
+          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "market", currency: "USD" },
         })
       : [];
     const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));

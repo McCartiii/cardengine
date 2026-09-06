@@ -49,6 +49,7 @@ model CardVariant {
   pHash           String?  @map("p_hash")
   foilDHash       String?  @map("foil_d_hash")
   foilPHash       String?  @map("foil_p_hash")
+  mtgjsonUuid     String?  @map("mtgjson_uuid")
 
   updatedAt DateTime @updatedAt
 
@@ -58,6 +59,7 @@ model CardVariant {
 
   @@index([game, name])
   @@index([game, setId, collectorNumber])
+  @@index([mtgjsonUuid])
 }
 
 model CollectionEvent {
@@ -82,6 +84,7 @@ model PricePoint {
   kind      String
   currency  String
   amount    Float
+  source    String   @default("scryfall")
   variantId String
 
   variant CardVariant @relation(fields: [variantId], references: [variantId])
@@ -95,11 +98,33 @@ model PriceCache {
   kind      String
   currency  String
   amount    Float
+  source    String   @default("scryfall")
   variantId String
   updatedAt DateTime @updatedAt
 
   @@unique([market, variantId, kind, currency])
   @@index([variantId])
+}
+
+model JobLease {
+  name      String   @id
+  ownerId   String
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+}
+
+model PriceStage {
+  runId      String
+  market     String
+  variantId  String
+  kind       String
+  currency   String
+  amount     Float
+  sourceDate DateTime
+  createdAt  DateTime @default(now())
+
+  @@id([runId, market, variantId, kind, currency])
+  @@index([runId])
 }
 
 model WatchlistEntry {

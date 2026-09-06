@@ -54,26 +54,26 @@ const variantStyles: Record<BadgeVariant, string> = {
 };
 
 const rarityConfig = {
-  mythic: {
-    bg: "rgba(251,146,60,0.10)",
-    border: "rgba(251,146,60,0.30)",
-    color: "var(--rarity-mythic)",
-    shadow: "0 1px 4px rgba(251,146,60,0.20), inset 0 1px 0 rgba(255,255,255,0.12)",
-    rarity: "mythic" as const,
-  },
   rare: {
-    bg: "rgba(13,148,136,0.10)",
-    border: "rgba(13,148,136,0.30)",
+    bg: "rgba(232,178,74,0.10)",
+    border: "rgba(232,178,74,0.30)",
     color: "var(--rarity-rare)",
-    shadow: "0 1px 4px rgba(13,148,136,0.20), inset 0 1px 0 rgba(255,255,255,0.12)",
+    shadow: "0 1px 4px rgba(232,178,74,0.20), inset 0 1px 0 rgba(255,255,255,0.12)",
     rarity: "rare" as const,
   },
   uncommon: {
-    bg: "rgba(148,163,184,0.10)",
-    border: "rgba(148,163,184,0.25)",
+    bg: "rgba(78,147,200,0.10)",
+    border: "rgba(78,147,200,0.30)",
     color: "var(--rarity-uncommon)",
-    shadow: "0 1px 3px rgba(148,163,184,0.12)",
+    shadow: "0 1px 3px rgba(78,147,200,0.15)",
     rarity: "uncommon" as const,
+  },
+  mythic: {
+    bg: "rgba(194,70,103,0.10)",
+    border: "rgba(194,70,103,0.30)",
+    color: "var(--rarity-mythic)",
+    shadow: "0 1px 4px rgba(194,70,103,0.20), inset 0 1px 0 rgba(255,255,255,0.12)",
+    rarity: "mythic" as const,
   },
   common: {
     bg: "rgba(107,114,128,0.08)",
