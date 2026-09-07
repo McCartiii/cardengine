@@ -389,6 +389,7 @@ export default function CollectionPage() {
                   rarity={card.rarity}
                   priceUsd={card.priceUsd}
                   foil={isFoilVariant(card.variantId)}
+                  priority={idx < 10}
                 />
               </div>
             ))}

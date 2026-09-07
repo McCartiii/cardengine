@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { useState, useMemo } from "react";
+import { CardImage } from "@/components/ui/CardImage";
 import { RichCard, GroupBy, ViewMode, SortBy, groupCards, sortCards, cardImageUrl } from "./deck-helpers";
 
 interface CardListPanelProps {
@@ -49,12 +52,8 @@ function SegmentedControl<T extends string>({
 
 function CardRow({ card }: { card: RichCard }) {
   const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      className="flex items-center gap-3 px-4 py-2.5 border-t border-border first:border-t-0"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+  const content = (
+    <>
       <span
         className="text-sm font-bold w-8 text-right shrink-0"
         style={{ color: hovered ? "transparent" : "#0D9488", userSelect: "none" }}
@@ -73,7 +72,48 @@ function CardRow({ card }: { card: RichCard }) {
       <span className="text-sm text-text-muted shrink-0 w-14 text-right">
         {card.price != null ? `$${card.price.toFixed(2)}` : "—"}
       </span>
+    </>
+  );
+  const className =
+    "flex items-center gap-3 px-4 py-2.5 border-t border-border first:border-t-0 transition-colors hover:bg-surface-raised";
+  const hoverProps = {
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+  };
+
+  return card.variantId ? (
+    <Link
+      href={`/card/${encodeURIComponent(card.variantId)}`}
+      className={`${className} cursor-pointer`}
+      {...hoverProps}
+    >
+      {content}
+    </Link>
+  ) : (
+    <div
+      className="flex items-center gap-3 px-4 py-2.5 border-t border-border first:border-t-0"
+      {...hoverProps}
+    >
+      {content}
     </div>
+  );
+}
+
+function CardTarget({
+  card,
+  className,
+  children,
+}: {
+  card: RichCard;
+  className: string;
+  children: ReactNode;
+}) {
+  return card.variantId ? (
+    <Link href={`/card/${encodeURIComponent(card.variantId)}`} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <div className={className}>{children}</div>
   );
 }
 
@@ -81,14 +121,13 @@ function ArtGrid({ cards, showName }: { cards: RichCard[]; showName: boolean }) 
   return (
     <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
       {cards.map(card => (
-        <div key={card.id} className="group relative cursor-pointer" style={{ aspectRatio: "0.716" }}>
-          <img
+        <CardTarget key={card.id} card={card} className="group relative block cursor-pointer" >
+          <CardImage
             src={cardImageUrl(card)}
             alt={card.cardName}
-            loading="lazy"
-            className="w-full h-full object-cover rounded-lg transition-transform duration-150 group-hover:scale-105 group-hover:z-10 group-hover:relative"
-            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.6)" }}
-            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+            foil={card.variantId?.endsWith("-foil")}
+            wrapperClassName="block w-full overflow-hidden rounded-lg"
+            className="aspect-[5/7] w-full object-cover transition-transform duration-150 group-hover:scale-105"
           />
           {card.quantity > 1 && (
             <span
@@ -118,7 +157,7 @@ function ArtGrid({ cards, showName }: { cards: RichCard[]; showName: boolean }) 
           >
             {card.cardName}{card.price != null ? ` · $${card.price.toFixed(2)}` : ""}
           </div>
-        </div>
+        </CardTarget>
       ))}
     </div>
   );

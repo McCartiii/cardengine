@@ -285,7 +285,20 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       const since = new Date(Date.now() - query.historyDays * 86_400_000);
       const priceHistory = await prisma.pricePoint.findMany({
-        where: { variantId: params.variantId, at: { gte: since } },
+        where: {
+          variantId: params.variantId,
+          market: {
+            in: [
+              "tcgplayer",
+              "cardmarket",
+              "mtgo",
+              "cardkingdom",
+              "cardsphere",
+              "manapool",
+            ],
+          },
+          at: { gte: since },
+        },
         orderBy: { at: "asc" },
       });
 

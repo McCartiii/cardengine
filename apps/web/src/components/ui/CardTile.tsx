@@ -17,6 +17,7 @@ export interface CardTileProps {
   priceUsd?: number | null;
   quantity?: number;
   foil?: boolean;
+  priority?: boolean;
   priceDeltaPct?: number | null;
   className?: string;
   style?: CSSProperties;
@@ -48,6 +49,7 @@ export function CardTile({
   priceUsd,
   quantity,
   foil = false,
+  priority = false,
   priceDeltaPct,
   className = "",
   style,
@@ -72,6 +74,7 @@ export function CardTile({
             src={imageUri}
             alt={name}
             foil={foil}
+            priority={priority}
             wrapperClassName="absolute inset-0 w-full h-full"
             className="h-full w-full object-cover"
           />

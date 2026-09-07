@@ -90,6 +90,7 @@ model PricePoint {
   variant CardVariant @relation(fields: [variantId], references: [variantId])
 
   @@index([market, variantId, at])
+  @@index([variantId, at])
 }
 
 model PriceCache {
