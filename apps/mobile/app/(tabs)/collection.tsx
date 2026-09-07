@@ -110,6 +110,13 @@ export default function CollectionScreen() {
             {item.lineValue != null ? `$${item.lineValue.toFixed(2)}` : "—"}
           </Text>
         </View>
+        <Text style={styles.finishLabel}>
+          {item.finish === "nonfoil"
+            ? "Non-foil"
+            : item.finish === "foil"
+              ? "Foil"
+              : "Etched"}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -172,7 +179,7 @@ export default function CollectionScreen() {
       ) : (
         <FlatList
           data={cards}
-          keyExtractor={(c) => c.variantId}
+          keyExtractor={(c) => c.holdingId}
           numColumns={3}
           contentContainerStyle={styles.grid}
           columnWrapperStyle={styles.row}
@@ -237,4 +244,5 @@ const styles = StyleSheet.create({
   cardMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
   rarityDot: { width: 6, height: 6, borderRadius: 3 },
   cardPrice: { color: COLORS.textMuted, fontSize: 11 },
+  finishLabel: { color: COLORS.textMuted, fontSize: 9, fontWeight: "600", marginTop: 2 },
 });

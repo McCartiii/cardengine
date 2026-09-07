@@ -75,15 +75,28 @@ export interface CardDetail {
   colorIdentity: string[] | null;
   cmc: number | null;
   rarity: string | null;
-  storePricing: Array<{
-    store: string;
-    prices: Array<{ label: string; amount: number; currency: string }>;
-    buyUrl: string | null;
-  }>;
+  storePricing: StorePricing[];
 }
 
-export async function getCardDetail(variantId: string): Promise<{ card: CardDetail }> {
-  return request("GET", `/v1/cards/${encodeURIComponent(variantId)}`);
+interface StorePricing {
+  store: string;
+  prices: Array<{ label: string; amount: number; currency: string }>;
+  buyUrl: string | null;
+}
+
+export async function getCardDetail(
+  variantId: string
+): Promise<{ card: CardDetail }> {
+  const response = await request<{
+    card: Omit<CardDetail, "storePricing">;
+    storePricing: StorePricing[];
+  }>("GET", `/v1/cards/${encodeURIComponent(variantId)}`);
+  return {
+    card: {
+      ...response.card,
+      storePricing: response.storePricing,
+    },
+  };
 }
 
 export async function scanIdentify(params: {
@@ -101,7 +114,10 @@ export async function addCollectionEvents(
     at: string;
     type: "add";
     variantId: string;
-    payload: { quantity: number };
+    payload: {
+      quantity: number;
+      finish?: "nonfoil" | "foil" | "etched";
+    };
   }>
 ): Promise<{ ok: boolean; inserted: number }> {
   return request("POST", "/v1/collection/events", { events });
@@ -115,7 +131,9 @@ export async function getCollection(userId: string): Promise<{
 }
 
 export interface OwnedCard {
+  holdingId: string;
   variantId: string;
+  finish: "nonfoil" | "foil" | "etched";
   name: string;
   imageUri: string | null;
   setId: string | null;

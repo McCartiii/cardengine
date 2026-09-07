@@ -65,6 +65,7 @@ interface OtherPrinting {
 interface CardDetailResponse {
   card: CardData;
   storePricing: StorePricing[];
+  pricingUpdatedAt: string | null;
   priceHistory: PriceHistoryPoint[];
   otherPrintings: OtherPrinting[];
   scryfallUrl: string;
@@ -362,8 +363,10 @@ function PriceChart({
   // ─── BAR CHART: single-day snapshot comparing stores ───
   if (isSingleDay) {
     const bars = Array.from(grouped.entries()).map(([key, pts]) => {
-      const best = pts.reduce((a, b) => (b.amount > a.amount ? b : a), pts[0]);
-      return { key, ...best };
+      const latest = pts.reduce((a, b) =>
+        new Date(b.at).getTime() > new Date(a.at).getTime() ? b : a
+      );
+      return { key, ...latest };
     });
     bars.sort((a, b) => b.amount - a.amount);
 
@@ -431,6 +434,7 @@ function PriceChart({
 
   // ─── LINE CHART: multi-day price history ───
   const allAmounts = visiblePoints.map((p) => p.amount);
+  const chartCurrency = visiblePoints[0]?.currency ?? "USD";
   const rawMin = Math.min(...allAmounts);
   const rawMax = Math.max(...allAmounts);
   const range = rawMax - rawMin || 1;
@@ -490,7 +494,7 @@ function PriceChart({
               textAnchor="end"
               className="fill-text-muted text-[10px]"
             >
-              ${v.toFixed(2)}
+              {currencySymbol(chartCurrency)}{v.toFixed(2)}{currencySuffix(chartCurrency)}
             </text>
           </g>
         ))}
@@ -630,7 +634,7 @@ function ChartLegend({
         Click to show/hide
       </p>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {Array.from(seriesByStore.entries()).map(([store, keys]) =>
+        {Array.from(seriesByStore.entries()).map(([, keys]) =>
           keys.map((key) => {
             const [market, kind] = key.split(":");
             const color = SERIES_COLORS[key] ?? "#9ca3af";
@@ -678,6 +682,10 @@ export default function CardDetailPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("");
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
+  const [visibleFinishes, setVisibleFinishes] = useState<Set<string>>(
+    new Set(["market", "foil"])
+  );
+  const [chartCurrency, setChartCurrency] = useState("USD");
   const [user, setUser] = useState<{ email?: string } | null>(null);
 
   // Load user for NavBar
@@ -716,7 +724,9 @@ export default function CardDetailPage() {
         setError(json.error);
       } else {
         setData(json);
-        setLastUpdated(new Date());
+        setLastUpdated(
+          json.pricingUpdatedAt ? new Date(json.pricingUpdatedAt) : null
+        );
       }
     } catch (e: unknown) {
       const msg =
@@ -767,6 +777,81 @@ export default function CardDetailPage() {
       return next;
     });
   }, []);
+
+  const toggleFinish = useCallback((kind: string) => {
+    setVisibleFinishes((previous) => {
+      const next = new Set(previous);
+      if (next.has(kind)) {
+        if (next.size > 1) next.delete(kind);
+      } else {
+        next.add(kind);
+      }
+      return next;
+    });
+  }, []);
+
+  const finishSummaries = useMemo(() => {
+    if (!data) return [];
+    const candidates = data.storePricing.flatMap((store) =>
+      store.prices
+        .filter((price) => price.amount > 0)
+        .map((price) => ({ store: store.store, ...price }))
+    );
+    return [
+      { kind: "market", label: "Non-foil", priceLabel: "Normal" },
+      { kind: "foil", label: "Foil", priceLabel: "Foil" },
+      { kind: "etched", label: "Etched", priceLabel: "Etched" },
+    ]
+      .map((finish) => {
+        const matching = candidates.filter(
+          (price) =>
+            price.label === finish.priceLabel ||
+            (finish.kind === "market" && price.label === "Market")
+        );
+        const cheapest = (currency: string) => {
+          const prices = matching.filter(
+            (price) => price.currency === currency
+          );
+          return prices.length > 0
+            ? prices.reduce((a, b) => (a.amount < b.amount ? a : b))
+            : null;
+        };
+        return {
+          ...finish,
+          usd: cheapest("USD"),
+          eur: cheapest("EUR"),
+        };
+      })
+      .filter(
+        (finish) =>
+          finish.kind !== "etched" || finish.usd !== null || finish.eur !== null
+      );
+  }, [data]);
+
+  const availableHistoryFinishes = useMemo(() => {
+    if (!data) return new Set<string>();
+    return new Set(
+      data.priceHistory
+        .map((point) => point.kind)
+        .filter((kind) => ["market", "foil", "etched"].includes(kind))
+    );
+  }, [data]);
+
+  const availableHistoryCurrencies = useMemo(() => {
+    if (!data) return new Set<string>();
+    return new Set(data.priceHistory.map((point) => point.currency));
+  }, [data]);
+
+  const visiblePriceHistory = useMemo(
+    () =>
+      data?.priceHistory.filter(
+        (point) =>
+          visibleFinishes.has(point.kind) &&
+          point.currency === chartCurrency
+      ) ??
+      [],
+    [chartCurrency, data, visibleFinishes]
+  );
 
   // Compare like-for-like finishes only. A foil price is not a valid substitute
   // for a nonfoil copy (and vice versa).
@@ -832,7 +917,7 @@ export default function CardDetailPage() {
     );
   }
 
-  const { card, storePricing, priceHistory, otherPrintings, scryfallUrl } =
+  const { card, storePricing, otherPrintings, scryfallUrl } =
     data;
 
   return (
@@ -1013,25 +1098,50 @@ export default function CardDetailPage() {
                     </Button>
                   </div>
 
-                  {headlinePrice && (
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-accent/30 bg-accent-light px-4 py-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-accent-text">
-                          Lowest estimate
-                        </p>
-                        <p className="text-lg font-bold tabular-nums text-text-primary">
-                          {currencyFormat(headlinePrice.amount, headlinePrice.currency)}
-                          <span className="ml-2 text-sm font-medium text-text-secondary">
-                            {headlinePrice.store}
-                            {headlinePrice.label !== "Normal" ? ` · ${headlinePrice.label}` : ""}
-                          </span>
-                        </p>
+                  <div
+                    className={`mb-4 grid gap-3 ${
+                      finishSummaries.length > 2
+                        ? "sm:grid-cols-3"
+                        : "sm:grid-cols-2"
+                    }`}
+                  >
+                    {finishSummaries.map((finish) => (
+                      <div
+                        key={finish.kind}
+                        className="rounded-[var(--radius-md)] border border-border bg-surface-sunken px-4 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                            {finish.label}
+                          </p>
+                          {finish.kind ===
+                            (card.variantId.endsWith("-foil")
+                              ? "foil"
+                              : "market") && (
+                            <Badge variant="accent">This copy</Badge>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <p className="font-stat text-xl font-bold tabular-nums text-text-primary">
+                            {finish.usd
+                              ? currencyFormat(finish.usd.amount, "USD")
+                              : "—"}
+                          </p>
+                          <p className="text-[11px] text-text-secondary">
+                            {finish.usd
+                              ? `${finish.usd.store} · lowest USD estimate`
+                              : "No USD estimate"}
+                          </p>
+                        </div>
+                        {finish.eur && (
+                          <p className="mt-2 border-t border-border pt-2 font-stat text-xs text-text-muted">
+                            {currencyFormat(finish.eur.amount, "EUR")} ·{" "}
+                            {finish.eur.store}
+                          </p>
+                        )}
                       </div>
-                      <p className="text-[11px] text-text-muted">
-                        Lowest comparable {headlinePrice.currency} estimate for this printing and finish
-                      </p>
-                    </div>
-                  )}
+                    ))}
+                  </div>
 
                   {/* Stores with current price estimates */}
                   <div className="space-y-3">
@@ -1126,11 +1236,47 @@ export default function CardDetailPage() {
 
             {/* ─── Price History Chart ─── */}
             <div className="rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow-card)] animate-slide-up" style={{ animationDelay: "150ms" }}>
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                   Price History
                 </h2>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
+                  {(["market", "foil", "etched"] as const)
+                    .filter((kind) => availableHistoryFinishes.has(kind))
+                    .map((kind) => (
+                      <button
+                        key={kind}
+                        onClick={() => toggleFinish(kind)}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          visibleFinishes.has(kind)
+                            ? "border-accent/40 bg-accent-light text-accent-text"
+                            : "border-border text-text-muted hover:text-text-primary"
+                        }`}
+                      >
+                        {kind === "market"
+                          ? "Non-foil"
+                          : kind === "foil"
+                            ? "Foil"
+                            : "Etched"}
+                      </button>
+                    ))}
+                  {(["USD", "EUR"] as const)
+                    .filter((currency) =>
+                      availableHistoryCurrencies.has(currency)
+                    )
+                    .map((currency) => (
+                      <button
+                        key={currency}
+                        onClick={() => setChartCurrency(currency)}
+                        className={`rounded-lg px-2.5 py-1 font-stat text-xs font-medium transition-colors ${
+                          chartCurrency === currency
+                            ? "bg-surface-raised text-text-primary"
+                            : "text-text-muted hover:text-text-primary"
+                        }`}
+                      >
+                        {currency}
+                      </button>
+                    ))}
                   {[30, 90, 180, 365].map((d) => (
                     <button
                       key={d}
@@ -1146,8 +1292,8 @@ export default function CardDetailPage() {
                   ))}
                 </div>
               </div>
-              <PriceChart points={priceHistory} hiddenSeries={hiddenSeries} />
-              <ChartLegend points={priceHistory} hiddenSeries={hiddenSeries} onToggle={toggleSeries} />
+              <PriceChart points={visiblePriceHistory} hiddenSeries={hiddenSeries} />
+              <ChartLegend points={visiblePriceHistory} hiddenSeries={hiddenSeries} onToggle={toggleSeries} />
             </div>
 
             {/* ─── Card Details Grid ─── */}

@@ -29,6 +29,18 @@ interface SearchResult {
   setId?: string;
   priceUsd?: number | null;
   imageUri?: string;
+  prices?: Array<{
+    market: string;
+    kind: string;
+    currency: string;
+    amount: number;
+  }>;
+}
+
+function formatPrice(amount: number, currency: string) {
+  if (currency === "EUR") return `€${amount.toFixed(2)}`;
+  if (currency === "TIX") return `${amount.toFixed(2)} tix`;
+  return `$${amount.toFixed(2)}`;
 }
 
 export default function WatchlistPage() {
@@ -40,6 +52,9 @@ export default function WatchlistPage() {
   const [selectedCard, setSelectedCard] = useState<SearchResult | null>(null);
   const [threshold, setThreshold] = useState("");
   const [direction, setDirection] = useState<"below" | "above">("below");
+  const [priceKind, setPriceKind] = useState<"market" | "foil" | "etched">(
+    "market"
+  );
   const [user, setUser] = useState<{ email?: string } | null>(null);
 
   useEffect(() => {
@@ -65,33 +80,6 @@ export default function WatchlistPage() {
       });
       const data = await res.json();
       const rawEntries: WatchlistEntry[] = data.entries ?? [];
-
-      // Enrich with card names and current prices
-      if (rawEntries.length > 0) {
-        const variantIds = rawEntries.map((e) => e.variantId);
-        const priceRes = await fetch(`${API_URL}/v1/prices/batch`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ variantIds, market: "tcgplayer" }),
-        });
-        const priceData = priceRes.ok ? await priceRes.json() : { prices: {} };
-
-        // Fetch card names
-        for (const entry of rawEntries) {
-          const price = priceData.prices?.[entry.variantId];
-          entry.currentPrice = price?.amount;
-
-          // Try to get card name from search
-          try {
-            const nameRes = await fetch(
-              `${API_URL}/v1/search?q=&game=mtg&limit=1&offset=0`
-            );
-            // We'll use variantId lookup instead
-          } catch {
-            // skip
-          }
-        }
-      }
 
       setEntries(rawEntries);
     } catch {
@@ -148,7 +136,7 @@ export default function WatchlistPage() {
         body: JSON.stringify({
           variantId: selectedCard.variantId,
           market: "tcgplayer",
-          kind: "market",
+          kind: priceKind,
           currency: "USD",
           thresholdAmount: parseFloat(threshold),
           direction,
@@ -165,6 +153,28 @@ export default function WatchlistPage() {
       alert("Failed to create alert");
     }
   };
+
+  const selectedPrice =
+    selectedCard?.prices
+      ?.filter(
+        (price) =>
+          price.market === "tcgplayer" &&
+          price.currency === "USD" &&
+          price.kind === priceKind
+      )
+      .sort((a, b) => a.amount - b.amount)[0]?.amount ??
+    (priceKind === "market" ? selectedCard?.priceUsd : null);
+
+  const availableKinds = (["market", "foil", "etched"] as const).filter(
+    (kind) =>
+      kind === "market" ||
+      selectedCard?.prices?.some(
+        (price) =>
+          price.currency === "USD" &&
+          price.market === "tcgplayer" &&
+          price.kind === kind
+      )
+  );
 
   return (
     <div className="min-h-screen bg-bg">
@@ -211,8 +221,23 @@ export default function WatchlistPage() {
                         key={r.variantId}
                         onClick={() => {
                           setSelectedCard(r);
-                          if (r.priceUsd)
-                            setThreshold((r.priceUsd * 0.8).toFixed(2));
+                          const nextKind = r.variantId.endsWith("-foil")
+                            ? "foil"
+                            : "market";
+                          setPriceKind(nextKind);
+                          const nextPrice =
+                            r.prices
+                              ?.filter(
+                                (price) =>
+                                  price.market === "tcgplayer" &&
+                                  price.currency === "USD" &&
+                                  price.kind === nextKind
+                              )
+                              .sort((a, b) => a.amount - b.amount)[0]?.amount ??
+                            (nextKind === "market" ? r.priceUsd : null);
+                          setThreshold(
+                            nextPrice ? (nextPrice * 0.8).toFixed(2) : ""
+                          );
                         }}
                         className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left transition-all hover:shadow-[var(--shadow-card)] card-hover"
                       >
@@ -259,8 +284,8 @@ export default function WatchlistPage() {
                     </p>
                     <p className="text-sm text-text-secondary">
                       Current:{" "}
-                      {selectedCard.priceUsd != null
-                        ? `$${selectedCard.priceUsd.toFixed(2)}`
+                      {selectedPrice != null
+                        ? `$${selectedPrice.toFixed(2)}`
                         : "N/A"}
                     </p>
                   </div>
@@ -270,6 +295,43 @@ export default function WatchlistPage() {
                   >
                     Change
                   </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary">
+                    Finish
+                  </label>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {availableKinds.map((kind) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        onClick={() => {
+                          setPriceKind(kind);
+                          const price = selectedCard.prices
+                            ?.filter(
+                              (entry) =>
+                                entry.market === "tcgplayer" &&
+                                entry.currency === "USD" &&
+                                entry.kind === kind
+                            )
+                            .sort((a, b) => a.amount - b.amount)[0]?.amount;
+                          setThreshold(price ? (price * 0.8).toFixed(2) : "");
+                        }}
+                        className={`rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${
+                          priceKind === kind
+                            ? "border-accent bg-accent-light text-accent-text"
+                            : "border-border bg-surface text-text-secondary hover:border-border-strong"
+                        }`}
+                      >
+                        {kind === "market"
+                          ? "Non-foil"
+                          : kind === "foil"
+                            ? "Foil"
+                            : "Etched"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -339,11 +401,17 @@ export default function WatchlistPage() {
                     {entry.cardName ?? entry.variantId.replace("scryfall:", "")}
                   </p>
                   <p className="text-sm text-text-secondary">
-                    Alert: {entry.direction === "above" ? "Above" : "Below"} $
-                    {entry.thresholdAmount.toFixed(2)} {entry.currency}
+                    Alert: {entry.direction === "above" ? "Above" : "Below"}{" "}
+                    {formatPrice(entry.thresholdAmount, entry.currency)} ·{" "}
+                    {entry.kind === "market"
+                      ? "Non-foil"
+                      : entry.kind === "foil"
+                        ? "Foil"
+                        : "Etched"}
                     {entry.currentPrice != null && (
                       <span className="ml-2 text-tab-watchlist">
-                        Current: ${entry.currentPrice.toFixed(2)}
+                        Current:{" "}
+                        {formatPrice(entry.currentPrice, entry.currency)}
                       </span>
                     )}
                   </p>

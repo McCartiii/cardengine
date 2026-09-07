@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { scryfallCache } from "../lib/scryfallCache.js";
+import { preferredPriceKind } from "../lib/pricing.js";
 import type { ScryfallLiveData, ScryfallLivePrices } from "../types/scryfall.js";
 
 export function registerCardRoutes(app: FastifyInstance) {
@@ -29,6 +30,7 @@ export function registerCardRoutes(app: FastifyInstance) {
       // Fetch LIVE prices from Scryfall API for this exact card (cached 4h).
       // Hard timeout — a hung Scryfall call previously blanked the web card page.
       let scryfallLive: ScryfallLiveData | null = scryfallCache.get(scryfallId) ?? null;
+      let fetchedFreshScryfallPrice = false;
       if (!scryfallLive) {
         try {
           const scRes = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
@@ -38,6 +40,7 @@ export function registerCardRoutes(app: FastifyInstance) {
           if (scRes.ok) {
             scryfallLive = (await scRes.json()) as ScryfallLiveData;
             scryfallCache.set(scryfallId, scryfallLive);
+            fetchedFreshScryfallPrice = true;
           }
         } catch (err) {
           app.log.warn({ err }, "[card-detail] Scryfall fetch failed; continuing with DB data");
@@ -221,6 +224,64 @@ export function registerCardRoutes(app: FastifyInstance) {
         }
       }
 
+      // A live card lookup should improve the shared cache and daily history,
+      // not only the current HTTP response. MTGJSON remains authoritative when
+      // it already supplies the same key.
+      if (fetchedFreshScryfallPrice && livePriceEntries.length > 0) {
+        try {
+          const dateUTC = new Date().toISOString().slice(0, 10);
+          await prisma.$transaction(async (tx) => {
+            for (const price of livePriceEntries) {
+              await tx.$executeRaw`
+                INSERT INTO "PriceCache"
+                  ("id", "market", "variantId", "kind", "currency", "amount", "source", "updatedAt")
+                VALUES
+                  (gen_random_uuid(), ${price.market}, ${params.variantId},
+                   ${price.kind}, ${price.currency}, ${price.amount},
+                   'scryfall', NOW())
+                ON CONFLICT ("market", "variantId", "kind", "currency")
+                DO UPDATE SET
+                  "amount" = EXCLUDED."amount",
+                  "source" = EXCLUDED."source",
+                  "updatedAt" = NOW()
+                WHERE "PriceCache"."source" <> 'mtgjson'
+              `;
+              const pointId = [
+                "pp-live",
+                params.variantId,
+                price.market,
+                price.kind,
+                price.currency,
+                dateUTC,
+              ].join("-");
+              await tx.pricePoint.upsert({
+                where: { id: pointId },
+                create: {
+                  id: pointId,
+                  at: new Date(),
+                  market: price.market,
+                  kind: price.kind,
+                  currency: price.currency,
+                  amount: price.amount,
+                  source: "scryfall",
+                  variantId: params.variantId,
+                },
+                update: {
+                  at: new Date(),
+                  amount: price.amount,
+                  source: "scryfall",
+                },
+              });
+            }
+          });
+        } catch (err) {
+          app.log.warn(
+            { err, variantId: params.variantId },
+            "[card-detail] Failed to persist live prices"
+          );
+        }
+      }
+
       const since = new Date(Date.now() - query.historyDays * 86_400_000);
       const priceHistory = await prisma.pricePoint.findMany({
         where: { variantId: params.variantId, at: { gte: since } },
@@ -284,6 +345,7 @@ export function registerCardRoutes(app: FastifyInstance) {
       return {
         card: {
           variantId: card.variantId,
+          game: card.game,
           cardId: card.cardId,
           printingId: card.printingId,
           name: card.name,
@@ -299,6 +361,16 @@ export function registerCardRoutes(app: FastifyInstance) {
           imageUri: card.imageUri,
         },
         storePricing,
+        pricingUpdatedAt:
+          fetchedFreshScryfallPrice && livePriceEntries.length > 0
+            ? new Date().toISOString()
+            : cachedPrices.length > 0
+              ? cachedPrices
+                  .reduce((latest, price) =>
+                    price.updatedAt > latest.updatedAt ? price : latest
+                  )
+                  .updatedAt.toISOString()
+              : null,
         priceHistory: combinedHistory,
         otherPrintings: otherPrintings.map((c) => ({
           variantId: c.variantId,
@@ -395,7 +467,7 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       function bestUsdPrice(vId: string): number {
         const cardPrices = priceMap.get(vId) ?? [];
-        const preferredKind = vId.endsWith("-foil") ? "foil" : "market";
+        const preferredKind = preferredPriceKind(vId);
         const preferredUsd = cardPrices
           .filter(
           (p) => p.currency === "USD" && p.kind === preferredKind
@@ -448,7 +520,7 @@ export function registerCardRoutes(app: FastifyInstance) {
         total: paginated.length,
         cards: paginated.map((c) => {
           const cardPrices = priceMap.get(c.variantId) ?? [];
-          const preferredKind = c.variantId.endsWith("-foil") ? "foil" : "market";
+          const preferredKind = preferredPriceKind(c.variantId);
           const usdMarket =
             cardPrices
               .filter(

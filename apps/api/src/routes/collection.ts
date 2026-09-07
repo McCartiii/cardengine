@@ -2,6 +2,33 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
+import {
+  normalizeCurrency,
+  normalizeMarket,
+  normalizeRetailPriceKind,
+  finishForPriceKind,
+  priceKindForHolding,
+  preferredPriceKind,
+} from "../lib/pricing.js";
+
+const retailKindParam = z
+  .enum(["auto", "normal", "nonfoil", "non-foil", "market", "foil", "etched"])
+  .transform((kind) => (kind === "auto" ? kind : normalizeRetailPriceKind(kind)));
+
+function holdingFromEvent(
+  variantId: string,
+  payload: { finish?: unknown; kind?: unknown }
+) {
+  const priceKind = priceKindForHolding(
+    variantId,
+    payload.finish ?? payload.kind
+  );
+  return {
+    id: `${variantId}:${priceKind}`,
+    variantId,
+    priceKind,
+  };
+}
 
 export function registerCollectionRoutes(app: FastifyInstance) {
   // ── Collection sync ──
@@ -74,9 +101,9 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     const query = z
       .object({
         q: z.string().optional(),
-        market: z.string().default("tcgplayer"),
-        kind: z.string().default("auto"),
-        currency: z.string().default("USD"),
+        market: z.string().default("tcgplayer").transform(normalizeMarket),
+        kind: retailKindParam.default("auto"),
+        currency: z.string().default("USD").transform(normalizeCurrency),
         sort: z.enum(["name", "value", "qty", "added"]).default("value"),
         page: z.coerce.number().int().min(1).default(1),
         limit: z.coerce.number().int().min(1).max(200).default(60),
@@ -90,19 +117,37 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     });
 
     const qtys = new Map<string, number>();
+    const holdings = new Map<
+      string,
+      { id: string; variantId: string; priceKind: "market" | "foil" | "etched" }
+    >();
     const firstAdded = new Map<string, Date>();
     for (const e of events) {
-      const payload = e.payload as { qty?: number; quantity?: number };
+      const payload = e.payload as {
+        qty?: number;
+        quantity?: number;
+        finish?: unknown;
+        kind?: unknown;
+      };
+      const holding = holdingFromEvent(e.variantId, payload);
       const delta =
         e.type === "add"
           ? (payload.qty ?? payload.quantity ?? 1)
           : -(payload.qty ?? payload.quantity ?? 1);
-      qtys.set(e.variantId, (qtys.get(e.variantId) ?? 0) + delta);
-      if (!firstAdded.has(e.variantId)) firstAdded.set(e.variantId, e.at);
+      holdings.set(holding.id, holding);
+      qtys.set(holding.id, (qtys.get(holding.id) ?? 0) + delta);
+      if (!firstAdded.has(holding.id)) firstAdded.set(holding.id, e.at);
     }
 
     const owned = [...qtys.entries()].filter(([, q]) => q > 0);
-    const variantIds = owned.map(([id]) => id);
+    const variantIds = [
+      ...new Set(
+        owned.flatMap(([id]) => {
+          const variantId = holdings.get(id)?.variantId;
+          return variantId ? [variantId] : [];
+        })
+      ),
+    ];
 
     if (variantIds.length === 0) {
       return { cards: [], totalCards: 0, totalValue: 0, page: query.page, hasMore: false };
@@ -121,8 +166,8 @@ export function registerCollectionRoutes(app: FastifyInstance) {
         market: query.market,
         currency: query.currency,
         ...(query.kind === "auto"
-          ? { kind: { in: ["market", "foil"] } }
-          : { kind: query.kind === "normal" ? "market" : query.kind }),
+          ? { kind: { in: ["market", "foil", "etched"] } }
+          : { kind: query.kind }),
       },
     });
     const pricesByVariant = new Map<string, typeof prices>();
@@ -132,17 +177,21 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       pricesByVariant.set(price.variantId, entries);
     }
 
-    const cards = variants.map((v) => {
-      const qty = qtys.get(v.variantId) ?? 0;
-      const preferredKind = v.variantId.endsWith("-foil") ? "foil" : "market";
+    const variantsById = new Map(variants.map((variant) => [variant.variantId, variant]));
+    const cards = owned.flatMap(([holdingId, qty]) => {
+      const holding = holdings.get(holdingId);
+      const v = holding ? variantsById.get(holding.variantId) : null;
+      if (!holding || !v) return [];
+      const preferredKind =
+        query.kind === "auto" ? holding.priceKind : query.kind;
       const price =
         pricesByVariant
           .get(v.variantId)
-          ?.find((entry) =>
-            query.kind === "auto" ? entry.kind === preferredKind : true
-          )?.amount ?? null;
-      return {
+          ?.find((entry) => entry.kind === preferredKind)?.amount ?? null;
+      return [{
+        holdingId,
         variantId: v.variantId,
+        finish: finishForPriceKind(holding.priceKind),
         name: v.name,
         imageUri: v.imageUri,
         setId: v.setId,
@@ -154,8 +203,8 @@ export function registerCollectionRoutes(app: FastifyInstance) {
         quantity: qty,
         priceUsd: price,
         lineValue: price != null ? price * qty : null,
-        addedAt: firstAdded.get(v.variantId)?.toISOString() ?? null,
-      };
+        addedAt: firstAdded.get(holdingId)?.toISOString() ?? null,
+      }];
     });
 
     cards.sort((a, b) => {
@@ -190,9 +239,9 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     const user = (req as FastifyRequest & { user: AuthUser }).user;
     const query = z
       .object({
-        market: z.string().default("tcgplayer"),
-        kind: z.string().default("auto"),
-        currency: z.string().default("USD"),
+        market: z.string().default("tcgplayer").transform(normalizeMarket),
+        kind: retailKindParam.default("auto"),
+        currency: z.string().default("USD").transform(normalizeCurrency),
       })
       .parse(req.query);
 
@@ -202,14 +251,33 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     });
 
     const qtys = new Map<string, number>();
+    const holdings = new Map<
+      string,
+      { id: string; variantId: string; priceKind: "market" | "foil" | "etched" }
+    >();
     for (const e of events) {
-      const payload = e.payload as { qty?: number };
-      const delta = e.type === "add" ? (payload.qty ?? 1) : -(payload.qty ?? 1);
-      qtys.set(e.variantId, (qtys.get(e.variantId) ?? 0) + delta);
+      const payload = e.payload as {
+        qty?: number;
+        quantity?: number;
+        finish?: unknown;
+        kind?: unknown;
+      };
+      const holding = holdingFromEvent(e.variantId, payload);
+      const eventQuantity = payload.qty ?? payload.quantity ?? 1;
+      const delta = e.type === "add" ? eventQuantity : -eventQuantity;
+      holdings.set(holding.id, holding);
+      qtys.set(holding.id, (qtys.get(holding.id) ?? 0) + delta);
     }
 
     const owned = [...qtys.entries()].filter(([, q]) => q > 0);
-    const variantIds = owned.map(([id]) => id);
+    const variantIds = [
+      ...new Set(
+        owned.flatMap(([id]) => {
+          const variantId = holdings.get(id)?.variantId;
+          return variantId ? [variantId] : [];
+        })
+      ),
+    ];
 
     const prices =
       variantIds.length > 0
@@ -219,8 +287,8 @@ export function registerCollectionRoutes(app: FastifyInstance) {
               market: query.market,
               currency: query.currency,
               ...(query.kind === "auto"
-                ? { kind: { in: ["market", "foil"] } }
-                : { kind: query.kind === "normal" ? "market" : query.kind }),
+                ? { kind: { in: ["market", "foil", "etched"] } }
+                : { kind: query.kind }),
             },
           })
         : [];
@@ -232,16 +300,24 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     }
 
     let totalValue = 0;
-    const breakdown = owned.map(([variantId, qty]) => {
-      const preferredKind = variantId.endsWith("-foil") ? "foil" : "market";
+    const breakdown = owned.flatMap(([holdingId, qty]) => {
+      const holding = holdings.get(holdingId);
+      if (!holding) return [];
+      const preferredKind =
+        query.kind === "auto" ? holding.priceKind : query.kind;
       const price =
         pricesByVariant
-          .get(variantId)
-          ?.find((entry) =>
-            query.kind === "auto" ? entry.kind === preferredKind : true
-          )?.amount ?? 0;
+          .get(holding.variantId)
+          ?.find((entry) => entry.kind === preferredKind)?.amount ?? 0;
       totalValue += price * qty;
-      return { variantId, qty, price, lineValue: price * qty };
+      return [{
+        holdingId,
+        variantId: holding.variantId,
+        finish: finishForPriceKind(holding.priceKind),
+        qty,
+        price,
+        lineValue: price * qty,
+      }];
     });
 
     breakdown.sort((a, b) => b.lineValue - a.lineValue);
@@ -259,9 +335,9 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     const body = z
       .object({
         variantIds: z.array(z.string()).min(1).max(500),
-        market: z.string().default("tcgplayer"),
-        kind: z.string().default("auto"),
-        currency: z.string().default("USD"),
+        market: z.string().default("tcgplayer").transform(normalizeMarket),
+        kind: retailKindParam.default("auto"),
+        currency: z.string().default("USD").transform(normalizeCurrency),
       })
       .parse(req.body);
 
@@ -271,8 +347,8 @@ export function registerCollectionRoutes(app: FastifyInstance) {
         market: body.market,
         currency: body.currency,
         ...(body.kind === "auto"
-          ? { kind: { in: ["market", "foil"] } }
-          : { kind: body.kind === "normal" ? "market" : body.kind }),
+          ? { kind: { in: ["market", "foil", "etched"] } }
+          : { kind: body.kind }),
       },
     });
 
@@ -288,7 +364,7 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       { amount: number; currency: string; kind: string; updatedAt: string }
     > = {};
     for (const variantId of body.variantIds) {
-      const preferredKind = variantId.endsWith("-foil") ? "foil" : "market";
+      const preferredKind = preferredPriceKind(variantId);
       const price = pricesByVariant
         .get(variantId)
         ?.find((entry) =>
@@ -309,7 +385,9 @@ export function registerCollectionRoutes(app: FastifyInstance) {
 
   // ── Prices by market ──
   app.get("/v1/prices/:market", async (req, reply) => {
-    const params = z.object({ market: z.string() }).parse(req.params);
+    const params = z
+      .object({ market: z.string().transform(normalizeMarket) })
+      .parse(req.params);
     const query = z
       .object({
         variantIds: z
@@ -344,7 +422,7 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     const params = z.object({ variantId: z.string() }).parse(req.params);
     const query = z
       .object({
-        market: z.string().default("tcgplayer"),
+        market: z.string().default("tcgplayer").transform(normalizeMarket),
         days: z.coerce.number().int().min(1).max(365).default(30),
       })
       .parse(req.query);

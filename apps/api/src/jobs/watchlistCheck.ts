@@ -1,4 +1,10 @@
 import { prisma } from "../db.js";
+import {
+  currencySymbol,
+  normalizeCurrency,
+  normalizeMarket,
+  normalizeRetailPriceKind,
+} from "../lib/pricing.js";
 
 interface ExpoPushMessage {
   to: string | string[];
@@ -62,8 +68,11 @@ export async function checkWatchlistAlerts() {
     const pushMessages: ExpoPushMessage[] = [];
 
     for (const entry of entries) {
+      const market = normalizeMarket(entry.market);
+      const kind = normalizeRetailPriceKind(entry.kind);
+      const currency = normalizeCurrency(entry.currency);
       const cache = priceIndex.get(
-        `${entry.variantId}:${entry.market}:${entry.kind}:${entry.currency}`
+        `${entry.variantId}:${market}:${kind}:${currency}`
       );
       if (!cache) continue;
 
@@ -76,8 +85,10 @@ export async function checkWatchlistAlerts() {
 
       const cardName = nameIndex.get(entry.variantId) ?? entry.variantId;
       const dirLabel = entry.direction === "above" ? "⬆ Above" : "⬇ Below";
-      const notifTitle = `${dirLabel} $${entry.thresholdAmount} — ${cardName}`;
-      const notifBody = `Now $${cache.amount.toFixed(2)} on ${cache.market} (${cache.kind})`;
+      const symbol = currencySymbol(currency);
+      const suffix = currency === "TIX" ? " tix" : "";
+      const notifTitle = `${dirLabel} ${symbol}${entry.thresholdAmount}${suffix} — ${cardName}`;
+      const notifBody = `Now ${symbol}${cache.amount.toFixed(2)}${suffix} on ${cache.market} (${cache.kind})`;
 
       await prisma.$transaction([
         prisma.notification.create({
@@ -88,7 +99,9 @@ export async function checkWatchlistAlerts() {
             body: notifBody,
             data: {
               variantId: entry.variantId,
-              market: entry.market,
+              market,
+              kind,
+              currency,
               currentPrice: cache.amount,
               threshold: entry.thresholdAmount,
               direction: entry.direction,

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../db.js";
+import { preferredPriceKind } from "../lib/pricing.js";
 
 const SCRYFALL_SEARCH =
   "https://api.scryfall.com/cards/search?q=" +
@@ -80,7 +81,7 @@ function usdMarketPrices(
 
 function bestUsd(
   prices: MarketCard["prices"],
-  finish: "market" | "foil"
+  finish: "market" | "foil" | "etched"
 ): { amount: number; market: string } | null {
   const usd = prices.filter(
     (p) => p.currency === "USD" && p.kind === finish && p.amount > 0
@@ -106,7 +107,7 @@ async function hydrateCards(
     const c = byId.get(id);
     if (!c) continue;
     const p = priceMap.get(id) ?? [];
-    const preferredKind = id.endsWith("-foil") ? "foil" : "market";
+    const preferredKind = preferredPriceKind(id);
     const tcg = p.find(
       (x) =>
         x.market === "tcgplayer" &&

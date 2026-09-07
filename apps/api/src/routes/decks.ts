@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
 import { fetchEdhrecCommander } from "../services/edhrec.js";
+import { preferredPriceKind } from "../lib/pricing.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -160,10 +161,24 @@ export function registerDeckRoutes(app: FastifyInstance) {
     const variantIds = deck.cards.flatMap((c) => (c.variantId ? [c.variantId] : []));
     const prices = variantIds.length > 0
       ? await prisma.priceCache.findMany({
-          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "market", currency: "USD" },
+          where: {
+            variantId: { in: variantIds },
+            market: "tcgplayer",
+            kind: { in: ["market", "foil"] },
+            currency: "USD",
+          },
         })
       : [];
-    const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+    const priceMap = new Map(
+      variantIds.flatMap((variantId) => {
+        const price = prices.find(
+          (entry) =>
+            entry.variantId === variantId &&
+            entry.kind === preferredPriceKind(variantId)
+        );
+        return price ? [[variantId, price.amount] as const] : [];
+      })
+    );
 
     const cardsWithPrices = deck.cards.map((c) => ({
       ...c,
@@ -355,10 +370,24 @@ export function registerDeckRoutes(app: FastifyInstance) {
     const variantIds = deck.cards.map((c) => c.variantId).filter(Boolean) as string[];
     const prices = variantIds.length > 0
       ? await prisma.priceCache.findMany({
-          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "market", currency: "USD" },
+          where: {
+            variantId: { in: variantIds },
+            market: "tcgplayer",
+            kind: { in: ["market", "foil"] },
+            currency: "USD",
+          },
         })
       : [];
-    const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
+    const priceMap = new Map(
+      variantIds.flatMap((variantId) => {
+        const price = prices.find(
+          (entry) =>
+            entry.variantId === variantId &&
+            entry.kind === preferredPriceKind(variantId)
+        );
+        return price ? [[variantId, price.amount] as const] : [];
+      })
+    );
 
     const variants = variantIds.length > 0
       ? await prisma.cardVariant.findMany({
