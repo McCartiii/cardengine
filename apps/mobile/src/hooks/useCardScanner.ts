@@ -100,8 +100,11 @@ export function useCardScanner() {
         if (best && best.score >= SCANNER.MIN_CONFIDENCE_SCORE) {
           addPending(best);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          const preferredKind = best.variantId.endsWith("-foil")
+            ? "foil"
+            : "market";
           const usdPrice = best.prices.find(
-            (p) => p.currency === "USD" && p.kind === "market"
+            (p) => p.currency === "USD" && p.kind === preferredKind
           );
           setDetectedPrice(usdPrice ? `$${usdPrice.amount.toFixed(2)}` : null);
         } else {

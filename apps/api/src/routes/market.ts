@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../db.js";
+import { preferredPriceKind } from "../lib/pricing.js";
 
 const SCRYFALL_SEARCH =
   "https://api.scryfall.com/cards/search?q=" +
@@ -80,7 +81,7 @@ function usdMarketPrices(
 
 function bestUsd(
   prices: MarketCard["prices"],
-  finish: "market" | "foil"
+  finish: "market" | "foil" | "etched"
 ): { amount: number; market: string } | null {
   const usd = prices.filter(
     (p) => p.currency === "USD" && p.kind === finish && p.amount > 0
@@ -106,7 +107,7 @@ async function hydrateCards(
     const c = byId.get(id);
     if (!c) continue;
     const p = priceMap.get(id) ?? [];
-    const preferredKind = id.endsWith("-foil") ? "foil" : "market";
+    const preferredKind = preferredPriceKind(id);
     const tcg = p.find(
       (x) =>
         x.market === "tcgplayer" &&
@@ -142,15 +143,16 @@ async function fetchSparklines(variantIds: string[]): Promise<Map<string, number
     where: {
       variantId: { in: variantIds },
       market: "tcgplayer",
-      kind: "market",
+      kind: { in: ["market", "foil", "etched"] },
       currency: "USD",
       source: "mtgjson",
       at: { gte: since },
     },
     orderBy: { at: "asc" },
-    select: { variantId: true, amount: true },
+    select: { variantId: true, kind: true, amount: true },
   });
   for (const p of points) {
+    if (p.kind !== preferredPriceKind(p.variantId)) continue;
     const arr = map.get(p.variantId) ?? [];
     arr.push(p.amount);
     map.set(p.variantId, arr);

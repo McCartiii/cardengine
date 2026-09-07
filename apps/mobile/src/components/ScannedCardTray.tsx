@@ -112,8 +112,11 @@ function CardPill({ scan, onIncrement, onDecrement }: {
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
+  const preferredKind = scan.candidate.variantId.endsWith("-foil")
+    ? "foil"
+    : "market";
   const usdPrice = scan.candidate.prices.find(
-    (p) => p.currency === "USD" && p.kind === "market"
+    (p) => p.currency === "USD" && p.kind === preferredKind
   );
 
   return (

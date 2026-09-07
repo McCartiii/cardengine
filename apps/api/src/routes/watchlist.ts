@@ -2,21 +2,39 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
+import {
+  defaultCurrencyForMarket,
+  normalizeCurrency,
+  normalizeMarket,
+  normalizeRetailPriceKind,
+  preferredPriceKind,
+} from "../lib/pricing.js";
 
 export function registerWatchlistRoutes(app: FastifyInstance) {
   // ── Watchlist CRUD ──
   app.post("/v1/watchlist", { preHandler: [requireAuth] }, async (req) => {
     const user = (req as FastifyRequest & { user: AuthUser }).user;
-    const body = z
+    const input = z
       .object({
         variantId: z.string(),
-        market: z.string(),
-        kind: z.string().default("market"),
-        currency: z.string().default("USD"),
-        thresholdAmount: z.number(),
+        market: z.string().transform(normalizeMarket),
+        kind: z
+          .enum(["normal", "nonfoil", "non-foil", "market", "foil", "etched"])
+          .optional(),
+        currency: z.string().optional(),
+        thresholdAmount: z.number().positive(),
         direction: z.enum(["above", "below"]),
       })
       .parse(req.body);
+    const body = {
+      ...input,
+      kind: input.kind
+        ? normalizeRetailPriceKind(input.kind)
+        : preferredPriceKind(input.variantId),
+      currency: normalizeCurrency(
+        input.currency ?? defaultCurrencyForMarket(input.market)
+      ),
+    };
 
     const entry = await prisma.watchlistEntry.create({
       data: { userId: user.sub, ...body },
@@ -50,13 +68,21 @@ export function registerWatchlistRoutes(app: FastifyInstance) {
     const variantMap = new Map(variants.map((v) => [v.variantId, v]));
 
     return {
-      entries: entries.map((e) => ({
-        ...e,
-        currentPrice:
-          priceIndex.get(`${e.variantId}:${e.market}:${e.kind}:${e.currency}`) ?? null,
-        cardName: variantMap.get(e.variantId)?.name ?? e.variantId,
-        imageUri: variantMap.get(e.variantId)?.imageUri ?? null,
-      })),
+      entries: entries.map((e) => {
+        const market = normalizeMarket(e.market);
+        const kind = normalizeRetailPriceKind(e.kind);
+        const currency = normalizeCurrency(e.currency);
+        return {
+          ...e,
+          market,
+          kind,
+          currency,
+          currentPrice:
+            priceIndex.get(`${e.variantId}:${market}:${kind}:${currency}`) ?? null,
+          cardName: variantMap.get(e.variantId)?.name ?? e.variantId,
+          imageUri: variantMap.get(e.variantId)?.imageUri ?? null,
+        };
+      }),
     };
   });
 

@@ -2,6 +2,7 @@
 
 export interface RichCard {
   id: string;
+  variantId: string | null;
   cardName: string;
   quantity: number;
   section: string;

@@ -45,6 +45,9 @@ export default function CardDetailScreen() {
   const [card, setCard] = useState<CardDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [addingToCollection, setAddingToCollection] = useState(false);
+  const [collectionFinish, setCollectionFinish] = useState<
+    "nonfoil" | "foil" | "etched"
+  >("nonfoil");
   const [showDeckPicker, setShowDeckPicker] = useState(false);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [decksLoading, setDecksLoading] = useState(false);
@@ -52,7 +55,12 @@ export default function CardDetailScreen() {
 
   // Set price alert
   const [showAlertSheet, setShowAlertSheet] = useState(false);
-  const [alertMarket, setAlertMarket] = useState("TCGplayer");
+  const [alertMarket, setAlertMarket] = useState<"tcgplayer" | "cardmarket">(
+    "tcgplayer"
+  );
+  const [alertKind, setAlertKind] = useState<"market" | "foil" | "etched">(
+    "market"
+  );
   const [alertDirection, setAlertDirection] = useState<"above" | "below">("below");
   const [alertThreshold, setAlertThreshold] = useState("");
   const [savingAlert, setSavingAlert] = useState(false);
@@ -62,6 +70,9 @@ export default function CardDetailScreen() {
       try {
         const { card: c } = await getCardDetail(id);
         setCard(c);
+        setCollectionFinish(
+          c.variantId.endsWith("-foil") ? "foil" : "nonfoil"
+        );
       } catch (e: unknown) {
         Alert.alert("Error", (e as Error).message);
       } finally {
@@ -79,7 +90,7 @@ export default function CardDetailScreen() {
         at: new Date().toISOString(),
         type: "add",
         variantId: card.variantId,
-        payload: { quantity: 1 },
+        payload: { quantity: 1, finish: collectionFinish },
       }]);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Added", `${card.name} added to your collection.`);
@@ -88,7 +99,7 @@ export default function CardDetailScreen() {
     } finally {
       setAddingToCollection(false);
     }
-  }, [card]);
+  }, [card, collectionFinish]);
 
   const openDeckPicker = useCallback(async () => {
     setDecksLoading(true);
@@ -138,9 +149,19 @@ export default function CardDetailScreen() {
 
   if (!card) return null;
 
-  const bestPrice = card.storePricing
-    .flatMap((s) => s.prices.filter((p) => p.currency === "USD"))
-    .sort((a, b) => a.amount - b.amount)[0] ?? null;
+  const availableCollectionFinishes = (
+    [
+      { value: "nonfoil", label: "Non-foil", priceLabel: "Normal" },
+      { value: "foil", label: "Foil", priceLabel: "Foil" },
+      { value: "etched", label: "Etched", priceLabel: "Etched" },
+    ] as const
+  ).filter(
+    (finish) =>
+      finish.value === collectionFinish ||
+      card.storePricing.some((store) =>
+        store.prices.some((price) => price.label === finish.priceLabel)
+      )
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -220,6 +241,29 @@ export default function CardDetailScreen() {
       ))}
 
       {/* Actions */}
+      <Text style={styles.sectionHeader}>Copy finish</Text>
+      <View style={styles.segRow}>
+        {availableCollectionFinishes.map((finish) => (
+          <TouchableOpacity
+            key={finish.value}
+            style={[
+              styles.seg,
+              collectionFinish === finish.value && styles.segActive,
+            ]}
+            onPress={() => setCollectionFinish(finish.value)}
+          >
+            <Text
+              style={[
+                styles.segText,
+                collectionFinish === finish.value && styles.segTextActive,
+              ]}
+            >
+              {finish.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionBtnPrimary, addingToCollection && { opacity: 0.6 }]}
@@ -245,11 +289,15 @@ export default function CardDetailScreen() {
       <TouchableOpacity
         style={styles.alertBtn}
         onPress={() => {
-          // Pre-fill threshold with current best price
-          const best = card.storePricing
-            .flatMap((s) => s.prices.filter((p) => p.currency === "USD"))
+          const store = card.storePricing.find(
+            (entry) => entry.store.toLowerCase() === "tcgplayer"
+          );
+          const best = store?.prices
+            .filter((price) => price.label === "Normal" && price.currency === "USD")
             .sort((a, b) => a.amount - b.amount)[0];
           if (best) setAlertThreshold(best.amount.toFixed(2));
+          setAlertMarket("tcgplayer");
+          setAlertKind("market");
           setShowAlertSheet(true);
         }}
       >
@@ -299,13 +347,91 @@ export default function CardDetailScreen() {
               {/* Market */}
               <Text style={styles.alertLabel}>Market</Text>
               <View style={styles.segRow}>
-                {["TCGplayer", "Cardmarket"].map((m) => (
+                {([
+                  { value: "tcgplayer", label: "TCGplayer" },
+                  { value: "cardmarket", label: "Cardmarket" },
+                ] as const).map((market) => (
                   <TouchableOpacity
-                    key={m}
-                    style={[styles.seg, alertMarket === m && styles.segActive]}
-                    onPress={() => setAlertMarket(m)}
+                    key={market.value}
+                    style={[
+                      styles.seg,
+                      alertMarket === market.value && styles.segActive,
+                    ]}
+                    onPress={() => {
+                      setAlertMarket(market.value);
+                      const currency =
+                        market.value === "cardmarket" ? "EUR" : "USD";
+                      const store = card.storePricing.find(
+                        (entry) =>
+                          entry.store.toLowerCase() === market.value
+                      );
+                      const label =
+                        alertKind === "market"
+                          ? "Normal"
+                          : alertKind === "foil"
+                            ? "Foil"
+                            : "Etched";
+                      const price = store?.prices.find(
+                        (entry) =>
+                          entry.label === label && entry.currency === currency
+                      );
+                      setAlertThreshold(
+                        price ? price.amount.toFixed(2) : ""
+                      );
+                    }}
                   >
-                    <Text style={[styles.segText, alertMarket === m && styles.segTextActive]}>{m}</Text>
+                    <Text
+                      style={[
+                        styles.segText,
+                        alertMarket === market.value && styles.segTextActive,
+                      ]}
+                    >
+                      {market.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Finish */}
+              <Text style={styles.alertLabel}>Finish</Text>
+              <View style={styles.segRow}>
+                {([
+                  { value: "market", label: "Non-foil" },
+                  { value: "foil", label: "Foil" },
+                  { value: "etched", label: "Etched" },
+                ] as const).map((finish) => (
+                  <TouchableOpacity
+                    key={finish.value}
+                    style={[
+                      styles.seg,
+                      alertKind === finish.value && styles.segActive,
+                    ]}
+                    onPress={() => {
+                      setAlertKind(finish.value);
+                      const currency =
+                        alertMarket === "cardmarket" ? "EUR" : "USD";
+                      const store = card.storePricing.find(
+                        (entry) =>
+                          entry.store.toLowerCase() === alertMarket
+                      );
+                      const price = store?.prices.find(
+                        (entry) =>
+                          entry.label === finish.label.replace("Non-foil", "Normal") &&
+                          entry.currency === currency
+                      );
+                      setAlertThreshold(
+                        price ? price.amount.toFixed(2) : ""
+                      );
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.segText,
+                        alertKind === finish.value && styles.segTextActive,
+                      ]}
+                    >
+                      {finish.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -327,7 +453,9 @@ export default function CardDetailScreen() {
               </View>
 
               {/* Threshold */}
-              <Text style={styles.alertLabel}>Target price (USD)</Text>
+              <Text style={styles.alertLabel}>
+                Target price ({alertMarket === "cardmarket" ? "EUR" : "USD"})
+              </Text>
               <TextInput
                 style={styles.alertInput}
                 value={alertThreshold}
@@ -350,14 +478,17 @@ export default function CardDetailScreen() {
                       await addWatchlistEntry({
                         variantId: card.variantId,
                         market: alertMarket,
-                        kind: "market",
-                        currency: "USD",
+                        kind: alertKind,
+                        currency: alertMarket === "cardmarket" ? "EUR" : "USD",
                         thresholdAmount: parseFloat(alertThreshold),
                         direction: alertDirection,
                       });
                       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                       setShowAlertSheet(false);
-                      Alert.alert("Alert set!", `You'll be notified when ${card.name} goes ${alertDirection} $${alertThreshold} on ${alertMarket}.`);
+                      Alert.alert(
+                        "Alert set!",
+                        `You'll be notified when ${card.name} (${alertKind === "market" ? "non-foil" : alertKind}) goes ${alertDirection} ${alertMarket === "cardmarket" ? "€" : "$"}${alertThreshold} on ${alertMarket}.`
+                      );
                     } catch (e: unknown) {
                       Alert.alert("Error", (e as Error).message);
                     } finally {

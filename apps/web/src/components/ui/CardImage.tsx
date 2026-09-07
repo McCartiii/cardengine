@@ -1,7 +1,7 @@
 // apps/web/src/components/ui/CardImage.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 
 interface CardImageProps {
   src: string;
@@ -11,6 +11,8 @@ interface CardImageProps {
   wrapperClassName?: string;
   /** Whether to show the rainbow foil hover effect. Default: true */
   foil?: boolean;
+  /** Load immediately when the image is above the fold. */
+  priority?: boolean;
 }
 
 /**
@@ -24,12 +26,24 @@ export function CardImage({
   className = "",
   wrapperClassName = "",
   foil = true,
+  priority = false,
 }: CardImageProps) {
-  const [loaded, setLoaded] = useState(false);
+  const [imageState, setImageState] = useState<{
+    src: string;
+    status: "loading" | "loaded" | "error";
+  }>({ src, status: "loading" });
+  const status = imageState.src === src ? imageState.status : "loading";
 
-  useEffect(() => {
-    setLoaded(false);
-  }, [src]);
+  const syncCompletedImage = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image?.complete) return;
+      setImageState({
+        src,
+        status: image.naturalWidth > 0 ? "loaded" : "error",
+      });
+    },
+    [src]
+  );
 
   return (
     <div
@@ -39,7 +53,7 @@ export function CardImage({
       <div
         className="absolute inset-0 pointer-events-none transition-opacity duration-[120ms]"
         style={{
-          opacity: loaded ? 0 : 1,
+          opacity: status === "loading" ? 1 : 0,
           borderRadius: "inherit",
           background: `conic-gradient(
             from var(--spin-a) at 50% 50%,
@@ -65,13 +79,22 @@ export function CardImage({
         />
       </div>
 
+      {status === "error" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-surface-sunken px-3 text-center text-xs text-text-muted">
+          Art unavailable
+        </div>
+      )}
+
       <img
+        ref={syncCompletedImage}
         src={src}
         alt={alt}
-        className={`block transition-opacity duration-[120ms] ${loaded ? "opacity-100" : "opacity-0"} ${className}`}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        className={`block transition-opacity duration-[120ms] ${status === "loaded" ? "opacity-100" : "opacity-0"} ${className}`}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "auto"}
+        decoding="async"
+        onLoad={() => setImageState({ src, status: "loaded" })}
+        onError={() => setImageState({ src, status: "error" })}
       />
     </div>
   );

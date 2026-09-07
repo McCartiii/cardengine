@@ -369,11 +369,14 @@ export default function ScanPage() {
 
   const autoConfirmCard = useCallback(
     (candidate: ScanCandidate) => {
+      const preferredKind = candidate.variantId.endsWith("-foil")
+        ? "foil"
+        : "market";
       const priceUsd =
         candidate.prices?.find(
           (p) =>
             p.market === "tcgplayer" &&
-            p.kind === "market" &&
+            p.kind === preferredKind &&
             p.currency === "USD"
         )?.amount ?? 0;
 
