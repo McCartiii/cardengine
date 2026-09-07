@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -686,6 +686,7 @@ export default function CardDetailPage() {
     new Set(["market", "foil"])
   );
   const [chartCurrency, setChartCurrency] = useState("USD");
+  const initializedChartVariant = useRef<string | null>(null);
   const [user, setUser] = useState<{ email?: string } | null>(null);
 
   // Load user for NavBar
@@ -727,6 +728,37 @@ export default function CardDetailPage() {
         setLastUpdated(
           json.pricingUpdatedAt ? new Date(json.pricingUpdatedAt) : null
         );
+        if (initializedChartVariant.current !== variantId) {
+          const history = (json.priceHistory ?? []) as PriceHistoryPoint[];
+          const availableKinds = new Set(
+            history
+              .map((point) => point.kind)
+              .filter((kind) => ["market", "foil", "etched"].includes(kind))
+          );
+          const preferredKind = variantId.endsWith("-foil")
+            ? "foil"
+            : "market";
+          const initialKind = availableKinds.has(preferredKind)
+            ? preferredKind
+            : ["market", "foil", "etched"].find((kind) =>
+                availableKinds.has(kind)
+              );
+          if (initialKind) {
+            setVisibleFinishes(new Set([initialKind]));
+            const currenciesForFinish = new Set(
+              history
+                .filter((point) => point.kind === initialKind)
+                .map((point) => point.currency)
+            );
+            const initialCurrency = currenciesForFinish.has("USD")
+              ? "USD"
+              : currenciesForFinish.has("EUR")
+                ? "EUR"
+                : currenciesForFinish.values().next().value;
+            if (initialCurrency) setChartCurrency(initialCurrency);
+          }
+          initializedChartVariant.current = variantId;
+        }
       }
     } catch (e: unknown) {
       const msg =

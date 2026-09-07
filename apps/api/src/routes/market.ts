@@ -143,15 +143,16 @@ async function fetchSparklines(variantIds: string[]): Promise<Map<string, number
     where: {
       variantId: { in: variantIds },
       market: "tcgplayer",
-      kind: "market",
+      kind: { in: ["market", "foil", "etched"] },
       currency: "USD",
       source: "mtgjson",
       at: { gte: since },
     },
     orderBy: { at: "asc" },
-    select: { variantId: true, amount: true },
+    select: { variantId: true, kind: true, amount: true },
   });
   for (const p of points) {
+    if (p.kind !== preferredPriceKind(p.variantId)) continue;
     const arr = map.get(p.variantId) ?? [];
     arr.push(p.amount);
     map.set(p.variantId, arr);

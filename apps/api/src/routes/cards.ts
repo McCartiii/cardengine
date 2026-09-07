@@ -66,6 +66,7 @@ export function registerCardRoutes(app: FastifyInstance) {
             (price) =>
               price.market === market &&
               price.currency === currency &&
+              (!fetchedFreshScryfallPrice || price.source === "mtgjson") &&
               !price.kind.startsWith("buylist-")
           )
           .map((price) => ({

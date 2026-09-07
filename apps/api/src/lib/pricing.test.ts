@@ -28,6 +28,8 @@ describe("pricing normalization", () => {
     expect(preferredPriceKind("scryfall:abc-foil")).toBe("foil");
     expect(priceKindForHolding("scryfall:abc", "foil")).toBe("foil");
     expect(priceKindForHolding("scryfall:abc", "nonfoil")).toBe("market");
+    expect(priceKindForHolding("scryfall:abc", "etched")).toBe("etched");
+    expect(priceKindForHolding("scryfall:abc-foil", "unknown")).toBe("foil");
   });
 
   it("normalizes currency and chooses market-native defaults", () => {
