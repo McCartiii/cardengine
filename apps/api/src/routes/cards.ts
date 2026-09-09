@@ -327,25 +327,45 @@ export function registerCardRoutes(app: FastifyInstance) {
           variantId: p.variantId,
         }));
 
-      // Add today's live prices if not already in history
-      const now = new Date().toISOString();
-      for (const lp of livePriceEntries) {
+      // Include the latest cached store quotes in the graph. The daily history
+      // may have gaps, but a current quote should still extend each series to
+      // its actual last-updated date.
+      const latestQuotes = cachedPrices
+        .filter(
+          (price) =>
+            !price.kind.startsWith("buylist-") &&
+            ["market", "foil", "etched"].includes(price.kind) &&
+            price.updatedAt >= since
+        )
+        .map((price) => ({
+          at: price.updatedAt.toISOString(),
+          market: price.market,
+          kind: price.kind,
+          currency: price.currency,
+          amount: price.amount,
+          variantId: price.variantId,
+        }));
+      const liveQuoteTime = new Date().toISOString();
+      const chartSnapshots = [
+        ...latestQuotes,
+        ...livePriceEntries.map((price) => ({
+          ...price,
+          at: liveQuoteTime,
+          variantId: params.variantId,
+        })),
+      ];
+      for (const quote of chartSnapshots) {
         const alreadyHas = combinedHistory.some(
           (h) =>
-            h.market === lp.market &&
-            h.kind === lp.kind &&
-            h.currency === lp.currency &&
-            Math.abs(new Date(h.at).getTime() - Date.now()) < 86_400_000
+            h.market === quote.market &&
+            h.kind === quote.kind &&
+            h.currency === quote.currency &&
+            Math.abs(
+              new Date(h.at).getTime() - new Date(quote.at).getTime()
+            ) < 86_400_000
         );
         if (!alreadyHas) {
-          combinedHistory.push({
-            at: now,
-            market: lp.market,
-            kind: lp.kind,
-            currency: lp.currency,
-            amount: lp.amount,
-            variantId: params.variantId,
-          });
+          combinedHistory.push(quote);
         }
       }
       combinedHistory.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
@@ -372,7 +392,10 @@ export function registerCardRoutes(app: FastifyInstance) {
           cmc: card.cmc,
           manaCost: card.manaCost,
           rarity: card.rarity,
-          imageUri: card.imageUri,
+          imageUri:
+            scryfallLive?.image_uris?.normal ??
+            scryfallLive?.card_faces?.[0]?.image_uris?.normal ??
+            card.imageUri,
         },
         storePricing,
         pricingUpdatedAt:

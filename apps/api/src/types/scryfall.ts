@@ -10,6 +10,14 @@ export interface ScryfallLivePrices {
 
 export interface ScryfallLiveData {
   prices: ScryfallLivePrices;
+  image_uris?: {
+    normal?: string;
+  };
+  card_faces?: Array<{
+    image_uris?: {
+      normal?: string;
+    };
+  }>;
   purchase_uris?: Record<string, string>;
   related_uris?: Record<string, string>;
 }

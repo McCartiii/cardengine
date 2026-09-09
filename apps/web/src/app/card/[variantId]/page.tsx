@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SetSymbol } from "@/components/ui/SetSymbol";
 import { CardImage } from "@/components/ui/CardImage";
+import { ManaCost, ManaSymbol, ManaText } from "@/components/ui/ManaSymbols";
 import { getIdentityStyle } from "@/lib/identity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -72,38 +73,6 @@ interface CardDetailResponse {
   error?: string;
 }
 
-// ─── Mana symbol rendering ───────────────────────────────────────────────────
-
-const MANA_COLORS: Record<string, string> = {
-  W: "bg-amber-100 text-amber-900 border-amber-300",
-  U: "bg-blue-100 text-blue-900 border-blue-300",
-  B: "bg-[var(--mana-B)] text-[var(--mana-B-text)] border-border",
-  R: "bg-red-100 text-red-900 border-red-300",
-  G: "bg-green-100 text-green-900 border-green-300",
-  C: "bg-surface-sunken text-text-secondary border-border",
-};
-
-function ManaCost({ cost }: { cost: string }) {
-  const symbols = cost.match(/\{([^}]+)\}/g) ?? [];
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {symbols.map((sym, i) => {
-        const inner = sym.replace(/[{}]/g, "");
-        const colorClass =
-          MANA_COLORS[inner] ?? "bg-surface-sunken text-text-secondary border-border";
-        return (
-          <span
-            key={i}
-            className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-bold ${colorClass}`}
-          >
-            {inner}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
 // ─── Color identity display ──────────────────────────────────────────────────
 
 const COLOR_NAMES: Record<string, { name: string; bg: string }> = {
@@ -117,16 +86,9 @@ const COLOR_NAMES: Record<string, { name: string; bg: string }> = {
 function ColorDots({ colors }: { colors: string[] }) {
   return (
     <span className="inline-flex items-center gap-1">
-      {colors.map((c) => {
-        const info = COLOR_NAMES[c];
-        return (
-          <span
-            key={c}
-            className={`inline-block h-3.5 w-3.5 rounded-full border border-border ${info?.bg ?? "bg-surface-sunken"}`}
-            title={info?.name ?? c}
-          />
-        );
-      })}
+      {colors.map((color) => (
+        <ManaSymbol key={color} symbol={`{${color}}`} />
+      ))}
     </span>
   );
 }
@@ -677,7 +639,7 @@ export default function CardDetailPage() {
   const [data, setData] = useState<CardDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [historyDays, setHistoryDays] = useState(90);
+  const [historyDays, setHistoryDays] = useState(365);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("");
@@ -871,18 +833,26 @@ export default function CardDetailPage() {
 
   const availableHistoryCurrencies = useMemo(() => {
     if (!data) return new Set<string>();
-    return new Set(data.priceHistory.map((point) => point.currency));
-  }, [data]);
+    return new Set(
+      data.priceHistory
+        .filter((point) => visibleFinishes.has(point.kind))
+        .map((point) => point.currency)
+    );
+  }, [data, visibleFinishes]);
+
+  const effectiveChartCurrency = availableHistoryCurrencies.has(chartCurrency)
+    ? chartCurrency
+    : (availableHistoryCurrencies.values().next().value ?? chartCurrency);
 
   const visiblePriceHistory = useMemo(
     () =>
       data?.priceHistory.filter(
         (point) =>
           visibleFinishes.has(point.kind) &&
-          point.currency === chartCurrency
+          point.currency === effectiveChartCurrency
       ) ??
       [],
-    [chartCurrency, data, visibleFinishes]
+    [data, effectiveChartCurrency, visibleFinishes]
   );
 
   // Compare like-for-like finishes only. A foil price is not a valid substitute
@@ -990,6 +960,7 @@ export default function CardDetailPage() {
                 <CardImage
                   src={card.imageUri}
                   alt={card.name}
+                  priority
                   className="w-full max-w-[320px] rounded-2xl shadow-[var(--shadow-elevated)]"
                   wrapperClassName="rounded-2xl max-w-[320px] w-full"
                 />
@@ -1078,7 +1049,7 @@ export default function CardDetailPage() {
                   Card Text
                 </h2>
                 <div className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-text-primary">
-                  {card.oracleText}
+                  <ManaText text={card.oracleText} />
                 </div>
               </div>
             )}
@@ -1301,7 +1272,7 @@ export default function CardDetailPage() {
                         key={currency}
                         onClick={() => setChartCurrency(currency)}
                         className={`rounded-lg px-2.5 py-1 font-stat text-xs font-medium transition-colors ${
-                          chartCurrency === currency
+                          effectiveChartCurrency === currency
                             ? "bg-surface-raised text-text-primary"
                             : "text-text-muted hover:text-text-primary"
                         }`}
@@ -1351,8 +1322,8 @@ export default function CardDetailPage() {
                 {card.manaCost && (
                   <div>
                     <dt className="text-text-muted">Mana Cost</dt>
-                    <dd className="font-medium text-text-primary">
-                      {card.manaCost}
+                    <dd className="pt-1 font-medium text-text-primary">
+                      <ManaCost cost={card.manaCost} />
                     </dd>
                   </div>
                 )}
@@ -1391,9 +1362,9 @@ export default function CardDetailPage() {
                 {card.colors && card.colors.length > 0 && (
                   <div>
                     <dt className="text-text-muted">Colors</dt>
-                    <dd className="flex items-center gap-1 font-medium text-text-primary">
+                    <dd className="mt-1 flex flex-col items-start gap-1 font-medium text-text-primary">
                       <ColorDots colors={card.colors as string[]} />
-                      <span className="ml-1">
+                      <span className="text-xs leading-snug">
                         {(card.colors as string[])
                           .map((c) => COLOR_NAMES[c]?.name ?? c)
                           .join(", ")}
@@ -1405,11 +1376,11 @@ export default function CardDetailPage() {
                   (card.colorIdentity as string[]).length > 0 && (
                     <div>
                       <dt className="text-text-muted">Color Identity</dt>
-                      <dd className="flex items-center gap-1 font-medium text-text-primary">
+                      <dd className="mt-1 flex flex-col items-start gap-1 font-medium text-text-primary">
                         <ColorDots
                           colors={card.colorIdentity as string[]}
                         />
-                        <span className="ml-1">
+                        <span className="text-xs leading-snug">
                           {(card.colorIdentity as string[])
                             .map((c) => COLOR_NAMES[c]?.name ?? c)
                             .join(", ")}
