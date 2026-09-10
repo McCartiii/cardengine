@@ -12,6 +12,10 @@ import { SetSymbol } from "@/components/ui/SetSymbol";
 import { CardImage } from "@/components/ui/CardImage";
 import { ManaCost, ManaSymbol, ManaText } from "@/components/ui/ManaSymbols";
 import { getIdentityStyle } from "@/lib/identity";
+import {
+  buildLinePath,
+  nearestTimestamp,
+} from "./price-chart-helpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -211,39 +215,18 @@ function currencySuffix(currency: string): string {
 
 // ─── SVG Price History Chart ─────────────────────────────────────────────────
 
-const SERIES_COLORS: Record<string, string> = {
-  "tcgplayer:market": "#6366f1",
-  "tcgplayer:foil": "#8b5cf6",
-  "tcgplayer:etched": "#d946ef",
-  "cardmarket:market": "#10b981",
-  "cardmarket:foil": "#14b8a6",
-  "cardmarket:etched": "#06b6d4",
-  "mtgo:market": "#f59e0b",
-  "cardkingdom:market": "#4E93C8",
-  "cardkingdom:foil": "#6BAADB",
-  "cardkingdom:etched": "#8CC8E4",
-  "cardsphere:market": "#C24667",
-  "cardsphere:foil": "#E88A9E",
-  "manapool:market": "#E8B24A",
-  "manapool:foil": "#FFD080",
+const STORE_COLORS: Record<string, string> = {
+  tcgplayer: "#8b7cf6",
+  cardmarket: "#2dd4bf",
+  mtgo: "#c084fc",
+  cardkingdom: "#60a5fa",
+  cardsphere: "#f472b6",
+  manapool: "#fbbf24",
 };
 
-const SERIES_DASH: Record<string, string> = {
-  "tcgplayer:market": "",
-  "tcgplayer:foil": "6 3",
-  "tcgplayer:etched": "2 2",
-  "cardmarket:market": "",
-  "cardmarket:foil": "6 3",
-  "cardmarket:etched": "2 2",
-  "mtgo:market": "",
-  "cardkingdom:market": "",
-  "cardkingdom:foil": "6 3",
-  "cardkingdom:etched": "2 2",
-  "cardsphere:market": "",
-  "cardsphere:foil": "6 3",
-  "manapool:market": "",
-  "manapool:foil": "6 3",
-};
+function seriesColor(key: string): string {
+  return STORE_COLORS[key.split(":")[0]] ?? "#94a3b8";
+}
 
 const STORE_FOR_SERIES: Record<string, string> = {
   "tcgplayer:market": "TCGplayer",
@@ -262,16 +245,6 @@ const STORE_FOR_SERIES: Record<string, string> = {
   "manapool:foil": "Mana Pool",
 };
 
-interface TooltipData {
-  x: number;
-  y: number;
-  market: string;
-  kind: string;
-  currency: string;
-  amount: number;
-  date: string;
-}
-
 function PriceChart({
   points,
   hiddenSeries,
@@ -283,8 +256,7 @@ function PriceChart({
   width?: number;
   height?: number;
 }) {
-  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
+  const [hoveredTime, setHoveredTime] = useState<number | null>(null);
 
   const grouped = useMemo(() => {
     const map = new Map<string, PriceHistoryPoint[]>();
@@ -349,7 +321,7 @@ function PriceChart({
         </div>
         <div style={{ minHeight: totalH }}>
           {bars.map((bar) => {
-            const color = SERIES_COLORS[bar.key] ?? "#9ca3af";
+            const color = seriesColor(bar.key);
             const pct = maxVal > 0 ? (bar.amount / maxVal) * 100 : 0;
             const [market, kind] = bar.key.split(":");
             return (
@@ -430,12 +402,34 @@ function PriceChart({
     const t = minTime + ((maxTime - minTime) / Math.max(1, xTicks - 1)) * i;
     return new Date(t);
   });
+  const observedTimes = Array.from(new Set(allTimes)).sort((a, b) => a - b);
+  const hoverEntries =
+    hoveredTime === null
+      ? []
+      : Array.from(grouped.entries()).flatMap(([key, seriesPoints]) => {
+          const timestamp = nearestTimestamp(
+            seriesPoints.map((point) => new Date(point.at).getTime()),
+            hoveredTime
+          );
+          const point = seriesPoints.find(
+            (candidate) => new Date(candidate.at).getTime() === timestamp
+          );
+          const withinComparisonWindow =
+            timestamp !== null &&
+            Math.abs(timestamp - hoveredTime) <= 3 * 86_400_000;
+          return point && timestamp !== null && withinComparisonWindow
+            ? [{ key, point, timestamp }]
+            : [];
+        });
 
   return (
-    <div className="relative" onMouseLeave={() => { setTooltip(null); setHoveredSeries(null); }}>
+    <div
+      className="relative"
+      onMouseLeave={() => setHoveredTime(null)}
+    >
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full"
+        className="w-full touch-pan-y"
         preserveAspectRatio="xMidYMid meet"
       >
         {/* Grid lines */}
@@ -474,91 +468,163 @@ function PriceChart({
           </text>
         ))}
 
-        {/* Data lines and dots */}
+        {/* Solid, continuous store lines. Finishes are separated by the
+            controls above rather than encoded as hard-to-track dash styles. */}
         {Array.from(grouped.entries()).map(([key, pts]) => {
           const sorted = [...pts].sort(
             (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()
           );
-          const color = SERIES_COLORS[key] ?? "#9ca3af";
-          const dash = SERIES_DASH[key] ?? "";
-          const isHovered = hoveredSeries === key;
-          const isFaded = hoveredSeries !== null && !isHovered;
-          const lineOpacity = isFaded ? 0.15 : 1;
-          const lineWidth = isHovered ? 3 : 2;
-
-          const pathData = sorted
-            .map((p, i) => {
-              const x = scaleX(new Date(p.at).getTime());
-              const y = scaleY(p.amount);
-              return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-            })
-            .join(" ");
+          const color = seriesColor(key);
+          const pathData = buildLinePath(
+            sorted.map((point) => ({
+              x: scaleX(new Date(point.at).getTime()),
+              y: scaleY(point.amount),
+            }))
+          );
 
           return (
-            <g key={key} opacity={lineOpacity} style={{ transition: "opacity 0.2s" }}>
+            <g key={key}>
               <path
                 d={pathData}
                 fill="none"
                 stroke={color}
-                strokeWidth={lineWidth}
+                strokeWidth={2.5}
+                strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeDasharray={dash}
-                style={{ transition: "stroke-width 0.2s" }}
+                vectorEffect="non-scaling-stroke"
               />
-              {sorted.map((p, i) => {
-                const cx = scaleX(new Date(p.at).getTime());
-                const cy = scaleY(p.amount);
-                return (
-                  <g key={i}>
-                    <circle cx={cx} cy={cy} r={isHovered ? 4.5 : 3} fill={color} style={{ transition: "r 0.2s" }} />
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={10}
-                      fill="transparent"
-                      onMouseEnter={() => {
-                        setHoveredSeries(key);
-                        setTooltip({
-                          x: cx,
-                          y: cy,
-                          market: p.market,
-                          kind: p.kind,
-                          currency: p.currency,
-                          amount: p.amount,
-                          date: new Date(p.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-                        });
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredSeries(null);
-                        setTooltip(null);
-                      }}
-                    />
-                  </g>
-                );
-              })}
             </g>
           );
         })}
+
+        {hoveredTime !== null && (
+          <g className="pointer-events-none">
+            <line
+              x1={scaleX(hoveredTime)}
+              y1={padding.top}
+              x2={scaleX(hoveredTime)}
+              y2={padding.top + chartH}
+              stroke="rgba(226,232,240,0.42)"
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              vectorEffect="non-scaling-stroke"
+            />
+            {hoverEntries.map(({ key, point, timestamp }) => (
+              <g key={key}>
+                <circle
+                  cx={scaleX(timestamp)}
+                  cy={scaleY(point.amount)}
+                  r={6}
+                  fill="var(--surface)"
+                  stroke={seriesColor(key)}
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle
+                  cx={scaleX(timestamp)}
+                  cy={scaleY(point.amount)}
+                  r={2.5}
+                  fill={seriesColor(key)}
+                />
+              </g>
+            ))}
+          </g>
+        )}
+
+        <rect
+          x={padding.left}
+          y={padding.top}
+          width={chartW}
+          height={chartH}
+          fill="transparent"
+          className="cursor-crosshair"
+          role="slider"
+          tabIndex={0}
+          aria-label="Price history date"
+          aria-valuemin={minTime}
+          aria-valuemax={maxTime}
+          aria-valuenow={hoveredTime ?? maxTime}
+          aria-valuetext={new Date(hoveredTime ?? maxTime).toLocaleDateString(
+            "en-US",
+            { month: "long", day: "numeric", year: "numeric" }
+          )}
+          onFocus={() => setHoveredTime(observedTimes.at(-1) ?? null)}
+          onBlur={() => setHoveredTime(null)}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+              return;
+            }
+            event.preventDefault();
+            const currentIndex =
+              hoveredTime === null
+                ? observedTimes.length - 1
+                : observedTimes.indexOf(hoveredTime);
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            const nextIndex = Math.min(
+              observedTimes.length - 1,
+              Math.max(0, currentIndex + direction)
+            );
+            setHoveredTime(observedTimes[nextIndex] ?? null);
+          }}
+          onPointerMove={(event) => {
+            const bounds =
+              event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+            if (!bounds) return;
+            const viewBoxX =
+              ((event.clientX - bounds.left) / bounds.width) * width;
+            const clampedX = Math.min(
+              padding.left + chartW,
+              Math.max(padding.left, viewBoxX)
+            );
+            const targetTime =
+              minTime +
+              ((clampedX - padding.left) / chartW) * (maxTime - minTime);
+            setHoveredTime(nearestTimestamp(observedTimes, targetTime));
+          }}
+          onPointerLeave={(event) => {
+            if (document.activeElement !== event.currentTarget) {
+              setHoveredTime(null);
+            }
+          }}
+        />
       </svg>
 
-      {/* Floating tooltip */}
-      {tooltip && (
-        <div
-          className="pointer-events-none absolute z-10 rounded-xl border border-border bg-surface px-3 py-2 shadow-[var(--shadow-elevated)]"
-          style={{
-            left: `${(tooltip.x / width) * 100}%`,
-            top: `${(tooltip.y / height) * 100}%`,
-            transform: "translate(-50%, -120%)",
-          }}
-        >
-          <p className="text-xs font-semibold text-text-primary">
-            {marketDisplayName(tooltip.market)}{" "}
-            <span className="font-normal text-text-secondary">{kindLabel(tooltip.kind)}</span>
+      {hoveredTime !== null && (
+        <div className="pointer-events-none absolute right-3 top-3 z-10 min-w-40 rounded-xl border border-border bg-surface/95 px-3 py-2.5 shadow-[var(--shadow-elevated)] backdrop-blur">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            {new Date(hoveredTime).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
           </p>
-          <p className="text-sm font-bold tabular-nums" style={{ color: SERIES_COLORS[`${tooltip.market}:${tooltip.kind}`] ?? "#9ca3af" }}>
-            {currencySymbol(tooltip.currency)}{tooltip.amount.toFixed(2)}{currencySuffix(tooltip.currency)}
-          </p>
-          <p className="text-[10px] text-text-muted">{tooltip.date}</p>
+          <div className="space-y-1.5">
+            {hoverEntries.map(({ key, point, timestamp }) => (
+              <div key={key}>
+                <div className="flex items-center justify-between gap-5">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: seriesColor(key) }}
+                    />
+                    {marketDisplayName(point.market)}
+                  </span>
+                  <span className="font-stat text-xs font-bold tabular-nums text-text-primary">
+                    {currencySymbol(point.currency)}
+                    {point.amount.toFixed(2)}
+                    {currencySuffix(point.currency)}
+                  </span>
+                </div>
+                <p className="ml-3.5 text-[9px] text-text-muted">
+                  observed{" "}
+                  {new Date(timestamp).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -591,37 +657,36 @@ function ChartLegend({
   if (seriesByStore.size === 0) return null;
 
   return (
-    <div className="mt-4 space-y-2">
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
       <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
-        Click to show/hide
+        Stores
       </p>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center gap-1">
         {Array.from(seriesByStore.entries()).map(([, keys]) =>
           keys.map((key) => {
-            const [market, kind] = key.split(":");
-            const color = SERIES_COLORS[key] ?? "#9ca3af";
+            const [market] = key.split(":");
+            const color = seriesColor(key);
             const isHidden = hiddenSeries.has(key);
             return (
               <button
                 key={key}
                 onClick={() => onToggle(key)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition ${
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
                   isHidden
-                    ? "opacity-40 hover:opacity-70"
-                    : "opacity-100 hover:bg-surface-sunken"
+                    ? "border-border opacity-40 hover:opacity-70"
+                    : "border-border bg-surface-sunken opacity-100 hover:border-border-strong"
                 }`}
+                aria-pressed={!isHidden}
               >
                 <span
-                  className="inline-block h-3 w-3 rounded-sm border"
+                  className="inline-block h-0.5 w-4 rounded-full"
                   style={{
-                    backgroundColor: isHidden ? "transparent" : color,
-                    borderColor: color,
+                    backgroundColor: color,
                   }}
                 />
                 <span className="text-text-secondary">
                   {marketDisplayName(market)}
                 </span>
-                <span className="text-text-muted">{kindLabel(kind)}</span>
               </button>
             );
           })
@@ -644,9 +709,9 @@ export default function CardDetailPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState("");
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
-  const [visibleFinishes, setVisibleFinishes] = useState<Set<string>>(
-    new Set(["market", "foil"])
-  );
+  const [chartFinish, setChartFinish] = useState<
+    "market" | "foil" | "etched"
+  >("market");
   const [chartCurrency, setChartCurrency] = useState("USD");
   const initializedChartVariant = useRef<string | null>(null);
   const [user, setUser] = useState<{ email?: string } | null>(null);
@@ -706,7 +771,7 @@ export default function CardDetailPage() {
                 availableKinds.has(kind)
               );
           if (initialKind) {
-            setVisibleFinishes(new Set([initialKind]));
+            setChartFinish(initialKind as "market" | "foil" | "etched");
             const currenciesForFinish = new Set(
               history
                 .filter((point) => point.kind === initialKind)
@@ -772,18 +837,6 @@ export default function CardDetailPage() {
     });
   }, []);
 
-  const toggleFinish = useCallback((kind: string) => {
-    setVisibleFinishes((previous) => {
-      const next = new Set(previous);
-      if (next.has(kind)) {
-        if (next.size > 1) next.delete(kind);
-      } else {
-        next.add(kind);
-      }
-      return next;
-    });
-  }, []);
-
   const finishSummaries = useMemo(() => {
     if (!data) return [];
     const candidates = data.storePricing.flatMap((store) =>
@@ -835,10 +888,10 @@ export default function CardDetailPage() {
     if (!data) return new Set<string>();
     return new Set(
       data.priceHistory
-        .filter((point) => visibleFinishes.has(point.kind))
+        .filter((point) => point.kind === chartFinish)
         .map((point) => point.currency)
     );
-  }, [data, visibleFinishes]);
+  }, [chartFinish, data]);
 
   const effectiveChartCurrency = availableHistoryCurrencies.has(chartCurrency)
     ? chartCurrency
@@ -848,11 +901,11 @@ export default function CardDetailPage() {
     () =>
       data?.priceHistory.filter(
         (point) =>
-          visibleFinishes.has(point.kind) &&
+          point.kind === chartFinish &&
           point.currency === effectiveChartCurrency
       ) ??
       [],
-    [data, effectiveChartCurrency, visibleFinishes]
+    [chartFinish, data, effectiveChartCurrency]
   );
 
   // Compare like-for-like finishes only. A foil price is not a valid substitute
@@ -1239,60 +1292,94 @@ export default function CardDetailPage() {
 
             {/* ─── Price History Chart ─── */}
             <div className="rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow-card)] animate-slide-up" style={{ animationDelay: "150ms" }}>
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Price History
-                </h2>
-                <div className="flex flex-wrap items-center gap-1">
-                  {(["market", "foil", "etched"] as const)
-                    .filter((kind) => availableHistoryFinishes.has(kind))
-                    .map((kind) => (
-                      <button
-                        key={kind}
-                        onClick={() => toggleFinish(kind)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          visibleFinishes.has(kind)
-                            ? "border-accent/40 bg-accent-light text-accent-text"
-                            : "border-border text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        {kind === "market"
-                          ? "Non-foil"
-                          : kind === "foil"
-                            ? "Foil"
-                            : "Etched"}
-                      </button>
-                    ))}
-                  {(["USD", "EUR"] as const)
-                    .filter((currency) =>
-                      availableHistoryCurrencies.has(currency)
-                    )
-                    .map((currency) => (
-                      <button
-                        key={currency}
-                        onClick={() => setChartCurrency(currency)}
-                        className={`rounded-lg px-2.5 py-1 font-stat text-xs font-medium transition-colors ${
-                          effectiveChartCurrency === currency
-                            ? "bg-surface-raised text-text-primary"
-                            : "text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        {currency}
-                      </button>
-                    ))}
-                  {[30, 90, 180, 365].map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setHistoryDays(d)}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                        historyDays === d
-                          ? "bg-accent-light text-accent-text"
-                          : "text-text-muted hover:text-text-primary"
-                      }`}
-                    >
-                      {d}d
-                    </button>
-                  ))}
+              <div className="mb-5 space-y-4">
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Price History
+                  </h2>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {kindLabel(chartFinish)} · {effectiveChartCurrency} · hover anywhere to compare stores
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-text-muted">
+                      Finish
+                    </p>
+                    <div className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5">
+                      {(["market", "foil", "etched"] as const)
+                        .filter((kind) => availableHistoryFinishes.has(kind))
+                        .map((kind) => (
+                          <button
+                            key={kind}
+                            onClick={() => {
+                              setChartFinish(kind);
+                              setHiddenSeries(new Set());
+                            }}
+                            aria-pressed={chartFinish === kind}
+                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                              chartFinish === kind
+                                ? "bg-accent-light text-accent-text shadow-sm ring-1 ring-inset ring-accent/40"
+                                : "text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            {kind === "market"
+                              ? "Non-foil"
+                              : kind === "foil"
+                                ? "Foil"
+                                : "Etched"}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-text-muted">
+                      Currency
+                    </p>
+                    <div className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5">
+                      {(["USD", "EUR"] as const)
+                        .filter((currency) =>
+                          availableHistoryCurrencies.has(currency)
+                        )
+                        .map((currency) => (
+                          <button
+                            key={currency}
+                            onClick={() => setChartCurrency(currency)}
+                            aria-pressed={effectiveChartCurrency === currency}
+                            className={`rounded-md px-2.5 py-1.5 font-stat text-xs font-semibold transition-colors ${
+                              effectiveChartCurrency === currency
+                                ? "bg-surface-raised text-text-primary shadow-sm"
+                                : "text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            {currency}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:ml-auto">
+                    <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-text-muted">
+                      Range
+                    </p>
+                    <div className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5">
+                      {[30, 90, 180, 365].map((days) => (
+                        <button
+                          key={days}
+                          onClick={() => setHistoryDays(days)}
+                          aria-pressed={historyDays === days}
+                          className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                            historyDays === days
+                              ? "bg-surface-raised text-text-primary shadow-sm"
+                              : "text-text-muted hover:text-text-primary"
+                          }`}
+                        >
+                          {days}d
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
               <PriceChart points={visiblePriceHistory} hiddenSeries={hiddenSeries} />
