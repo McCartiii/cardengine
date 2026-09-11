@@ -13,7 +13,8 @@ import { CardImage } from "@/components/ui/CardImage";
 import { ManaCost, ManaSymbol, ManaText } from "@/components/ui/ManaSymbols";
 import { getIdentityStyle } from "@/lib/identity";
 import {
-  buildLinePath,
+  buildSmoothLinePath,
+  interpolatePriceAtTime,
   nearestTimestamp,
 } from "./price-chart-helpers";
 
@@ -407,18 +408,16 @@ function PriceChart({
     hoveredTime === null
       ? []
       : Array.from(grouped.entries()).flatMap(([key, seriesPoints]) => {
-          const timestamp = nearestTimestamp(
-            seriesPoints.map((point) => new Date(point.at).getTime()),
+          const interpolation = interpolatePriceAtTime(
+            seriesPoints.map((point) => ({
+              time: new Date(point.at).getTime(),
+              amount: point.amount,
+            })),
             hoveredTime
           );
-          const point = seriesPoints.find(
-            (candidate) => new Date(candidate.at).getTime() === timestamp
-          );
-          const withinComparisonWindow =
-            timestamp !== null &&
-            Math.abs(timestamp - hoveredTime) <= 3 * 86_400_000;
-          return point && timestamp !== null && withinComparisonWindow
-            ? [{ key, point, timestamp }]
+          const series = seriesPoints[0];
+          return interpolation && series
+            ? [{ key, series, ...interpolation }]
             : [];
         });
 
@@ -475,7 +474,7 @@ function PriceChart({
             (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()
           );
           const color = seriesColor(key);
-          const pathData = buildLinePath(
+          const pathData = buildSmoothLinePath(
             sorted.map((point) => ({
               x: scaleX(new Date(point.at).getTime()),
               y: scaleY(point.amount),
@@ -509,11 +508,11 @@ function PriceChart({
               strokeDasharray="3 3"
               vectorEffect="non-scaling-stroke"
             />
-            {hoverEntries.map(({ key, point, timestamp }) => (
+            {hoverEntries.map(({ key, amount }) => (
               <g key={key}>
                 <circle
-                  cx={scaleX(timestamp)}
-                  cy={scaleY(point.amount)}
+                  cx={scaleX(hoveredTime)}
+                  cy={scaleY(amount)}
                   r={6}
                   fill="var(--surface)"
                   stroke={seriesColor(key)}
@@ -521,8 +520,8 @@ function PriceChart({
                   vectorEffect="non-scaling-stroke"
                 />
                 <circle
-                  cx={scaleX(timestamp)}
-                  cy={scaleY(point.amount)}
+                  cx={scaleX(hoveredTime)}
+                  cy={scaleY(amount)}
                   r={2.5}
                   fill={seriesColor(key)}
                 />
@@ -558,7 +557,9 @@ function PriceChart({
             const currentIndex =
               hoveredTime === null
                 ? observedTimes.length - 1
-                : observedTimes.indexOf(hoveredTime);
+                : observedTimes.indexOf(
+                    nearestTimestamp(observedTimes, hoveredTime) ?? maxTime
+                  );
             const direction = event.key === "ArrowRight" ? 1 : -1;
             const nextIndex = Math.min(
               observedTimes.length - 1,
@@ -579,7 +580,7 @@ function PriceChart({
             const targetTime =
               minTime +
               ((clampedX - padding.left) / chartW) * (maxTime - minTime);
-            setHoveredTime(nearestTimestamp(observedTimes, targetTime));
+            setHoveredTime(targetTime);
           }}
           onPointerLeave={(event) => {
             if (document.activeElement !== event.currentTarget) {
@@ -599,7 +600,8 @@ function PriceChart({
             })}
           </p>
           <div className="space-y-1.5">
-            {hoverEntries.map(({ key, point, timestamp }) => (
+            {hoverEntries.map(
+              ({ key, series, amount, fromTime, toTime, exact }) => (
               <div key={key}>
                 <div className="flex items-center justify-between gap-5">
                   <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
@@ -607,23 +609,33 @@ function PriceChart({
                       className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: seriesColor(key) }}
                     />
-                    {marketDisplayName(point.market)}
+                    {marketDisplayName(series.market)}
                   </span>
                   <span className="font-stat text-xs font-bold tabular-nums text-text-primary">
-                    {currencySymbol(point.currency)}
-                    {point.amount.toFixed(2)}
-                    {currencySuffix(point.currency)}
+                    {currencySymbol(series.currency)}
+                    {amount.toFixed(2)}
+                    {currencySuffix(series.currency)}
                   </span>
                 </div>
                 <p className="ml-3.5 text-[9px] text-text-muted">
-                  observed{" "}
-                  {new Date(timestamp).toLocaleDateString("en-US", {
+                  {exact || fromTime === toTime ? "observed " : "between "}
+                  {new Date(fromTime).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                   })}
+                  {fromTime !== toTime && (
+                    <>
+                      {" – "}
+                      {new Date(toTime).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </>
+                  )}
                 </p>
               </div>
-            ))}
+              )
+            )}
           </div>
         </div>
       )}
@@ -1298,7 +1310,8 @@ export default function CardDetailPage() {
                     Price History
                   </h2>
                   <p className="mt-1 text-xs text-text-secondary">
-                    {kindLabel(chartFinish)} · {effectiveChartCurrency} · hover anywhere to compare stores
+                    {kindLabel(chartFinish)} · {effectiveChartCurrency} · slide
+                    anywhere to track prices
                   </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
