@@ -498,16 +498,6 @@ function PriceChart({
 
         {hoveredTime !== null && (
           <g className="pointer-events-none">
-            <line
-              x1={scaleX(hoveredTime)}
-              y1={padding.top}
-              x2={scaleX(hoveredTime)}
-              y2={padding.top + chartH}
-              stroke="rgba(226,232,240,0.42)"
-              strokeWidth={1}
-              strokeDasharray="3 3"
-              vectorEffect="non-scaling-stroke"
-            />
             {hoverEntries.map(({ key, amount }) => (
               <g key={key}>
                 <circle
