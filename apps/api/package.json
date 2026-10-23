@@ -10,7 +10,8 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "ingest:scryfall": "tsx src/jobs/scryfallIngest.ts",
-    "ingest:set": "tsx src/jobs/scryfallIngest.ts"
+    "ingest:set": "tsx src/jobs/scryfallIngest.ts",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=20.19"

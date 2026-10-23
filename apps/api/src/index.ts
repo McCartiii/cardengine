@@ -215,9 +215,13 @@ process.on("unhandledRejection", (reason) => {
 if (process.env.AUTO_INGEST_ON_EMPTY !== "false") {
   const cardCount = await prisma.cardVariant.count();
   if (cardCount === 0) {
-    console.log("[startup] No cards found -- attempting initial Scryfall ingest...");
+    // Local dev can seed a single set instead of the full bulk catalog.
+    const setCode = process.env.INITIAL_INGEST_SET?.trim() || undefined;
+    console.log(
+      `[startup] No cards found -- attempting initial Scryfall ingest${setCode ? ` of set ${setCode}` : ""}...`
+    );
     withAdvisoryLock("priceRefresh", async () => {
-      const r = await ingestScryfallBulk();
+      const r = await ingestScryfallBulk({ setCode });
       console.log(
         `[startup] Initial ingest complete: ${r.cardsProcessed} cards, ${r.pricesUpdated} prices`
       );

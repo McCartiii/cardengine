@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "setup": "npm install && npm run build:packages && npm run db:generate && npm run mobile:install",
+    "dev": "node scripts/dev.mjs",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:mobile": "npm run start --workspace=apps/mobile",
@@ -15,7 +17,10 @@
     "db:migrate": "npm run db:migrate --workspace=apps/api",
     "ingest:set": "npm run ingest:set --workspace=apps/api",
     "ingest:scryfall": "npm run ingest:scryfall --workspace=apps/api",
-    "test": "vitest run"
+    "test": "vitest run",
+    "mobile:install": "npm install --prefix apps/mobile",
+    "typecheck": "npm run typecheck --workspace=apps/api && npm run typecheck --workspace=apps/web && npm run typecheck --prefix apps/mobile",
+    "lint": "npm run lint --workspace=apps/web"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +29,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
+    "dotenv": "^17.2.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
