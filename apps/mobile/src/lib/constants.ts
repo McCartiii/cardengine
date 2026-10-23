@@ -1,3 +1,5 @@
+import { color } from "../design/tokens";
+
 // Point this at your API. In dev, use your machine's LAN IP.
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -16,17 +18,20 @@ export const SCANNER = {
   FRAME_INTERVAL: 6,
 } as const;
 
+// Legacy palette for screens not yet moved to src/design/tokens. Values map
+// onto the new tokens so every screen shares one look in the meantime.
 export const COLORS = {
-  bg: "#0a0a0a",
-  background: "#0a0a0a",   // alias for bg — used across all screens
-  surface: "#161616",
-  surfaceHighlight: "#222222",
-  accent: "#a855f7",       // purple — primary brand
-  accentGlow: "#7c3aed",
-  success: "#22c55e",
-  warning: "#eab308",
-  danger: "#ef4444",
-  text: "#f5f5f5",
-  textMuted: "#737373",
-  border: "#262626",
+  bg: color.bg,
+  background: color.bg,
+  surface: color.surface,
+  surfaceHighlight: color.surface2,
+  accent: color.accent,
+  accentGlow: color.accentPressed,
+  onAccent: color.onAccent,
+  success: color.positive,
+  warning: color.accent,
+  danger: color.negative,
+  text: color.text,
+  textMuted: color.textTertiary,
+  border: color.border,
 } as const;

@@ -10,6 +10,8 @@ interface AuthState {
   initialized: boolean;
   /** Email waiting for OTP verification */
   pendingEmail: string | null;
+  /** Browsing without an account; cleared on sign-in or sign-out. */
+  guest: boolean;
 
   /**
    * Subscribe to auth state changes and restore persisted session.
@@ -24,6 +26,8 @@ interface AuthState {
   verifyOtp: (email: string, token: string) => Promise<void>;
 
   signOut: () => Promise<void>;
+
+  continueAsGuest: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -32,6 +36,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   initialized: false,
   pendingEmail: null,
+  guest: false,
 
   initialize() {
     // Restore existing session from AsyncStorage
@@ -67,13 +72,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     if (error) throw error;
     const sess = data.session;
-    set({ session: sess, user: sess?.user ?? null, pendingEmail: null });
+    set({ session: sess, user: sess?.user ?? null, pendingEmail: null, guest: false });
     setAuthToken(sess?.access_token ?? null);
   },
 
   async signOut() {
     await supabase.auth.signOut();
-    set({ session: null, user: null });
+    set({ session: null, user: null, guest: false });
     setAuthToken(null);
+  },
+
+  continueAsGuest() {
+    set({ guest: true });
   },
 }));

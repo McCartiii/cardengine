@@ -183,6 +183,8 @@ export async function searchCards(q: string, limit = 30): Promise<{
     name: string;
     imageUri: string | null;
     rarity: string | null;
+    setId: string | null;
+    collectorNumber: string | null;
     priceUsd: number | null;
     typeLine: string | null;
     manaCost: string | null;
@@ -378,4 +380,30 @@ export async function deleteWatchlistEntry(id: string): Promise<{ ok: boolean }>
 
 export async function toggleWatchlistEntry(id: string, enabled: boolean): Promise<{ ok: boolean }> {
   return request("PATCH", `/v1/watchlist/${id}`, { enabled });
+}
+
+// ── Market ───────────────────────────────────────────────────────────────────
+
+export interface MarketCard {
+  variantId: string;
+  name: string;
+  setId: string | null;
+  collectorNumber: string | null;
+  rarity: string | null;
+  imageUri: string | null;
+  priceUsd: number | null;
+  bestUsd: number | null;
+  bestMarket: string | null;
+  sparkline: number[];
+  deltaPct: number | null;
+  previousUsd: number | null;
+}
+
+export async function getMarketHome(): Promise<{
+  generatedAt: string;
+  movers: MarketCard[];
+  newCards: MarketCard[];
+  popular: MarketCard[];
+}> {
+  return request("GET", "/v1/market/home");
 }

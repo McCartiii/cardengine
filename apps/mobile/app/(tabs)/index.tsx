@@ -1,246 +1,239 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
-import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-} from "react-native-vision-camera";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useCallback, useState } from "react";
+import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useCardScanner } from "@/hooks/useCardScanner";
-import { ScanOverlay } from "@/components/ScanOverlay";
-import { ScannedCardTray } from "@/components/ScannedCardTray";
-import { LastScannedThumb } from "@/components/LastScannedThumb";
-import { useScanStore } from "@/store/scanStore";
-import { COLORS } from "@/lib/constants";
+import { color, radius, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
+import { formatUsd, setLabel } from "@/design/format";
+import { getCollectionValue, getMarketHome, type MarketCard } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import {
+  Button,
+  CardTile,
+  IconButton,
+  Screen,
+  SectionHeader,
+  SkeletonBlock,
+  Text,
+  Touchable,
+} from "@/ui";
 
-export default function ScanScreen() {
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const [cameraPosition, setCameraPosition] = useState<"back" | "front">("back");
-  const [paused, setPaused] = useState(false);
-  const [flashOn, setFlashOn] = useState(false);
-  const [trayOpen, setTrayOpen] = useState(false);
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-  const device = useCameraDevice(cameraPosition);
-  const { frameProcessor } = useCardScanner();
-  const { detectedName, detectedPrice, pending } = useScanStore();
+const RAIL_TILE_WIDTH = 132;
 
-  const unaddedPending = pending.filter((p) => !p.added);
-  const lastScanned = unaddedPending[0] ?? null;
-  const totalPending = unaddedPending.reduce((s, p) => s + p.quantity, 0);
+export default function HomeScreen() {
+  const router = useRouter();
+  const session = useAuthStore((s) => s.session);
+  const [market, setMarket] = useState<{ movers: MarketCard[]; newCards: MarketCard[]; popular: MarketCard[] } | null>(null);
+  const [value, setValue] = useState<{ total: number; count: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Request camera permission on mount
-  useEffect(() => {
-    if (!hasPermission) requestPermission();
-  }, [hasPermission, requestPermission]);
+  const load = useCallback(async () => {
+    const [m, v] = await Promise.allSettled([getMarketHome(), session ? getCollectionValue() : Promise.reject()]);
+    if (m.status === "fulfilled") setMarket(m.value);
+    if (v.status === "fulfilled") setValue({ total: v.value.totalValue, count: v.value.cardCount });
+    setLoading(false);
+    setRefreshing(false);
+  }, [session]);
 
-  // Close tray if all cards were cleared externally
-  useEffect(() => {
-    if (trayOpen && unaddedPending.length === 0) setTrayOpen(false);
-  }, [trayOpen, unaddedPending.length]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
-  if (!hasPermission) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.permText}>Camera access is required to scan cards.</Text>
-        <TouchableOpacity style={styles.permButton} onPress={requestPermission}>
-          <Text style={styles.permButtonText}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!device) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.permText}>No camera found.</Text>
-      </View>
-    );
-  }
+  const openCard = (variantId: string) => router.push({ pathname: "/card/[id]", params: { id: variantId } });
 
   return (
-    <View style={styles.root}>
-      {/* Full-screen camera feed */}
-      <Camera
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={!paused}
-        frameProcessor={frameProcessor}
-        photo={false}
-        video={false}
-        videoStabilizationMode="auto"
-        androidPreviewViewType="texture-view"
-        torch={flashOn ? "on" : "off"}
-      />
-
-      {/* Vignette, bounding box, name badge, price overlay */}
-      <ScanOverlay
-        detectedName={detectedName}
-        detectedPrice={detectedPrice}
-      />
-
-      {/* Top control bar */}
-      <View style={styles.topBarWrap} pointerEvents="box-none">
-        <SafeAreaView edges={["top"]}>
-          <View style={styles.topBar}>
-            {/* Flash toggle */}
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => setFlashOn((f) => !f)}
-              activeOpacity={0.75}
-            >
-              <Ionicons
-                name={flashOn ? "flash" : "flash-outline"}
-                size={20}
-                color="#fff"
-              />
-            </TouchableOpacity>
-
-            <View style={styles.topBarRight}>
-              {/* Pause / resume */}
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() => setPaused((p) => !p)}
-                activeOpacity={0.75}
-              >
-                <Ionicons
-                  name={paused ? "play" : "pause"}
-                  size={20}
-                  color="#fff"
-                />
-              </TouchableOpacity>
-
-              {/* Camera flip */}
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() =>
-                  setCameraPosition((pos) => (pos === "back" ? "front" : "back"))
-                }
-                activeOpacity={0.75}
-              >
-                <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
-              </TouchableOpacity>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load();
+            }}
+            tintColor={color.textSecondary}
+          />
+        }
+      >
+        <View style={styles.topBar}>
+          <View style={styles.wordmark}>
+            <View style={styles.logoMark}>
+              <Ionicons name="diamond" size={14} color={color.onAccent} />
             </View>
+            <Text variant="headline">Card Engine</Text>
           </View>
-        </SafeAreaView>
-      </View>
-
-      {/* Last-scanned thumbnail (collapsed state) */}
-      {!trayOpen && lastScanned && (
-        <LastScannedThumb
-          scan={lastScanned}
-          totalCount={totalPending}
-          onViewMore={() => setTrayOpen(true)}
-        />
-      )}
-
-      {/* Full pending tray (expanded state) */}
-      {trayOpen && (
-        <ScannedCardTray onClose={() => setTrayOpen(false)} />
-      )}
-
-      {/* Hint when nothing is pending and not paused */}
-      {!lastScanned && !paused && (
-        <SafeAreaView edges={["bottom"]} style={styles.bottomHint} pointerEvents="none">
-          <Text style={styles.bottomHintText}>
-            Point at a card — it'll scan automatically
-          </Text>
-        </SafeAreaView>
-      )}
-
-      {/* Paused indicator */}
-      {paused && (
-        <View style={styles.pausedBadge} pointerEvents="none">
-          <Ionicons name="pause-circle" size={18} color={COLORS.textMuted} />
-          <Text style={styles.pausedText}>Paused</Text>
+          <View style={styles.topActions}>
+            <IconButton icon="notifications-outline" label="Price alerts" onPress={() => router.push("/alerts")} />
+            <IconButton icon="person-outline" label="Profile" onPress={() => router.push("/profile")} />
+          </View>
         </View>
+
+        <View style={styles.section}>
+          {loading ? (
+            <SkeletonBlock height={164} />
+          ) : session ? (
+            <Touchable onPress={() => router.navigate("/(tabs)/collection")} pressedScale={0.985} accessibilityRole="button">
+              <LinearGradient colors={["#2A2113", color.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+                <Text variant="label" color={color.textSecondary}>
+                  Collection value
+                </Text>
+                <Text variant="priceLarge" style={{ marginTop: space.xs }}>
+                  {formatUsd(value?.total ?? 0)}
+                </Text>
+                <View style={styles.heroFooter}>
+                  <Text variant="callout" color={color.textSecondary}>
+                    {value?.count ?? 0} {value?.count === 1 ? "card" : "cards"}
+                  </Text>
+                  <View style={styles.heroLink}>
+                    <Text variant="callout" color={color.accent}>
+                      View collection
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={color.accent} />
+                  </View>
+                </View>
+              </LinearGradient>
+            </Touchable>
+          ) : (
+            <LinearGradient colors={["#2A2113", color.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+              <Text variant="headline">Track what your cards are worth</Text>
+              <Text variant="body" color={color.textSecondary} style={{ marginTop: space.xs }}>
+                Sign in to build a collection, follow prices and save decks.
+              </Text>
+              <Button label="Sign in" onPress={() => router.push("/(auth)/sign-in")} style={{ alignSelf: "flex-start", marginTop: space.lg }} />
+            </LinearGradient>
+          )}
+        </View>
+
+        <View style={[styles.section, styles.actions]}>
+          <QuickAction icon="scan" label="Scan cards" accent onPress={() => router.navigate("/(tabs)/scan")} />
+          <QuickAction icon="heart-outline" label="Life counter" onPress={() => router.push("/life")} />
+          <QuickAction icon="storefront-outline" label="Local shops" onPress={() => router.push("/shops")} />
+        </View>
+
+        <Rail title="Top movers" cards={market?.movers} loading={loading} onOpen={openCard} showDelta
+          empty="Movers show up once there are two days of price history." />
+        <Rail title="Just released" cards={market?.newCards} loading={loading} onOpen={openCard} />
+        <Rail title="Popular" cards={market?.popular} loading={loading} onOpen={openCard} />
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function QuickAction({ icon, label, onPress, accent }: { icon: IconName; label: string; onPress: () => void; accent?: boolean }) {
+  return (
+    <Touchable onPress={onPress} accessibilityRole="button" style={[styles.action, accent && { backgroundColor: color.accent }]}>
+      <Ionicons name={icon} size={22} color={accent ? color.onAccent : color.text} />
+      <Text variant="callout" color={accent ? color.onAccent : color.text}>
+        {label}
+      </Text>
+    </Touchable>
+  );
+}
+
+interface RailProps {
+  title: string;
+  cards: MarketCard[] | undefined;
+  loading: boolean;
+  onOpen: (variantId: string) => void;
+  showDelta?: boolean;
+  empty?: string;
+}
+
+function Rail({ title, cards, loading, onOpen, showDelta, empty }: RailProps) {
+  if (!loading && (!cards || cards.length === 0) && !empty) return null;
+  return (
+    <View style={styles.rail}>
+      <SectionHeader title={title} />
+      {loading ? (
+        <View style={styles.railSkeleton}>
+          {[0, 1, 2].map((i) => (
+            <SkeletonBlock key={i} height={RAIL_TILE_WIDTH / (63 / 88)} style={{ width: RAIL_TILE_WIDTH, borderRadius: radius.card }} />
+          ))}
+        </View>
+      ) : !cards || cards.length === 0 ? (
+        <View style={[styles.section, styles.railEmpty]}>
+          <Text variant="callout" color={color.textTertiary}>
+            {empty}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          horizontal
+          data={cards}
+          keyExtractor={(c) => c.variantId}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.md }}
+          renderItem={({ item }) => (
+            <CardTile
+              style={{ width: RAIL_TILE_WIDTH }}
+              name={item.name}
+              imageUri={item.imageUri}
+              price={item.bestUsd ?? item.priceUsd}
+              rarity={item.rarity}
+              subtitle={setLabel(item.setId, item.collectorNumber)}
+              deltaPct={showDelta ? item.deltaPct : undefined}
+              onPress={() => onOpen(item.variantId)}
+            />
+          )}
+        />
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  centered: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-    gap: 16,
-  },
-  permText: {
-    color: COLORS.text,
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  permButton: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  permButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  topBarWrap: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.lg,
   },
-  topBarRight: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(0,0,0,0.45)",
+  wordmark: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  logoMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: color.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  bottomHint: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    paddingBottom: 8,
+  topActions: { flexDirection: "row", gap: space.sm },
+  section: { paddingHorizontal: space.lg },
+  hero: {
+    borderRadius: radius.xl,
+    padding: space.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: color.borderStrong,
   },
-  bottomHintText: {
-    color: "rgba(255,255,255,0.35)",
-    fontSize: 12,
+  heroFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space.lg },
+  heroLink: { flexDirection: "row", alignItems: "center", gap: 2 },
+  actions: { flexDirection: "row", gap: space.md, marginTop: space.lg },
+  action: {
+    flex: 1,
+    height: 88,
+    borderRadius: radius.lg,
+    backgroundColor: color.surface,
+    padding: space.md,
+    justifyContent: "space-between",
   },
-  pausedBadge: {
-    position: "absolute",
-    bottom: 56,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  pausedText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
+  rail: { marginTop: space.xxxl },
+  railSkeleton: { flexDirection: "row", gap: space.md, paddingHorizontal: space.lg },
+  railEmpty: {
+    paddingVertical: space.xl,
+    marginHorizontal: space.lg,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: color.borderStrong,
   },
 });

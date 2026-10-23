@@ -357,10 +357,10 @@ export default function DeckDetailScreen() {
               disabled={aiLoading}
             >
               {aiLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={COLORS.onAccent} size="small" />
               ) : (
                 <>
-                  <Ionicons name="sparkles" size={18} color="#fff" />
+                  <Ionicons name="sparkles" size={18} color={COLORS.onAccent} />
                   <Text style={styles.aiBtnText}>Get AI Advice</Text>
                 </>
               )}
@@ -399,7 +399,7 @@ export default function DeckDetailScreen() {
                   onPress={handleImport}
                   disabled={!importText.trim() || importing}
                 >
-                  {importing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.createText}>Import</Text>}
+                  {importing ? <ActivityIndicator color={COLORS.onAccent} size="small" /> : <Text style={styles.createText}>Import</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 16,
   },
-  aiBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  aiBtnText: { color: COLORS.onAccent, fontWeight: "700", fontSize: 15 },
   aiResponse: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 16 },
   aiResponseText: { color: COLORS.text, fontSize: 14, lineHeight: 22 },
   // Modals
@@ -519,5 +519,5 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.background, alignItems: "center" },
   cancelText: { color: COLORS.textMuted, fontWeight: "700" },
   createBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.accent, alignItems: "center" },
-  createText: { color: "#fff", fontWeight: "700" },
+  createText: { color: COLORS.onAccent, fontWeight: "700" },
 });

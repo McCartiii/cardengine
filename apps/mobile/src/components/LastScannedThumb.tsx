@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeText: {
-    color: "#fff",
+    color: COLORS.onAccent,
     fontSize: 11,
     fontWeight: "700",
   },

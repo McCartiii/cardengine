@@ -1,103 +1,21 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "@/lib/constants";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { color } from "@/design/tokens";
+import { TabBar } from "@/ui";
 
 export default function TabLayout() {
   usePushNotifications();
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
-          borderTopWidth: 1,
-          height: 82,
-          paddingBottom: 24,
-          paddingTop: 10,
-        },
-        tabBarActiveTintColor: COLORS.accent,
-        tabBarInactiveTintColor: COLORS.textMuted,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
-      }}
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: color.bg } }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Scan",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="scan" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="life"
-        options={{
-          title: "Life",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="collection"
-        options={{
-          title: "Collection",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="albums" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="decks"
-        options={{
-          title: "Decks",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="layers" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: "Browse",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="shops"
-        options={{
-          title: "Shops",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="storefront" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="watchlist"
-        options={{
-          title: "Alerts",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="search" />
+      <Tabs.Screen name="scan" />
+      <Tabs.Screen name="collection" />
+      <Tabs.Screen name="decks" />
     </Tabs>
   );
 }

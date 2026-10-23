@@ -1,271 +1,283 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+import React, { useCallback, useState } from "react";
+import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../src/lib/constants";
-import { listDecks, createDeck, deleteDeck, type Deck } from "../../src/lib/api";
+import { color, radius, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
+import { createDeck, deleteDeck, listDecks, type Deck } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import {
+  Button,
+  Chip,
+  EmptyState,
+  FieldLabel,
+  IconButton,
+  PageHeader,
+  Screen,
+  Sheet,
+  SkeletonBlock,
+  Text,
+  Touchable,
+} from "@/ui";
 
 const FORMATS = ["commander", "standard", "modern", "pioneer", "legacy", "vintage", "pauper"] as const;
-const FORMAT_COLORS: Record<string, string> = {
-  commander: "#9B59B6",
-  standard: "#27AE60",
-  modern: "#2980B9",
-  pioneer: "#E67E22",
-  legacy: "#C0392B",
-  vintage: "#F39C12",
-  pauper: "#7F8C8D",
+type Format = (typeof FORMATS)[number];
+
+const FORMAT_DOT: Record<string, string> = {
+  commander: "#C084FC",
+  standard: "#34D399",
+  modern: "#60A5FA",
+  pioneer: "#FB923C",
+  legacy: "#F87171",
+  vintage: "#FFB224",
+  pauper: "#A1A1AA",
 };
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function DecksScreen() {
   const router = useRouter();
+  const session = useAuthStore((s) => s.session);
   const [decks, setDecks] = useState<Deck[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newFormat, setNewFormat] = useState<(typeof FORMATS)[number]>("commander");
-  const [newCommander, setNewCommander] = useState("");
 
   const load = useCallback(async () => {
     try {
       const { decks: d } = await listDecks();
       setDecks(d);
+      setStatus("ready");
     } catch {
-      // unauthenticated — show empty state
+      setStatus("error");
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      if (session) load();
+    }, [session, load])
+  );
 
-  const handleCreate = async () => {
-    if (!newName.trim()) return;
-    setCreating(true);
-    try {
-      await createDeck({
-        name: newName.trim(),
-        format: newFormat,
-        commander: newCommander.trim() || undefined,
-      });
-      setShowCreate(false);
-      setNewName("");
-      setNewCommander("");
-      setNewFormat("commander");
-      load();
-    } catch (e: unknown) {
-      Alert.alert("Error", (e as Error).message);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleDelete = (deck: Deck) => {
-    Alert.alert("Delete deck", `Delete "${deck.name}"?`, [
+  const confirmDelete = (deck: Deck) => {
+    Alert.alert(`Delete “${deck.name}”?`, "This can't be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await deleteDeck(deck.id);
-          load();
+          setDecks((prev) => prev.filter((d) => d.id !== deck.id));
+          try {
+            await deleteDeck(deck.id);
+          } catch {
+            load();
+          }
         },
       },
     ]);
   };
 
-  const renderDeck = ({ item }: { item: Deck }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push({ pathname: "/(deck)/[id]", params: { id: item.id } } as never)}
-      onLongPress={() => handleDelete(item)}
-    >
-      <View style={[styles.formatBadge, { backgroundColor: FORMAT_COLORS[item.format] ?? COLORS.surface }]}>
-        <Text style={styles.formatText}>{item.format.slice(0, 3).toUpperCase()}</Text>
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.deckName}>{item.name}</Text>
-        {item.commander && (
-          <Text style={styles.commander}>{item.commander}</Text>
-        )}
-        <Text style={styles.cardCount}>{item._count?.cards ?? 0} cards</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-    </TouchableOpacity>
-  );
+  if (!session) {
+    return (
+      <Screen>
+        <PageHeader title="Decks" />
+        <EmptyState
+          icon="layers-outline"
+          title="Build and price your decks"
+          body="Sign in to create decks, import lists and check legality."
+          action="Sign in"
+          onAction={() => router.push("/(auth)/sign-in")}
+        />
+      </Screen>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      {loading ? (
-        <ActivityIndicator color={COLORS.accent} style={{ flex: 1 }} />
+    <Screen>
+      <PageHeader
+        title="Decks"
+        subtitle={status === "ready" && decks.length > 0 ? `${decks.length} ${decks.length === 1 ? "deck" : "decks"}` : undefined}
+        right={<IconButton icon="add" label="New deck" variant="accent" onPress={() => setShowCreate(true)} />}
+      />
+
+      {status === "loading" ? (
+        <View style={styles.list}>
+          {[0, 1, 2].map((i) => (
+            <SkeletonBlock key={i} height={84} />
+          ))}
+        </View>
+      ) : status === "error" ? (
+        <EmptyState icon="cloud-offline-outline" title="Couldn't load your decks" body="Check your connection and try again." action="Retry" onAction={load} />
       ) : (
         <FlatList
           data={decks}
           keyExtractor={(d) => d.id}
-          renderItem={renderDeck}
-          contentContainerStyle={decks.length === 0 ? styles.emptyContainer : styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.accent} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="layers-outline" size={56} color={COLORS.textMuted} />
-              <Text style={styles.emptyTitle}>No decks yet</Text>
-              <Text style={styles.emptyHint}>Tap + to create your first deck</Text>
-            </View>
+          contentContainerStyle={[styles.list, { flexGrow: 1 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load();
+              }}
+              tintColor={color.textSecondary}
+            />
           }
+          ListEmptyComponent={
+            <EmptyState
+              icon="layers-outline"
+              title="No decks yet"
+              body="Start a deck from scratch, then add cards from search or your collection."
+              action="New deck"
+              onAction={() => setShowCreate(true)}
+            />
+          }
+          renderItem={({ item }) => (
+            <DeckRow
+              deck={item}
+              onPress={() => router.push({ pathname: "/deck/[id]", params: { id: item.id } })}
+              onLongPress={() => confirmDelete(item)}
+            />
+          )}
         />
       )}
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => setShowCreate(true)}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      <CreateDeckSheet
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={(deck) => {
+          setShowCreate(false);
+          router.push({ pathname: "/deck/[id]", params: { id: deck.id } });
+        }}
+      />
+    </Screen>
+  );
+}
 
-      {/* Create modal */}
-      <Modal visible={showCreate} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>New Deck</Text>
-
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="My Commander Deck"
-              placeholderTextColor={COLORS.textMuted}
-              autoFocus
-            />
-
-            <Text style={styles.label}>Format</Text>
-            <View style={styles.formatRow}>
-              {FORMATS.map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.formatChip, newFormat === f && { backgroundColor: FORMAT_COLORS[f] ?? COLORS.accent }]}
-                  onPress={() => setNewFormat(f)}
-                >
-                  <Text style={[styles.formatChipText, newFormat === f && { color: "#fff", fontWeight: "700" }]}>
-                    {f}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {newFormat === "commander" && (
-              <>
-                <Text style={styles.label}>Commander (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newCommander}
-                  onChangeText={setNewCommander}
-                  placeholder="Atraxa, Praetors' Voice"
-                  placeholderTextColor={COLORS.textMuted}
-                />
-              </>
-            )}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCreate(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createBtn, (!newName.trim() || creating) && { opacity: 0.5 }]}
-                onPress={handleCreate}
-                disabled={!newName.trim() || creating}
-              >
-                {creating ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.createText}>Create</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+function DeckRow({ deck, onPress, onLongPress }: { deck: Deck; onPress: () => void; onLongPress: () => void }) {
+  const count = deck._count?.cards ?? 0;
+  return (
+    <Touchable onPress={onPress} onLongPress={onLongPress} pressedScale={0.985} style={styles.deck} accessibilityRole="button">
+      <View style={styles.deckIcon}>
+        <Ionicons name="layers" size={22} color={FORMAT_DOT[deck.format] ?? color.textSecondary} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="bodyStrong" numberOfLines={1}>
+          {deck.name}
+        </Text>
+        {deck.commander ? (
+          <Text variant="callout" color={color.textSecondary} numberOfLines={1}>
+            {deck.commander}
+          </Text>
+        ) : null}
+        <View style={styles.deckMeta}>
+          <View style={[styles.dot, { backgroundColor: FORMAT_DOT[deck.format] ?? color.textTertiary }]} />
+          <Text variant="caption" color={color.textTertiary}>
+            {capitalize(deck.format)} · {count} {count === 1 ? "card" : "cards"}
+            {deck.isPublic ? " · Shared" : ""}
+          </Text>
         </View>
-      </Modal>
-    </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+    </Touchable>
+  );
+}
+
+function CreateDeckSheet({ visible, onClose, onCreated }: { visible: boolean; onClose: () => void; onCreated: (deck: Deck) => void }) {
+  const [name, setName] = useState("");
+  const [format, setFormat] = useState<Format>("commander");
+  const [commander, setCommander] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setName("");
+    setCommander("");
+    setFormat("commander");
+  };
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const { deck } = await createDeck({
+        name: name.trim(),
+        format,
+        commander: format === "commander" ? commander.trim() || undefined : undefined,
+      });
+      reset();
+      onCreated(deck);
+    } catch (e: unknown) {
+      Alert.alert("Couldn't create deck", (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="New deck">
+      <FieldLabel>Name</FieldLabel>
+      <TextInput
+        style={styles.input}
+        value={name}
+        onChangeText={setName}
+        placeholder="e.g. Atraxa Superfriends"
+        placeholderTextColor={color.textTertiary}
+        selectionColor={color.accent}
+        autoFocus
+        returnKeyType="done"
+      />
+      <FieldLabel>Format</FieldLabel>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+        {FORMATS.map((f) => (
+          <Chip key={f} label={capitalize(f)} active={format === f} onPress={() => setFormat(f)} />
+        ))}
+      </ScrollView>
+      {format === "commander" && (
+        <>
+          <FieldLabel>Commander (optional)</FieldLabel>
+          <TextInput
+            style={styles.input}
+            value={commander}
+            onChangeText={setCommander}
+            placeholder="e.g. Atraxa, Praetors' Voice"
+            placeholderTextColor={color.textTertiary}
+            selectionColor={color.accent}
+          />
+        </>
+      )}
+      <Button label="Create deck" size="lg" onPress={submit} loading={saving} disabled={!name.trim()} style={{ marginTop: space.sm }} />
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  listContent: { padding: 16, gap: 10 },
-  emptyContainer: { flex: 1 },
-  card: {
+  list: { paddingHorizontal: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md },
+  deck: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 14,
-    gap: 12,
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: color.surface,
   },
-  formatBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  deckIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: color.surface2,
     alignItems: "center",
     justifyContent: "center",
   },
-  formatText: { color: "#fff", fontWeight: "800", fontSize: 11 },
-  cardBody: { flex: 1 },
-  deckName: { color: COLORS.text, fontSize: 16, fontWeight: "700" },
-  commander: { color: COLORS.accent, fontSize: 13, marginTop: 2 },
-  cardCount: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  emptyTitle: { color: COLORS.text, fontSize: 20, fontWeight: "700" },
-  emptyHint: { color: COLORS.textMuted, fontSize: 14 },
-  fab: {
-    position: "absolute",
-    bottom: 28,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: COLORS.accent,
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
-  modal: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12 },
-  modalTitle: { color: COLORS.text, fontSize: 20, fontWeight: "800", marginBottom: 4 },
-  label: { color: COLORS.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
+  deckMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
   input: {
-    backgroundColor: COLORS.background,
-    color: COLORS.text,
-    borderRadius: 10,
-    padding: 12,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: color.surface2,
+    paddingHorizontal: space.lg,
+    color: color.text,
     fontSize: 16,
+    fontWeight: "500",
   },
-  formatRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  formatChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  formatChipText: { color: COLORS.textMuted, fontSize: 13 },
-  modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.background, alignItems: "center" },
-  cancelText: { color: COLORS.textMuted, fontWeight: "700" },
-  createBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.accent, alignItems: "center" },
-  createText: { color: "#fff", fontWeight: "700" },
 });

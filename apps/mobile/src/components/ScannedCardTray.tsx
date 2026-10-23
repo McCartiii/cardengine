@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addButtonText: {
-    color: "#fff",
+    color: COLORS.onAccent,
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.2,

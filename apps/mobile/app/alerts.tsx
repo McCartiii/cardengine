@@ -13,13 +13,13 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../src/lib/constants";
+import { COLORS } from "@/lib/constants";
 import {
   getWatchlist,
   deleteWatchlistEntry,
   toggleWatchlistEntry,
   type WatchlistEntry,
-} from "../../src/lib/api";
+} from "@/lib/api";
 
 function priceStatus(entry: WatchlistEntry): { triggered: boolean; label: string; color: string } {
   const { currentPrice, thresholdAmount, direction } = entry;

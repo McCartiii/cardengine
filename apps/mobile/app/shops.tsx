@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../src/lib/constants";
-import { getNearbyShops, type Shop } from "../../src/lib/api";
+import { COLORS } from "@/lib/constants";
+import { getNearbyShops, type Shop } from "@/lib/api";
 
 function formatDistance(mi: number | null): string {
   if (mi == null) return "";
