@@ -7,7 +7,8 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepe
 import { CARD_ASPECT, cardRadius, color, rarity as rarityColor, space } from "../design/tokens";
 import { font } from "../design/fonts";
 import { formatDeltaPct, formatUsd } from "../design/format";
-import { Text, Touchable } from "./primitives";
+import { Text } from "./primitives";
+import { FoilSweep, Tilt } from "./holo";
 
 // Muted, painterly gradients so art-less cards still read as distinct objects.
 const PLACEHOLDER_GRADIENTS: ReadonlyArray<readonly [string, string, string]> = [
@@ -119,6 +120,8 @@ interface CardTileProps {
   rarity?: string | null;
   deltaPct?: number | null;
   showName?: boolean;
+  /** Sweep light across the art, for featured rails. */
+  sheen?: boolean;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -134,15 +137,22 @@ export function CardTile({
   rarity,
   deltaPct,
   showName = false,
+  sheen,
   onPress,
   style,
 }: CardTileProps) {
+  const [w, setW] = useState(0);
   const hasDelta = deltaPct != null && Number.isFinite(deltaPct);
   const up = (deltaPct ?? 0) >= 0;
   return (
-    <Touchable onPress={onPress} accessibilityRole="button" accessibilityLabel={name} pressedScale={0.96} style={style}>
-      <View style={styles.shadow}>
+    <Tilt onPress={onPress} accessibilityRole="button" accessibilityLabel={name} style={style}>
+      <View style={styles.shadow} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
         <CardArt uri={imageUri} name={name} foil={foil} />
+        {sheen && w > 0 && (
+          <View style={[StyleSheet.absoluteFill, { overflow: "hidden", borderRadius: cardRadius(w) }]} pointerEvents="none">
+            <FoilSweep width={w} delay={(hash(name) % 7) * 400} />
+          </View>
+        )}
         <View style={styles.overlay} pointerEvents="none">
           {quantity != null && quantity > 1 ? (
             <View style={styles.pill}>
@@ -184,7 +194,7 @@ export function CardTile({
           )}
         </View>
       </View>
-    </Touchable>
+    </Tilt>
   );
 }
 

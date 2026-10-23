@@ -1,23 +1,22 @@
-// Subpath imports keep unused weights out of the bundle. Inter tracks closely
-// to the iOS system face, so the app feels native on every platform.
-import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
-import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
-import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
-import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
-import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
+// Subpath imports keep unused weights out of the bundle.
+import { PlusJakartaSans_400Regular } from "@expo-google-fonts/plus-jakarta-sans/400Regular";
+import { PlusJakartaSans_500Medium } from "@expo-google-fonts/plus-jakarta-sans/500Medium";
+import { PlusJakartaSans_600SemiBold } from "@expo-google-fonts/plus-jakarta-sans/600SemiBold";
+import { PlusJakartaSans_700Bold } from "@expo-google-fonts/plus-jakarta-sans/700Bold";
+import { PlusJakartaSans_800ExtraBold } from "@expo-google-fonts/plus-jakarta-sans/800ExtraBold";
 
 export const font = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semibold: "Inter_600SemiBold",
-  bold: "Inter_700Bold",
-  heavy: "Inter_800ExtraBold",
+  regular: "PlusJakartaSans_400Regular",
+  medium: "PlusJakartaSans_500Medium",
+  semibold: "PlusJakartaSans_600SemiBold",
+  bold: "PlusJakartaSans_700Bold",
+  heavy: "PlusJakartaSans_800ExtraBold",
 } as const;
 
 export const FONT_ASSETS = {
-  [font.regular]: Inter_400Regular,
-  [font.medium]: Inter_500Medium,
-  [font.semibold]: Inter_600SemiBold,
-  [font.bold]: Inter_700Bold,
-  [font.heavy]: Inter_800ExtraBold,
+  [font.regular]: PlusJakartaSans_400Regular,
+  [font.medium]: PlusJakartaSans_500Medium,
+  [font.semibold]: PlusJakartaSans_600SemiBold,
+  [font.bold]: PlusJakartaSans_700Bold,
+  [font.heavy]: PlusJakartaSans_800ExtraBold,
 };

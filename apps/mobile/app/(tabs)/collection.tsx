@@ -1,211 +1,371 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions, type ViewToken } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { color, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
-import { formatUsd, setLabel } from "@/design/format";
+import { setStatusBarStyle } from "expo-status-bar";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { binder, CARD_ASPECT, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
+import { font } from "@/design/fonts";
+import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import {
-  CardTile,
-  Chip,
-  EmptyState,
-  GridSpacer,
-  padToColumns,
-  Screen,
-  SearchField,
-  SkeletonGrid,
-  Text,
-  ActivityRow,
-} from "@/ui";
+import { CardArt, FoilSweep, Text, Tilt, Touchable, tap } from "@/ui";
 
-type SortMode = "value" | "name" | "qty" | "added";
+const PER_PAGE = 9;
+const FETCH_SIZE = 90;
+const RING_COLUMN = 30;
+const GAP = 10;
 
-const SORT_OPTIONS: ReadonlyArray<{ key: SortMode; label: string }> = [
-  { key: "value", label: "Value" },
-  { key: "added", label: "Newest" },
-  { key: "name", label: "Name" },
-  { key: "qty", label: "Quantity" },
-];
+type Slot = OwnedCard | null;
 
-const COLUMNS = 3;
-const PAGE_SIZE = 60;
-
-export default function CollectionScreen() {
+export default function BinderScreen() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
   const session = useAuthStore((s) => s.session);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortMode>("value");
   const [cards, setCards] = useState<OwnedCard[]>([]);
   const [totals, setTotals] = useState({ cards: 0, value: 0 });
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [fetchedPage, setFetchedPage] = useState(1);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const requestId = useRef(0);
+  const [set, setSet] = useState<string>("all");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [pageIndex, setPageIndex] = useState(0);
+  const listRef = useRef<FlatList<Slot[]>>(null);
 
-  const load = useCallback(async (q: string, s: SortMode, p: number) => {
-    const id = ++requestId.current;
-    if (p > 1) setLoadingMore(true);
+  const [areaHeight, setAreaHeight] = useState(0);
+  const pageWidth = width - space.lg * 2;
+  // Fit three rows of sleeves in the measured space; page padding and footer take ~62.
+  const rowHeight = ((areaHeight || height * 0.55) - 62 - GAP * 2) / 3;
+  const byHeight = (rowHeight - 6) * CARD_ASPECT + 6;
+  const byWidth = (pageWidth - RING_COLUMN - 4 - 14 - GAP * 2) / 3;
+  const sleeveWidth = Math.floor(Math.max(64, Math.min(byWidth, byHeight)));
+
+  const load = useCallback(async (p: number) => {
     try {
-      const res = await getCollectionCards({ q: q || undefined, sort: s, page: p, limit: PAGE_SIZE });
-      if (id !== requestId.current) return;
+      const res = await getCollectionCards({ sort: "value", page: p, limit: FETCH_SIZE });
       setCards((prev) => (p > 1 ? [...prev, ...res.cards] : res.cards));
       setTotals({ cards: res.totalCards, value: res.totalValue });
       setHasMore(res.hasMore);
-      setPage(p);
+      setFetchedPage(p);
       setStatus("ready");
     } catch {
-      if (id === requestId.current && p === 1) setStatus("error");
-    } finally {
-      if (id === requestId.current) {
-        setRefreshing(false);
-        setLoadingMore(false);
-      }
+      if (p === 1) setStatus("error");
     }
   }, []);
 
-  // Refresh on focus so freshly scanned cards appear.
   useFocusEffect(
     useCallback(() => {
-      if (session) load(query, sort, 1);
-    }, [session, sort, load])
+      setStatusBarStyle("light");
+      if (session) load(1);
+      else setStatus("ready");
+      return () => setStatusBarStyle("dark");
+    }, [session, load])
   );
 
-  const firstQuery = useRef(true);
-  useEffect(() => {
-    if (firstQuery.current) {
-      firstQuery.current = false;
-      return;
+  // Tabs for the sets you own the most of.
+  const setTabs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of cards) if (c.setId) counts.set(c.setId, (counts.get(c.setId) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id]) => id);
+  }, [cards]);
+
+  const pages = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const visible = cards.filter((c) => (set === "all" || c.setId === set) && (!q || c.name.toLowerCase().includes(q)));
+    const slots: Slot[] = [...visible];
+    // Once everything is loaded, end on empty sleeves so there's somewhere to scan into.
+    if (!hasMore) {
+      const pad = PER_PAGE - (slots.length % PER_PAGE);
+      for (let i = 0; i < pad; i++) slots.push(null);
     }
-    if (!session) return;
-    const t = setTimeout(() => load(query.trim(), sort, 1), 300);
-    return () => clearTimeout(t);
-  }, [query]);
+    const out: Slot[][] = [];
+    for (let i = 0; i < slots.length; i += PER_PAGE) out.push(slots.slice(i, i + PER_PAGE));
+    return out.length ? out : [Array<Slot>(PER_PAGE).fill(null)];
+  }, [cards, set, query, hasMore]);
 
-  if (!session) {
-    return (
-      <Screen>
-        <Header />
-        <EmptyState
-          icon="albums-outline"
-          title="Keep your collection in one place"
-          body="Sign in to save scanned cards and see what they're worth."
-          action="Sign in"
-          onAction={() => router.push("/(auth)/sign-in")}
-        />
-      </Screen>
-    );
-  }
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const i = viewableItems[0]?.index;
+    if (i != null) setPageIndex(i);
+  }).current;
 
-  const isEmptyCollection = status === "ready" && totals.cards === 0 && !query;
+  const pickSet = (id: string) => {
+    tap();
+    setSet(id);
+    setPageIndex(0);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  };
+
+  const openCard = (c: OwnedCard) => router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
+  const scan = () => router.navigate("/(tabs)/scan");
 
   return (
-    <Screen>
-      <Header value={status === "ready" ? totals : undefined} />
-      {!isEmptyCollection && (
-        <View style={styles.controls}>
-          <SearchField value={query} onChangeText={setQuery} placeholder="Search your collection" style={{ marginHorizontal: space.lg }} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            {SORT_OPTIONS.map((o) => (
-              <Chip key={o.key} label={o.label} active={sort === o.key} onPress={() => setSort(o.key)} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {status === "loading" ? (
-        <SkeletonGrid columns={COLUMNS} />
-      ) : status === "error" ? (
-        <EmptyState
-          icon="cloud-offline-outline"
-          title="Couldn't load your collection"
-          body="Check your connection and try again."
-          action="Retry"
-          onAction={() => {
-            setStatus("loading");
-            load(query, sort, 1);
-          }}
-        />
-      ) : isEmptyCollection ? (
-        <EmptyState
-          icon="scan"
-          title="Your collection is empty"
-          body="Scan a card or add one from its page to start tracking value."
-          action="Scan cards"
-          onAction={() => router.navigate("/(tabs)/scan")}
-        />
-      ) : (
-        <FlatList
-          data={padToColumns(cards, COLUMNS)}
-          keyExtractor={(c, i) => c?.holdingId ?? `spacer-${i}`}
-          numColumns={COLUMNS}
-          keyboardDismissMode="on-drag"
-          contentContainerStyle={styles.grid}
-          columnWrapperStyle={styles.row}
-          onEndReachedThreshold={0.4}
-          onEndReached={() => {
-            if (hasMore && !loadingMore) load(query, sort, page + 1);
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                load(query, sort, 1);
+    <View style={styles.root}>
+      <LinearGradient colors={[binder.coverTop, binder.cover, binder.coverDeep]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.stitch} pointerEvents="none" />
+      <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.title}>My Binder</Text>
+            <Text variant="bodyStrong" color={binder.coverMuted} style={{ fontSize: 14 }}>
+              {session
+                ? status === "ready"
+                  ? `${formatUsd(totals.value)} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
+                  : "Opening your binder…"
+                : "Sign in to start sleeving cards"}
+            </Text>
+          </View>
+          {session && (
+            <Touchable
+              onPress={() => {
+                tap();
+                setSearchOpen((o) => !o);
+                if (searchOpen) setQuery("");
               }}
-              tintColor={color.textSecondary}
-            />
-          }
-          ListEmptyComponent={<EmptyState icon="search" title={`Nothing matches “${query.trim()}”`} />}
-          ListFooterComponent={loadingMore ? <ActivityRow /> : null}
-          renderItem={({ item }) =>
-            item ? (
-              <CardTile
-                name={item.name}
-                imageUri={item.imageUri}
-                price={item.priceUsd}
-                foil={item.finish !== "nonfoil"}
-                quantity={item.quantity}
-                rarity={item.rarity}
-                subtitle={setLabel(item.setId, item.collectorNumber)}
-                showName={false}
-                style={{ flex: 1 }}
-                onPress={() => router.push({ pathname: "/card/[id]", params: { id: item.variantId } })}
-              />
-            ) : (
-              <GridSpacer />
-            )
-          }
-        />
-      )}
-    </Screen>
-  );
-}
-
-function Header({ value }: { value?: { cards: number; value: number } }) {
-  return (
-    <View style={styles.header}>
-      <Text variant="title">Collection</Text>
-      {value && value.cards > 0 && (
-        <View style={styles.totals}>
-          <Text variant="priceLarge" style={{ fontSize: 30, lineHeight: 34 }}>
-            {formatUsd(value.value)}
-          </Text>
-          <Text variant="callout" color={color.textSecondary}>
-            {value.cards} {value.cards === 1 ? "card" : "cards"}
-          </Text>
+              accessibilityRole="button"
+              accessibilityLabel={searchOpen ? "Close search" : "Search binder"}
+              pressedScale={0.92}
+              style={styles.coverButton}
+            >
+              <Ionicons name={searchOpen ? "close" : "search"} size={20} color="#FFFFFF" />
+            </Touchable>
+          )}
         </View>
-      )}
+
+        {searchOpen && (
+          <Animated.View entering={FadeIn.duration(200)} style={styles.searchWrap}>
+            <Ionicons name="search" size={18} color={binder.coverMuted} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Find a card in your binder"
+              placeholderTextColor={binder.coverMuted}
+              style={styles.searchInput}
+              autoFocus
+              autoCorrect={false}
+              selectionColor="#FFD58A"
+            />
+          </Animated.View>
+        )}
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.tabs} accessibilityRole="tablist">
+          {["all", ...setTabs].map((id) => {
+            const on = set === id;
+            return (
+              <Pressable
+                key={id}
+                onPress={() => pickSet(id)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                style={[styles.tab, on && styles.tabOn]}
+              >
+                <Text style={[styles.tabText, { color: on ? binder.coverDeep : "#C6CDF0" }]}>{id === "all" ? "All" : id.toUpperCase()}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
+        <FlatList
+          ref={listRef}
+          horizontal
+          style={{ flexGrow: 0 }}
+          pagingEnabled
+          data={pages}
+          keyExtractor={(_, i) => `page-${set}-${i}`}
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={pageWidth + space.lg * 2}
+          decelerationRate="fast"
+          onViewableItemsChanged={onViewable}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+          onEndReached={() => {
+            if (hasMore) load(fetchedPage + 1);
+          }}
+          renderItem={({ item: slots, index }) => (
+            <View style={{ width: pageWidth + space.lg * 2, paddingHorizontal: space.lg }}>
+              <View style={styles.page}>
+                <View style={styles.rings} pointerEvents="none">
+                  {[0, 1, 2].map((r) => (
+                    <View key={r} style={styles.ring} />
+                  ))}
+                </View>
+                <View style={{ flex: 1, paddingTop: 16, paddingRight: 14, paddingBottom: 12, paddingLeft: 4 }}>
+                  <View style={[styles.grid, { width: sleeveWidth * 3 + GAP * 2 }]}>
+                    {slots.map((c, i) =>
+                      c ? (
+                        <Sleeve key={c.holdingId} card={c} width={sleeveWidth} order={i} onPress={() => openCard(c)} />
+                      ) : (
+                        <EmptySleeve key={`empty-${index}-${i}`} width={sleeveWidth} onPress={session ? scan : () => router.push("/(auth)/sign-in")} />
+                      )
+                    )}
+                  </View>
+                  <View style={styles.pageFooter}>
+                    <Text variant="caption" color={binder.pageInk} style={{ fontFamily: font.bold }}>
+                      {status === "loading" ? "Loading…" : `Page ${index + 1} of ${pages.length}`}
+                    </Text>
+                    <Text variant="caption" color={binder.pageInk}>
+                      {set === "all" ? "Most valuable first" : set.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+        />
+        </View>
+
+        <View style={styles.dots} accessibilityElementsHidden>
+          {pages.slice(0, 8).map((_, i) => (
+            <View key={i} style={[styles.dot, i === pageIndex && styles.dotOn]} />
+          ))}
+        </View>
+        <View style={{ height: TAB_BAR_CLEARANCE - 8 }} />
+      </SafeAreaView>
     </View>
   );
 }
 
+function Sleeve({ card, width, order, onPress }: { card: OwnedCard; width: number; order: number; onPress: () => void }) {
+  const artWidth = width - 6;
+  return (
+    <Animated.View entering={FadeIn.delay(order * 40).duration(300)}>
+      <Tilt onPress={onPress} accessibilityRole="button" accessibilityLabel={`${card.name}, ${formatUsd(card.priceUsd)}`} style={[styles.sleeve, { width }]}>
+        <CardArt uri={card.imageUri} name={card.name} foil={card.finish !== "nonfoil"} style={{ width: artWidth }} />
+        <LinearGradient
+          colors={["rgba(255,255,255,0.55)", "rgba(255,255,255,0)", "rgba(255,255,255,0)", "rgba(255,255,255,0.2)"]}
+          locations={[0, 0.32, 0.68, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: 6 }]}
+          pointerEvents="none"
+        />
+        <View style={[StyleSheet.absoluteFill, { overflow: "hidden", borderRadius: 6 }]} pointerEvents="none">
+          <FoilSweep width={width} delay={order * 350} strength={0.4} />
+        </View>
+        {card.quantity > 1 && (
+          <View style={styles.qty}>
+            <Text variant="number" color="#FFFFFF" style={{ fontSize: 10 }}>
+              ×{card.quantity}
+            </Text>
+          </View>
+        )}
+        <View style={styles.priceTabRow} pointerEvents="none">
+          <View style={styles.priceTab}>
+            <Text variant="number" color="#FFFFFF" style={{ fontSize: 11 }}>
+              {formatUsd(card.priceUsd, { compact: true })}
+            </Text>
+          </View>
+        </View>
+      </Tilt>
+    </Animated.View>
+  );
+}
+
+function EmptySleeve({ width, onPress }: { width: number; onPress: () => void }) {
+  return (
+    <Touchable onPress={onPress} accessibilityRole="button" accessibilityLabel="Scan a card into this sleeve" pressedScale={0.95}>
+      <View style={[styles.empty, { width, height: (width - 6) / CARD_ASPECT + 6 }]}>
+        <Ionicons name="add" size={22} color={binder.pageInk} />
+        <Text variant="caption" color={binder.pageInk} style={{ fontFamily: font.bold }}>
+          Scan
+        </Text>
+      </View>
+    </Touchable>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.md },
-  totals: { flexDirection: "row", alignItems: "baseline", gap: space.sm, marginTop: space.xs },
-  controls: { gap: space.md, paddingBottom: space.lg },
-  chips: { gap: space.sm, paddingHorizontal: space.lg },
-  grid: { paddingHorizontal: space.lg, paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
-  row: { gap: 14, marginBottom: space.xxl },
+  root: { flex: 1, backgroundColor: binder.cover },
+  stitch: { position: "absolute", top: 10, left: 10, right: 10, bottom: 10, borderRadius: 40, borderWidth: 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.12)" },
+  header: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 24, paddingTop: space.md },
+  title: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: "#FFFFFF" },
+  coverButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    marginHorizontal: space.lg,
+    marginTop: space.md,
+    height: 46,
+    paddingHorizontal: space.lg,
+    borderRadius: 23,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+  searchInput: { flex: 1, color: "#FFFFFF", fontFamily: font.medium, fontSize: 15, height: "100%" },
+  tabs: { gap: 4, paddingLeft: space.lg + RING_COLUMN + 6, paddingRight: space.lg, paddingTop: space.xl, alignItems: "flex-end" },
+  tab: { height: 34, paddingHorizontal: 16, borderTopLeftRadius: 14, borderTopRightRadius: 14, backgroundColor: "rgba(255,255,255,0.12)", justifyContent: "center" },
+  tabOn: { height: 40, backgroundColor: binder.page },
+  tabText: { fontFamily: font.heavy, fontSize: 13 },
+  page: {
+    flexDirection: "row",
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 22,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    backgroundColor: binder.page,
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 18 },
+    elevation: 14,
+  },
+  rings: { width: RING_COLUMN, justifyContent: "space-around", alignItems: "center", paddingVertical: 40 },
+  ring: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: binder.coverDeep,
+    borderWidth: 3,
+    borderColor: binder.ring,
+  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP, alignSelf: "center" },
+  sleeve: {
+    padding: 3,
+    borderRadius: 7,
+    backgroundColor: "rgba(255,255,255,0.45)",
+    shadowColor: "#141938",
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  qty: { position: "absolute", top: 7, left: 7, paddingHorizontal: 5, height: 18, borderRadius: 9, backgroundColor: "rgba(18,22,47,0.85)", justifyContent: "center" },
+  priceTabRow: { position: "absolute", left: 0, right: 0, bottom: -1, alignItems: "center" },
+  priceTab: {
+    minWidth: 48,
+    paddingHorizontal: 7,
+    paddingTop: 2,
+    paddingBottom: 3,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    backgroundColor: binder.coverDeep,
+    alignItems: "center",
+  },
+  empty: {
+    borderRadius: 7,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "rgba(30,40,90,0.25)",
+    backgroundColor: "rgba(255,255,255,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  pageFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: space.md },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)" },
+  dotOn: { width: 18, backgroundColor: "#FFFFFF" },
 });

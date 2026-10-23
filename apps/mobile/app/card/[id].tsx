@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { color, elevation, radius, rarity as rarityColor, space } from "@/design/tokens";
+import { bubble, color, elevation, radius, rarity as rarityColor, space, type BubbleColor } from "@/design/tokens";
+import { font } from "@/design/fonts";
 import { formatUsd, setLabel } from "@/design/format";
 import {
   addCollectionEvents,
   addWatchlistEntry,
   getCardDetail,
   getDeck,
+  getPriceHistory,
   listDecks,
   updateDeckCards,
   type CardDetail,
@@ -25,11 +26,17 @@ import {
   CardArt,
   EmptyState,
   FieldLabel,
+  Floaty,
+  FoilSweep,
+  GlassFill,
+  HoloBackdrop,
+  HoloRing,
   IconButton,
   ListGroup,
   ListRow,
   Segmented,
   Sheet,
+  Sparkline,
   Text,
   Touchable,
 } from "@/ui";
@@ -76,6 +83,13 @@ export default function CardDetailScreen() {
   const [alertSheet, setAlertSheet] = useState(false);
   const [toast, setToast] = useState<{ message: string; ok: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [history, setHistory] = useState<Array<{ kind: string; amount: number }>>([]);
+
+  useEffect(() => {
+    getPriceHistory(id, 30)
+      .then((r) => setHistory(r.points.filter((p) => p.value.currency === "USD").map((p) => ({ kind: p.kind, amount: p.value.amount }))))
+      .catch(() => setHistory([]));
+  }, [id]);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -129,12 +143,13 @@ export default function CardDetailScreen() {
     }
   };
 
-  const artWidth = Math.min(width * 0.66, 300);
+  const artWidth = Math.min(width * 0.52, 230);
 
   if (status !== "ready" || !card) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Stack.Screen options={{ headerShown: false }} />
+        <HoloBackdrop />
         <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} style={styles.backStandalone} />
         {status === "loading" ? (
           <ActivityIndicator color={color.textSecondary} style={{ marginTop: space.xxxl * 3 }} />
@@ -149,124 +164,126 @@ export default function CardDetailScreen() {
     (f) => f === finish || card.storePricing.some((s) => s.prices.some((p) => p.label === FINISH_PRICE_LABEL[f]))
   );
   const best = lowestUsd(card, finish);
-  const identity = card.colorIdentity ?? card.colors ?? [];
+  const kind = finish === "nonfoil" ? "market" : finish;
+  const series = history.filter((p) => p.kind === kind).map((p) => p.amount);
+  const change = series.length >= 2 && series[0] > 0 ? ((series[series.length - 1] - series[0]) / series[0]) * 100 : null;
+  const rarityName = card.rarity ? card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1) : null;
+  const typeAndSet = [card.typeLine, setLabel(card.setId, card.collectorNumber)].filter(Boolean).join(" · ");
 
   return (
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + space.xxxl * 2 }} showsVerticalScrollIndicator={false}>
-        {/* Hero: the card on a blurred wash of its own art */}
-        <View style={[styles.hero, { paddingTop: insets.top + space.xxxl + space.lg }]}>
-          {card.imageUri && (
-            <Image source={{ uri: card.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={40} />
-          )}
-          <LinearGradient colors={["rgba(238,242,248,0.1)", "rgba(238,242,248,0.6)", color.bg]} locations={[0, 0.5, 0.82]} style={StyleSheet.absoluteFill} />
-          <View style={styles.heroShadow}>
-            <CardArt uri={card.imageUri} name={card.name} foil={finish !== "nonfoil"} style={{ width: artWidth }} />
-          </View>
+      <HoloBackdrop height={480} />
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        {/* Hero: the card held up to the light */}
+        <View style={[styles.hero, { paddingTop: insets.top + 64 }]}>
+          <Floaty>
+            <HoloRing radius={14} thickness={3} style={styles.heroShadow}>
+              <View style={{ width: artWidth, borderRadius: 11, overflow: "hidden" }}>
+                <CardArt uri={card.imageUri} name={card.name} foil={finish !== "nonfoil"} />
+                <FoilSweep width={artWidth} />
+              </View>
+            </HoloRing>
+          </Floaty>
         </View>
 
-        <View style={styles.body}>
-          <View>
-            <Text variant="title">{card.name}</Text>
-            {card.typeLine && (
-              <Text variant="body" color={color.textSecondary} style={{ marginTop: 2 }}>
-                {card.typeLine}
-              </Text>
-            )}
-          </View>
-          <View style={styles.metaRow}>
-            {card.rarity && (
-              <View style={styles.metaItem}>
-                <View style={[styles.dot, { backgroundColor: rarityColor[card.rarity] ?? color.textTertiary }]} />
-                <Text variant="caption" color={color.textSecondary}>
-                  {card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1)}
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 120 }]}>
+          <View style={styles.titleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardName}>{card.name}</Text>
+              {!!typeAndSet && (
+                <Text variant="callout" color={color.textSecondary} style={{ marginTop: 2 }}>
+                  {typeAndSet}
+                </Text>
+              )}
+            </View>
+            {rarityName && (
+              <View style={[styles.rarityPill, { backgroundColor: `${rarityColor[card.rarity!] ?? color.textTertiary}22` }]}>
+                <Text variant="number" color={rarityColor[card.rarity!] ?? color.textSecondary}>
+                  {rarityName}
                 </Text>
               </View>
             )}
-            {card.setId && (
-              <Text variant="caption" color={color.textSecondary}>
-                {setLabel(card.setId, card.collectorNumber)}
-              </Text>
-            )}
-            {card.manaCost && (
-              <Text variant="caption" color={color.textSecondary}>
-                {card.manaCost}
-              </Text>
-            )}
-            {identity.length > 0 && (
-              <Text variant="caption" color={color.textSecondary}>
-                {identity.join("")}
-              </Text>
-            )}
           </View>
 
-          {/* Price */}
-          <View style={styles.priceCard}>
-            <View style={{ flex: 1 }}>
-              <Text variant="label" color={color.textTertiary}>
-                {FINISH_NAME[finish]} · lowest
-              </Text>
-              <Text variant="priceLarge" style={{ marginTop: space.xs }}>
-                {best ? formatUsd(best.amount) : "—"}
-              </Text>
-              <Text variant="caption" color={color.textTertiary}>
-                {best ? `on ${best.store}` : "No USD price yet"}
-              </Text>
-            </View>
-            <IconButton
-              icon="notifications-outline"
-              label="Set price alert"
-              onPress={() => requireAccount(() => setAlertSheet(true))}
-            />
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{best ? formatUsd(best.amount) : "—"}</Text>
+            {change != null && (
+              <View style={[styles.changePill, { backgroundColor: change >= 0 ? color.positiveSoft : color.negativeSoft }]}>
+                <Ionicons name={change >= 0 ? "arrow-up" : "arrow-down"} size={12} color={change >= 0 ? color.positive : color.negative} />
+                <Text variant="number" color={change >= 0 ? color.positive : color.negative}>
+                  {Math.abs(change).toFixed(1)}% · 30d
+                </Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }} />
+            <IconButton icon="notifications-outline" label="Set price alert" variant="surface" onPress={() => requireAccount(() => setAlertSheet(true))} />
           </View>
+          <Text variant="caption" color={color.textTertiary}>
+            {best ? `Lowest ${FINISH_NAME[finish].toLowerCase()} · ${best.store}` : "No USD price yet"}
+          </Text>
+
+          {series.length >= 2 && (
+            <View style={{ marginTop: space.md }}>
+              <Sparkline values={series} width={width - space.xl * 2} height={72} />
+            </View>
+          )}
 
           {finishes.length > 1 && (
-            <Segmented options={finishes.map((f) => ({ value: f, label: FINISH_NAME[f] }))} value={finish} onChange={setFinish} />
-          )}
-
-          <View style={styles.actions}>
-            <Button
-              label="Collection"
-              icon="add"
-              onPress={() => requireAccount(addToCollection)}
-              loading={adding}
-              style={{ flex: 1 }}
-            />
-            <Button label="Deck" icon="add" variant="secondary" onPress={() => requireAccount(() => setDeckSheet(true))} style={{ flex: 1 }} />
-          </View>
-
-          {card.oracleText && (
-            <View style={styles.oracle}>
-              <Text variant="body" style={{ lineHeight: 23 }}>
-                {card.oracleText}
-              </Text>
+            <View style={{ marginTop: space.lg }}>
+              <Segmented options={finishes.map((f) => ({ value: f, label: FINISH_NAME[f] }))} value={finish} onChange={setFinish} />
             </View>
           )}
 
-          <Text variant="label" color={color.textTertiary} style={styles.sectionLabel}>
-            Prices by store
-          </Text>
+          <Text style={styles.sectionTitle}>Prices by store</Text>
           {card.storePricing.length === 0 ? (
             <Text variant="callout" color={color.textTertiary}>
               No store prices yet.
             </Text>
           ) : (
-            <ListGroup>
-              {card.storePricing.map((store) => (
-                <StoreRow key={store.store} store={store} />
+            <View>
+              {card.storePricing.map((store, i) => (
+                <StoreRow key={store.store} store={store} tint={STORE_TINTS[i % STORE_TINTS.length]} />
               ))}
-            </ListGroup>
+            </View>
+          )}
+
+          {card.oracleText && (
+            <>
+              <Text style={styles.sectionTitle}>Card text</Text>
+              <View style={styles.oracle}>
+                <Text variant="body" style={{ lineHeight: 23 }}>
+                  {card.oracleText}
+                </Text>
+              </View>
+            </>
           )}
         </View>
       </ScrollView>
 
       <View style={[styles.floatingBar, { top: insets.top + space.sm }]} pointerEvents="box-none">
-        <IconButton icon="chevron-back" label="Back" variant="glass" onPress={() => router.back()} />
+        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} />
+      </View>
+
+      <View style={[styles.actionBar, { bottom: Math.max(insets.bottom, space.lg) }]}>
+        <View style={[StyleSheet.absoluteFill, { borderRadius: 36, overflow: "hidden" }]}>
+          <GlassFill strong />
+        </View>
+        <Button label="Add to collection" icon="add" size="lg" onPress={() => requireAccount(addToCollection)} loading={adding} style={{ flex: 1 }} />
+        <Touchable onPress={() => requireAccount(() => setDeckSheet(true))} accessibilityRole="button" accessibilityLabel="Add to a deck" pressedScale={0.94}>
+          <HoloRing radius={29} thickness={2}>
+            <View style={styles.deckButton}>
+              <Ionicons name="layers" size={18} color={color.ink} />
+              <Text variant="bodyStrong" style={{ fontFamily: font.heavy }}>
+                Deck
+              </Text>
+            </View>
+          </HoloRing>
+        </Touchable>
       </View>
 
       {toast && (
-        <Animated.View entering={FadeInDown} exiting={FadeOutDown} style={[styles.toast, { bottom: insets.bottom + space.xl }]}>
+        <Animated.View entering={FadeInDown} exiting={FadeOutDown} style={[styles.toast, { bottom: insets.bottom + 110 }]}>
           <Ionicons name={toast.ok ? "checkmark-circle" : "alert-circle"} size={18} color={toast.ok ? color.positive : color.negative} />
           <Text variant="callout">{toast.message}</Text>
         </Animated.View>
@@ -295,17 +312,19 @@ export default function CardDetailScreen() {
   );
 }
 
-function StoreRow({ store }: { store: CardDetail["storePricing"][number] }) {
+const STORE_TINTS: BubbleColor[] = ["blue", "violet", "green", "orange", "pink"];
+
+function StoreRow({ store, tint }: { store: CardDetail["storePricing"][number]; tint: BubbleColor }) {
   const summary = store.prices
     .map((p) => `${p.label} ${p.currency === "EUR" ? "€" : "$"}${p.amount.toFixed(2)}`)
     .join("  ·  ");
   const content = (
     <View style={styles.storeRow}>
-      <View style={styles.monogram}>
-        <Text variant="callout" color={color.textSecondary}>
+      <LinearGradient colors={bubble[tint]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.monogram}>
+        <Text variant="callout" color="#FFFFFF" style={{ fontFamily: font.heavy }}>
           {store.store.slice(0, 1).toUpperCase()}
         </Text>
-      </View>
+      </LinearGradient>
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong">{store.store}</Text>
         <Text variant="number" color={color.textSecondary} style={{ marginTop: 3, fontSize: 12 }}>
@@ -521,30 +540,33 @@ function PriceAlertSheet({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
   backStandalone: { marginLeft: space.lg, marginTop: space.sm },
-  hero: { alignItems: "center", paddingBottom: space.xxl, overflow: "hidden" },
+  hero: { alignItems: "center", paddingBottom: space.xxxl },
   heroShadow: {
-    shadowColor: "#1D2939",
+    shadowColor: "#46329C",
     shadowOpacity: 0.35,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 16,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 22 },
+    elevation: 18,
   },
-  body: { paddingHorizontal: space.lg, gap: space.lg },
-  metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: space.md, rowGap: space.xs, marginTop: -space.xs },
-  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  priceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: space.xl,
-    borderRadius: radius.xl,
+  sheet: {
     backgroundColor: color.surface,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingHorizontal: space.xl,
+    paddingTop: space.xxl,
+    flexGrow: 1,
     ...elevation.card,
   },
-  actions: { flexDirection: "row", gap: space.md },
-  oracle: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, ...elevation.card },
-  sectionLabel: { marginTop: space.sm, marginBottom: -space.sm },
-  storeRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, minHeight: 60 },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
+  cardName: { fontFamily: font.heavy, fontSize: 26, lineHeight: 32, letterSpacing: -0.8, color: color.ink },
+  rarityPill: { paddingHorizontal: 10, height: 26, borderRadius: 9, justifyContent: "center", marginTop: 4 },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.lg },
+  price: { fontFamily: font.heavy, fontSize: 40, lineHeight: 46, letterSpacing: -1.5, color: color.ink, fontVariant: ["tabular-nums"] },
+  changePill: { flexDirection: "row", alignItems: "center", gap: 3, height: 26, paddingHorizontal: 9, borderRadius: 13 },
+  sectionTitle: { fontFamily: font.heavy, fontSize: 18, letterSpacing: -0.4, color: color.ink, marginTop: space.xxl, marginBottom: space.sm },
+  oracle: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface2 },
+  storeRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
+  monogram: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   alertRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   amountField: {
     flexDirection: "row",
@@ -556,16 +578,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: color.surface2,
   },
-  amountInput: { flex: 1, color: color.text, fontSize: 17, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  monogram: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm,
-    backgroundColor: color.surface2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  amountInput: { flex: 1, color: color.text, fontSize: 17, fontFamily: font.bold, fontVariant: ["tabular-nums"] },
   floatingBar: { position: "absolute", left: space.lg, right: space.lg, flexDirection: "row", justifyContent: "space-between" },
+  actionBar: {
+    position: "absolute",
+    left: space.md,
+    right: space.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    padding: space.sm,
+    borderRadius: 36,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.95)",
+    ...elevation.floating,
+  },
+  deckButton: { flexDirection: "row", alignItems: "center", gap: 6, height: 54, paddingHorizontal: 18, borderRadius: 27, backgroundColor: color.surface },
   toast: {
     position: "absolute",
     alignSelf: "center",
@@ -575,8 +603,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     height: 44,
     borderRadius: radius.pill,
-    backgroundColor: color.surface3,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.borderStrong,
+    backgroundColor: color.surface,
+    ...elevation.floating,
   },
 });

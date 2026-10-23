@@ -407,3 +407,11 @@ export async function getMarketHome(): Promise<{
 }> {
   return request("GET", "/v1/market/home");
 }
+
+export async function getPriceHistory(
+  variantId: string,
+  days = 30,
+  market = "tcgplayer"
+): Promise<{ points: Array<{ at: string; kind: string; value: { amount: number; currency: string } }> }> {
+  return request("GET", `/v1/prices/history/${encodeURIComponent(variantId)}?days=${days}&market=${market}`);
+}

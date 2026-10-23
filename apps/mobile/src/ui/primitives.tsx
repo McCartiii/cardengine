@@ -126,10 +126,10 @@ interface ButtonProps {
 }
 
 const BUTTON_COLORS: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
-  primary: { bg: color.accent, fg: color.onAccent },
+  primary: { bg: color.ink, fg: "#FFFFFF" },
   secondary: { bg: color.surface, fg: color.text, border: color.border },
   dark: { bg: color.text, fg: "#FFFFFF" },
-  ghost: { bg: "transparent", fg: color.accent },
+  ghost: { bg: "transparent", fg: color.ink },
   danger: { bg: color.negativeSoft, fg: color.negative },
 };
 
@@ -363,8 +363,8 @@ const styles = StyleSheet.create({
   },
   buttonLg: { minHeight: 58, paddingHorizontal: space.xxxl },
   primaryShadow: {
-    shadowColor: color.accent,
-    shadowOpacity: 0.32,
+    shadowColor: "#3C2E8C",
+    shadowOpacity: 0.3,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,

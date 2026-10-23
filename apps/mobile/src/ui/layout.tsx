@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { CARD_ASPECT, color, elevation, radius, skyGradient, space, type BubbleColor } from "../design/tokens";
 import { Button, IconBubble, IconButton, Text, Touchable } from "./primitives";
+import { HoloBackdrop } from "./holo";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -28,7 +29,7 @@ export function SkyBackground() {
 export function Screen({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={styles.screen}>
-      <SkyBackground />
+      <HoloBackdrop />
       <SafeAreaView edges={["top"]} style={[{ flex: 1 }, style]}>
         {children}
       </SafeAreaView>

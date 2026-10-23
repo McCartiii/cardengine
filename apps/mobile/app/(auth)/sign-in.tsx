@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 import { CARD_ASPECT, color, radius, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { useAuthStore } from "@/store/authStore";
-import { Button, CardArt, Screen, Text } from "@/ui";
+import { Button, CardArt, Floaty, FoilSweep, HoloRing, Screen, Text } from "@/ui";
 
 const CODE_LENGTH = 6;
 
@@ -59,11 +59,7 @@ export default function SignInScreen() {
 
   return (
     <Screen>
-      <LinearGradient
-        colors={["rgba(123,77,255,0.18)", "rgba(47,111,235,0.10)", "rgba(47,111,235,0)"]}
-        style={styles.glow}
-        pointerEvents="none"
-      />
+
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.page}>
           <CardFan />
@@ -182,11 +178,22 @@ function CardFan() {
   return (
     <View style={styles.fan} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
 
-      {cards.map((c) => (
-        <View key={c.name} style={[styles.fanCard, { transform: [{ translateX: c.x }, { translateY: c.y }, { rotate: c.rotate }] }]}>
-          <CardArt uri={null} name={c.name} foil={c.foil} />
-        </View>
-      ))}
+      {cards.map((c) =>
+        c.foil ? (
+          <Floaty key={c.name} style={styles.fanCard}>
+            <HoloRing radius={9} thickness={3}>
+              <View style={{ borderRadius: 6, overflow: "hidden" }}>
+                <CardArt uri={null} name={c.name} />
+                <FoilSweep width={FAN_CARD_WIDTH} />
+              </View>
+            </HoloRing>
+          </Floaty>
+        ) : (
+          <View key={c.name} style={[styles.fanCard, { transform: [{ translateX: c.x }, { translateY: c.y }, { rotate: c.rotate }] }]}>
+            <CardArt uri={null} name={c.name} />
+          </View>
+        )
+      )}
     </View>
   );
 }
@@ -199,7 +206,7 @@ const styles = StyleSheet.create({
   fanCard: {
     position: "absolute",
     width: FAN_CARD_WIDTH,
-    shadowColor: "#000",
+    shadowColor: "#2A1E6E",
     shadowOpacity: 0.7,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 14 },

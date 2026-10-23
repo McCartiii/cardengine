@@ -7,6 +7,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { bubble, color, elevation, glass, radius, space } from "../design/tokens";
 import { font } from "../design/fonts";
 import { GlassFill, Text, tap } from "./primitives";
+import { HoloRing } from "./holo";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -14,7 +15,7 @@ const TABS: Record<string, { label: string; icon: IconName; iconActive: IconName
   index: { label: "Home", icon: "home-outline", iconActive: "home" },
   search: { label: "Search", icon: "search-outline", iconActive: "search" },
   scan: { label: "Scan", icon: "scan-outline", iconActive: "scan" },
-  collection: { label: "Collection", icon: "albums-outline", iconActive: "albums" },
+  collection: { label: "Binder", icon: "book-outline", iconActive: "book" },
   decks: { label: "Decks", icon: "layers-outline", iconActive: "layers" },
 };
 
@@ -51,9 +52,11 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 accessibilityLabel="Scan cards"
                 style={({ pressed }) => [styles.scanWrap, pressed && { transform: [{ scale: 0.93 }] }]}
               >
-                <LinearGradient colors={bubble.blue} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }} style={styles.scanButton}>
-                  <Ionicons name="scan" size={24} color="#FFFFFF" />
-                </LinearGradient>
+                <HoloRing radius={30} thickness={3} duration={5000}>
+                  <View style={styles.scanButton}>
+                    <Ionicons name="scan" size={24} color="#FFFFFF" />
+                  </View>
+                </HoloRing>
               </Pressable>
             );
           }
@@ -107,12 +110,12 @@ const styles = StyleSheet.create({
   label: { fontFamily: font.semibold, fontSize: 11, lineHeight: 14 },
   scanWrap: {
     marginHorizontal: 4,
-    borderRadius: 28,
+    borderRadius: 30,
     shadowColor: color.accent,
     shadowOpacity: 0.4,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  scanButton: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  scanButton: { width: 54, height: 54, borderRadius: 27, alignItems: "center", justifyContent: "center", backgroundColor: color.ink },
 });

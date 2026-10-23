@@ -1,46 +1,68 @@
-// Design tokens for the mobile app. Light and bright: a soft sky gradient
-// behind white sheets, frosted-glass controls, one confident blue for action,
-// and card art doing the rest.
+// Design tokens for the mobile app, direction "Holo": a pearl-light world where
+// foil is the signature (iridescent rings, sweeping sheens), with the
+// collection kept in a deep-indigo binder.
 import type { TextStyle, ViewStyle } from "react-native";
 import { font } from "./fonts";
 
 export const color = {
-  bg: "#EEF2F8",
+  bg: "#F3F4FA",
   surface: "#FFFFFF",
-  surface2: "#F2F4F7",
-  surface3: "#E7EBF1",
-  overlay: "rgba(16,24,40,0.72)",
-  scrim: "rgba(16,24,40,0.45)",
+  surface2: "#F1F2F8",
+  surface3: "#E6E8F2",
+  overlay: "rgba(18,20,43,0.72)",
+  scrim: "rgba(18,20,43,0.45)",
 
-  border: "#E4E7EC",
-  borderStrong: "#D0D5DD",
+  border: "#E7E8F1",
+  borderStrong: "#D5D7E6",
 
-  text: "#0B1220",
-  textSecondary: "#555E70",
-  textTertiary: "#98A2B3",
+  text: "#12142B",
+  textSecondary: "#5B5F7A",
+  textTertiary: "#8A8DA6",
   textInverse: "#FFFFFF",
 
-  accent: "#2F6FEB",
-  accentPressed: "#2459C7",
-  accentSoft: "#E6EEFD",
+  // Primary actions are ink; violet carries links, charts and focus.
+  accent: "#7C5CFF",
+  accentPressed: "#6646F0",
+  accentSoft: "#EFEBFF",
   onAccent: "#FFFFFF",
+  ink: "#12142B",
 
-  positive: "#12A35B",
-  positiveSoft: "#E3F6EC",
-  negative: "#E5484D",
-  negativeSoft: "#FDECEC",
-  info: "#2F6FEB",
+  positive: "#0E8A4F",
+  positiveSoft: "#E3F8EE",
+  negative: "#D6334A",
+  negativeSoft: "#FDECEF",
+  info: "#3AA6F5",
   gold: "#F5B014",
 } as const;
 
+/** Iridescent foil stops, used for rings, sheens and the Scan button. */
+export const holo = ["#FF9AD5", "#FFD36E", "#8FF0C6", "#7CC8FF", "#B79BFF", "#FF9AD5"] as const;
+
+/** Soft color blobs that drift behind light screens. */
+export const blobs = ["#C9B6FF", "#9EE7FF", "#FFD1EC"] as const;
+
+/** The binder: a deep indigo cover around light pages. */
+export const binder = {
+  coverTop: "#2D3768",
+  cover: "#1A2045",
+  coverDeep: "#12162F",
+  coverText: "#FFFFFF",
+  coverMuted: "#AEB8E8",
+  page: "#E9ECF5",
+  pageInk: "#4A5585",
+  ring: "#C9CEDB",
+  gold: ["#FFD58A", "#F2A93B"],
+  onGold: "#2A1A00",
+} as const;
+
 /** The sky gradient behind every screen. */
-export const skyGradient = ["#D5E1F6", "#E6ECF8", "#EEF2F8"] as const;
+export const skyGradient = ["#F3F4FA", "#F3F4FA", "#F3F4FA"] as const;
 
 /** Frosted-glass fill and edge for pills, bars and floating buttons. */
 export const glass = {
-  fill: "rgba(255,255,255,0.62)",
-  fillStrong: "rgba(255,255,255,0.82)",
-  edge: "rgba(255,255,255,0.9)",
+  fill: "rgba(255,255,255,0.6)",
+  fillStrong: "rgba(255,255,255,0.78)",
+  edge: "rgba(255,255,255,0.95)",
 } as const;
 
 export const mana: Record<string, string> = {
@@ -63,26 +85,26 @@ export const rarity: Record<string, string> = {
 
 /** Bright gradients for icon bubbles, so the chrome feels alive. */
 export const bubble = {
-  blue: ["#5B9BFF", "#2F6FEB"],
-  violet: ["#B28CFF", "#7B4DFF"],
-  pink: ["#FF8DB7", "#F0477E"],
-  orange: ["#FFB357", "#F57C1F"],
-  green: ["#5BDB9A", "#18A85F"],
-  teal: ["#58D7E3", "#1597B5"],
+  blue: ["#8CE0FF", "#3AA6F5"],
+  violet: ["#B9A0FF", "#7C5CFF"],
+  pink: ["#FF9AC8", "#FF4D8D"],
+  orange: ["#FFC27A", "#FF8A2B"],
+  green: ["#8FF0C6", "#1FBF7A"],
+  teal: ["#7FE6E0", "#17A9A1"],
 } as const satisfies Record<string, readonly [string, string]>;
 export type BubbleColor = keyof typeof bubble;
 
 export const elevation = {
   card: {
-    shadowColor: "#1D2939",
-    shadowOpacity: 0.07,
+    shadowColor: "#3C2E8C",
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
   floating: {
-    shadowColor: "#1D2939",
-    shadowOpacity: 0.16,
+    shadowColor: "#3C2E8C",
+    shadowOpacity: 0.18,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
