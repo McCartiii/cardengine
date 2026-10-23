@@ -41,8 +41,9 @@ async function createPrismaClient(): Promise<PrismaClient> {
     const { dirname, join } = await import("path");
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const migrationsDir = join(__dirname, "../prisma/migrations");
-    const migrationFolders = readdirSync(migrationsDir)
-      .filter((f) => !f.startsWith("."))
+    const migrationFolders = readdirSync(migrationsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
       .sort();
     for (const folder of migrationFolders) {
       const sqlPath = join(migrationsDir, folder, "migration.sql");
