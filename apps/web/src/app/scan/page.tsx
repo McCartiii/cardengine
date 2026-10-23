@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import type { Worker as TesseractWorker } from "tesseract.js";
 import {
   searchCardsLocal,
   addCollectionEvent,
@@ -144,7 +145,7 @@ async function matchOnline(fields: {
 export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const workerRef = useRef<any>(null);
+  const workerRef = useRef<TesseractWorker | null>(null);
   const scanLockRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -214,9 +215,9 @@ export default function ScanPage() {
         setCameraReady(true);
         setCameraError(null);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setCameraError(
-        err?.name === "NotAllowedError"
+        err instanceof DOMException && err.name === "NotAllowedError"
           ? "Camera permission denied. Please allow camera access."
           : "Camera not available. Use manual search below."
       );

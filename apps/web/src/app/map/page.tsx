@@ -83,7 +83,9 @@ export default function MapPage() {
   );
 
   useEffect(() => {
-    fetchShops();
+    void (async () => {
+      await fetchShops();
+    })();
   }, [fetchShops]);
 
   // Geocode city search

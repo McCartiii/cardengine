@@ -89,15 +89,17 @@ export default function WatchlistPage() {
   }, []);
 
   useEffect(() => {
-    fetchWatchlist();
+    void (async () => {
+      await fetchWatchlist();
+    })();
   }, [fetchWatchlist]);
 
   // Search for cards to add to watchlist
+  const hasSearchQuery = searchQuery.length >= 2;
+  const visibleSearchResults = hasSearchQuery ? searchResults : [];
+
   useEffect(() => {
-    if (!searchQuery || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+    if (!hasSearchQuery) return;
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
@@ -112,7 +114,7 @@ export default function WatchlistPage() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, hasSearchQuery]);
 
   const addAlert = async () => {
     if (!selectedCard || !threshold) return;
@@ -214,9 +216,9 @@ export default function WatchlistPage() {
                   placeholder="Search for a card..."
                   className="w-full rounded-xl border border-border bg-surface-sunken px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-tab-watchlist focus:outline-none focus:ring-1 focus:ring-tab-watchlist"
                 />
-                {searchResults.length > 0 && (
+                {visibleSearchResults.length > 0 && (
                   <div className="mt-2 max-h-64 space-y-1 overflow-y-auto">
-                    {searchResults.map((r) => (
+                    {visibleSearchResults.map((r) => (
                       <button
                         key={r.variantId}
                         onClick={() => {

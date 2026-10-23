@@ -98,12 +98,13 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
 
   useEffect(() => { nameRef.current?.focus(); }, []);
 
+  // Results are only shown while there is a commander query to match.
+  const hasCmdQuery = format.needsCommander && cmdQuery.trim() !== "";
+  const visibleCmdResults = hasCmdQuery ? cmdResults : [];
+
   // Debounced Scryfall commander/planeswalker search
   useEffect(() => {
-    if (!format.needsCommander || !cmdQuery.trim()) {
-      setCmdResults([]);
-      return;
-    }
+    if (!hasCmdQuery) return;
     const q = format.id === "oathbreaker"
       ? `type:planeswalker name:/${encodeURIComponent(cmdQuery)}/`
       : `is:commander name:/${encodeURIComponent(cmdQuery)}/`;
@@ -126,7 +127,7 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [cmdQuery, format]);
+  }, [cmdQuery, format, hasCmdQuery]);
 
   function pickFormat(f: FormatDef) {
     setFormat(f);
@@ -391,9 +392,9 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
                         {selectedCmd.name}
                       </div>
                     )}
-                    {cmdResults.length > 0 && (
+                    {visibleCmdResults.length > 0 && (
                       <div style={{ marginTop: 6, background: "#0F1117", border: "1px solid #1E2535", borderRadius: 10, overflow: "hidden" }}>
-                        {cmdResults.map((card, i) => {
+                        {visibleCmdResults.map((card, i) => {
                           const isSelected = selectedCmd?.name === card.name;
                           return (
                             <div
@@ -404,7 +405,7 @@ export function NewDeckWizard({ onClose, onCreated }: Props) {
                                 padding: "9px 12px", cursor: "pointer",
                                 background: isSelected ? "rgba(22,163,74,0.09)" : "transparent",
                                 borderLeft: isSelected ? "3px solid #22c55e" : "3px solid transparent",
-                                borderBottom: i < cmdResults.length - 1 ? "1px solid #1E2535" : "none",
+                                borderBottom: i < visibleCmdResults.length - 1 ? "1px solid #1E2535" : "none",
                                 transition: "all 0.1s",
                               }}
                             >

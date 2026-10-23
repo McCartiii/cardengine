@@ -165,7 +165,7 @@ function reducer(state: GameState, action: Action): GameState {
       const anim: LifeAnim = action.delta > 0
         ? (isBig ? "increase-big" : "increase")
         : (isBig ? "decrease-big" : "decrease");
-      let players = state.players.map(p => {
+      const players = state.players.map(p => {
         if (p.id !== action.id) return p;
         const newLife = p.life + action.delta;
         const updated = { ...p, life: newLife, lifeAnim: anim, animKey: p.animKey + 1 };
@@ -183,7 +183,7 @@ function reducer(state: GameState, action: Action): GameState {
       return { ...state, players, activePlayerIndex: activeIndex, phase };
     }
     case "ADJUST_POISON": {
-      let players = state.players.map(p => {
+      const players = state.players.map(p => {
         if (p.id !== action.id) return p;
         const newPoison = Math.max(0, p.poison + action.delta);
         const updated = { ...p, poison: newPoison, poisonAnim: (action.delta > 0 ? "increase" : "") as "" | "increase", animKey: p.animKey + 1 };
@@ -202,7 +202,7 @@ function reducer(state: GameState, action: Action): GameState {
     case "ADJUST_ENERGY":
       return { ...state, players: state.players.map(p => p.id === action.id ? { ...p, energy: Math.max(0, p.energy + action.delta) } : p) };
     case "ADJUST_CMD_DAMAGE": {
-      let players = state.players.map(p => {
+      const players = state.players.map(p => {
         if (p.id !== action.targetId) return p;
         const newDmg = Math.max(0, (p.commanderDamage[action.sourceId] ?? 0) + action.delta);
         const updated = { ...p, commanderDamage: { ...p.commanderDamage, [action.sourceId]: newDmg }, life: p.life - action.delta, lifeAnim: (action.delta > 0 ? "decrease" : "increase") as LifeAnim, animKey: p.animKey + 1 };
