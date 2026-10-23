@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { color, radius, space } from "@/design/tokens";
+import { color, elevation, radius, space } from "@/design/tokens";
 import { formatUsd } from "@/design/format";
 import { getCollectionValue, getProfile } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -100,9 +100,9 @@ export default function ProfileScreen() {
         </Text>
         <View style={styles.section}>
           <ListGroup>
-            <ListRow icon="notifications-outline" title="Price alerts" subtitle="Get notified when prices move" onPress={() => router.push("/alerts")} />
-            <ListRow icon="heart-outline" title="Life counter" subtitle="Track life, poison and commander damage" onPress={() => router.push("/life")} />
-            <ListRow icon="storefront-outline" title="Local shops" subtitle="Find game stores near you" onPress={() => router.push("/shops")} />
+            <ListRow icon="notifications" tint="orange" title="Price alerts" subtitle="Get notified when prices move" onPress={() => router.push("/alerts")} />
+            <ListRow icon="heart" tint="pink" title="Life counter" subtitle="Track life, poison and commander damage" onPress={() => router.push("/life")} />
+            <ListRow icon="storefront" tint="green" title="Local shops" subtitle="Find game stores near you" onPress={() => router.push("/shops")} />
           </ListGroup>
         </View>
 
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
             {session ? (
               <ListRow icon="log-out-outline" title="Sign out" destructive onPress={confirmSignOut} />
             ) : (
-              <ListRow icon="log-in-outline" title="Sign in" subtitle="Save your collection and decks" onPress={() => router.push("/(auth)/sign-in")} />
+              <ListRow icon="log-in" tint="blue" title="Sign in" subtitle="Save your collection and decks" onPress={() => router.push("/(auth)/sign-in")} />
             )}
           </ListGroup>
         </View>
@@ -143,6 +143,6 @@ const styles = StyleSheet.create({
   avatar: { width: 64, height: 64, borderRadius: 32 },
   avatarFallback: { backgroundColor: color.accent, alignItems: "center", justifyContent: "center" },
   stats: { flexDirection: "row", gap: space.md, paddingHorizontal: space.lg, marginTop: space.xxl },
-  stat: { flex: 1, padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  stat: { flex: 1, padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, ...elevation.card },
   groupLabel: { paddingHorizontal: space.lg + space.xs, marginTop: space.xxl, marginBottom: space.sm },
 });

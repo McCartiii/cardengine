@@ -1,25 +1,23 @@
-// Subpath imports keep unused weights out of the bundle.
-import { Geist_400Regular } from "@expo-google-fonts/geist/400Regular";
-import { Geist_500Medium } from "@expo-google-fonts/geist/500Medium";
-import { Geist_600SemiBold } from "@expo-google-fonts/geist/600SemiBold";
-import { GeistMono_500Medium } from "@expo-google-fonts/geist-mono/500Medium";
-import { InstrumentSerif_400Regular } from "@expo-google-fonts/instrument-serif/400Regular";
-import { InstrumentSerif_400Regular_Italic } from "@expo-google-fonts/instrument-serif/400Regular_Italic";
+// Subpath imports keep unused weights out of the bundle. Inter tracks closely
+// to the iOS system face, so the app feels native on every platform.
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
 
 export const font = {
-  sans: "Geist_400Regular",
-  sansMedium: "Geist_500Medium",
-  sansSemiBold: "Geist_600SemiBold",
-  mono: "GeistMono_500Medium",
-  serif: "InstrumentSerif_400Regular",
-  serifItalic: "InstrumentSerif_400Regular_Italic",
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+  bold: "Inter_700Bold",
+  heavy: "Inter_800ExtraBold",
 } as const;
 
 export const FONT_ASSETS = {
-  [font.sans]: Geist_400Regular,
-  [font.sansMedium]: Geist_500Medium,
-  [font.sansSemiBold]: Geist_600SemiBold,
-  [font.mono]: GeistMono_500Medium,
-  [font.serif]: InstrumentSerif_400Regular,
-  [font.serifItalic]: InstrumentSerif_400Regular_Italic,
+  [font.regular]: Inter_400Regular,
+  [font.medium]: Inter_500Medium,
+  [font.semibold]: Inter_600SemiBold,
+  [font.bold]: Inter_700Bold,
+  [font.heavy]: Inter_800ExtraBold,
 };

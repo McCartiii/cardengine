@@ -88,7 +88,7 @@ export function CardArt({ uri, name, foil, style }: CardArtProps) {
             align="center"
             numberOfLines={3}
             color="rgba(255,255,255,0.78)"
-            style={{ fontFamily: font.serifItalic, fontSize: Math.max(13, Math.round(w * 0.12)), lineHeight: Math.max(16, Math.round(w * 0.14)) }}
+            style={{ fontFamily: font.bold, fontSize: Math.max(12, Math.round(w * 0.11)), lineHeight: Math.max(15, Math.round(w * 0.135)) }}
           >
             {name}
           </Text>
@@ -154,7 +154,7 @@ export function CardTile({
           <View style={styles.overlayRight}>
             {foil && (
               <View style={styles.foilBadge}>
-                <Ionicons name="sparkles" size={9} color={color.onAccent} />
+                <Ionicons name="sparkles" size={10} color="#FFFFFF" />
               </View>
             )}
             <PricePill amount={price} />
@@ -203,7 +203,7 @@ export function GridSpacer() {
 
 const styles = StyleSheet.create({
   art: { width: "100%", aspectRatio: CARD_ASPECT, overflow: "hidden", backgroundColor: color.surface2 },
-  edge: { borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.14)" },
+  edge: { borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(16,24,40,0.18)" },
   placeholderFrame: {
     flex: 1,
     margin: 5,
@@ -215,11 +215,11 @@ const styles = StyleSheet.create({
   },
   sheen: { position: "absolute", top: "-30%", bottom: "-30%", left: 0 },
   shadow: {
-    shadowColor: "#000",
-    shadowOpacity: 0.45,
+    shadowColor: "#1D2939",
+    shadowOpacity: 0.22,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    elevation: 5,
   },
   overlay: {
     position: "absolute",
@@ -232,19 +232,22 @@ const styles = StyleSheet.create({
   },
   overlayRight: { flexDirection: "row", alignItems: "center", gap: 3 },
   pill: {
-    height: 20,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    backgroundColor: "rgba(9,9,11,0.82)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.12)",
+    height: 22,
+    paddingHorizontal: 7,
+    borderRadius: 11,
+    backgroundColor: "rgba(255,255,255,0.94)",
     justifyContent: "center",
+    shadowColor: "#1D2939",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   foilBadge: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: color.accent,
+    backgroundColor: color.gold,
     alignItems: "center",
     justifyContent: "center",
   },

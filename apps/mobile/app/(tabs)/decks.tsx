@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { color, radius, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
+import { color, elevation, radius, space, TAB_BAR_CLEARANCE, type BubbleColor } from "@/design/tokens";
 import { createDeck, deleteDeck, listDecks, type Deck } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import {
@@ -10,6 +10,7 @@ import {
   Chip,
   EmptyState,
   FieldLabel,
+  IconBubble,
   IconButton,
   PageHeader,
   Screen,
@@ -30,6 +31,16 @@ const FORMAT_DOT: Record<string, string> = {
   legacy: "#F87171",
   vintage: "#FFB224",
   pauper: "#A1A1AA",
+};
+
+const FORMAT_TINT: Record<string, BubbleColor> = {
+  commander: "violet",
+  standard: "green",
+  modern: "blue",
+  pioneer: "orange",
+  legacy: "pink",
+  vintage: "orange",
+  pauper: "teal",
 };
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -159,9 +170,7 @@ function DeckRow({ deck, onPress, onLongPress }: { deck: Deck; onPress: () => vo
   const count = deck._count?.cards ?? 0;
   return (
     <Touchable onPress={onPress} onLongPress={onLongPress} pressedScale={0.985} style={styles.deck} accessibilityRole="button">
-      <View style={styles.deckIcon}>
-        <Ionicons name="layers" size={22} color={FORMAT_DOT[deck.format] ?? color.textSecondary} />
-      </View>
+      <IconBubble icon="layers" tint={FORMAT_TINT[deck.format] ?? "blue"} size={48} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="bodyStrong" numberOfLines={1}>
           {deck.name}
@@ -260,8 +269,7 @@ const styles = StyleSheet.create({
     padding: space.lg,
     borderRadius: radius.lg,
     backgroundColor: color.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    ...elevation.card,
   },
   deckIcon: {
     width: 48,

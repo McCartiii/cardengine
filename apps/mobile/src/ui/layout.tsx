@@ -12,19 +12,38 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { CARD_ASPECT, color, elevation, radius, space } from "../design/tokens";
-import { IconButton, Text, Touchable, Button } from "./primitives";
+import { CARD_ASPECT, color, elevation, radius, skyGradient, space, type BubbleColor } from "../design/tokens";
+import { Button, IconBubble, IconButton, Text, Touchable } from "./primitives";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
+/** Soft sky gradient that sits behind every screen. */
+export function SkyBackground() {
+  return <LinearGradient colors={skyGradient} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />;
+}
+
 export function Screen({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <SafeAreaView edges={["top"]} style={[styles.screen, style]}>
-      {children}
-    </SafeAreaView>
+    <View style={styles.screen}>
+      <SkyBackground />
+      <SafeAreaView edges={["top"]} style={[{ flex: 1 }, style]}>
+        {children}
+      </SafeAreaView>
+    </View>
   );
+}
+
+/** White sheet with large rounded top corners, as in the content area under a hero. */
+export function Panel({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.panel, style]}>{children}</View>;
+}
+
+/** White rounded card for grouped content. */
+export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.card, style]}>{children}</View>;
 }
 
 interface PageHeaderProps {
@@ -39,14 +58,12 @@ export function PageHeader({ title, subtitle, back, right }: PageHeaderProps) {
   const router = useRouter();
   return (
     <View style={styles.pageHeader}>
-      {back && (
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} style={{ marginBottom: space.md }} />
-      )}
+      {back && <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} style={{ marginBottom: space.lg }} />}
       <View style={styles.pageHeaderRow}>
         <View style={{ flex: 1 }}>
           <Text variant="title">{title}</Text>
           {subtitle && (
-            <Text variant="callout" color={color.textSecondary} style={{ marginTop: 2 }}>
+            <Text variant="bodyStrong" color={color.textSecondary} style={{ marginTop: 2 }}>
               {subtitle}
             </Text>
           )}
@@ -63,7 +80,7 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
       <Text variant="section">{title}</Text>
       {action && (
         <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
-          <Text variant="callout" color={color.accent}>
+          <Text variant="bodyStrong" color={color.accent}>
             {action}
           </Text>
         </Pressable>
@@ -74,27 +91,28 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
 
 interface EmptyStateProps {
   icon: IconName;
+  tint?: BubbleColor;
   title: string;
   body?: string;
   action?: string;
   onAction?: () => void;
 }
 
-export function EmptyState({ icon, title, body, action, onAction }: EmptyStateProps) {
+export function EmptyState({ icon, tint = "blue", title, body, action, onAction }: EmptyStateProps) {
   return (
     <View style={styles.empty}>
-      <View style={styles.emptyIcon}>
-        <Ionicons name={icon} size={28} color={color.accent} />
+      <View style={{ marginBottom: space.md }}>
+        <IconBubble icon={icon} tint={tint} size={72} />
       </View>
-      <Text variant="headline" align="center">
+      <Text variant="headline" align="center" style={{ fontSize: 20, lineHeight: 26 }}>
         {title}
       </Text>
       {body && (
-        <Text variant="body" color={color.textSecondary} align="center" style={{ maxWidth: 280 }}>
+        <Text variant="body" color={color.textSecondary} align="center" style={{ maxWidth: 300 }}>
           {body}
         </Text>
       )}
-      {action && <Button label={action} onPress={onAction} style={{ marginTop: space.sm }} />}
+      {action && <Button label={action} onPress={onAction} style={{ marginTop: space.md }} />}
     </View>
   );
 }
@@ -115,7 +133,7 @@ export function ListGroup({ children, style }: { children: React.ReactNode; styl
 
 interface ListRowProps {
   icon?: IconName;
-  iconColor?: string;
+  tint?: BubbleColor;
   title: string;
   subtitle?: string;
   value?: string;
@@ -123,20 +141,23 @@ interface ListRowProps {
   destructive?: boolean;
 }
 
-export function ListRow({ icon, iconColor = color.accent, title, subtitle, value, onPress, destructive }: ListRowProps) {
+export function ListRow({ icon, tint = "blue", title, subtitle, value, onPress, destructive }: ListRowProps) {
   const content = (
     <View style={styles.row}>
-      {icon && (
-        <View style={[styles.rowIcon, { backgroundColor: destructive ? color.negativeSoft : color.surface2 }]}>
-          <Ionicons name={icon} size={18} color={destructive ? color.negative : iconColor} />
-        </View>
-      )}
+      {icon &&
+        (destructive ? (
+          <View style={[styles.rowIcon, { backgroundColor: color.negativeSoft }]}>
+            <Ionicons name={icon} size={18} color={color.negative} />
+          </View>
+        ) : (
+          <IconBubble icon={icon} tint={tint} size={36} />
+        ))}
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong" color={destructive ? color.negative : color.text}>
           {title}
         </Text>
         {subtitle && (
-          <Text variant="caption" color={color.textTertiary} style={{ marginTop: 1 }}>
+          <Text variant="caption" color={color.textSecondary} style={{ marginTop: 1 }}>
             {subtitle}
           </Text>
         )}
@@ -176,13 +197,15 @@ export function Sheet({ visible, onClose, title, subtitle, children }: SheetProp
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.xl) }]}>
             <View style={styles.handle} />
-            <Text variant="headline">{title}</Text>
+            <Text variant="title" style={{ fontSize: 26, lineHeight: 32 }}>
+              {title}
+            </Text>
             {subtitle && (
-              <Text variant="callout" color={color.textSecondary} style={{ marginTop: 2 }}>
+              <Text variant="bodyStrong" color={color.textSecondary} style={{ marginTop: 2 }}>
                 {subtitle}
               </Text>
             )}
-            <View style={{ marginTop: space.lg, gap: space.md }}>{children}</View>
+            <View style={{ marginTop: space.xl, gap: space.md }}>{children}</View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -200,14 +223,14 @@ export function ActivityRow() {
 
 export function FieldLabel({ children }: { children: string }) {
   return (
-    <Text variant="label" color={color.textTertiary}>
+    <Text variant="label" color={color.textSecondary}>
       {children}
     </Text>
   );
 }
 
 function usePulse() {
-  const opacity = useSharedValue(0.5);
+  const opacity = useSharedValue(0.55);
   useEffect(() => {
     opacity.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
   }, [opacity]);
@@ -224,8 +247,7 @@ export function SkeletonGrid({ columns = 3, rows = 3 }: { columns?: number; rows
           {Array.from({ length: columns }).map((__, c) => (
             <View key={c} style={{ flex: 1, gap: space.sm }}>
               <View style={styles.skeletonArt} />
-              <View style={[styles.skeletonLine, { width: "80%" }]} />
-              <View style={[styles.skeletonLine, { width: "45%" }]} />
+              <View style={[styles.skeletonLine, { width: "70%" }]} />
             </View>
           ))}
         </View>
@@ -236,56 +258,53 @@ export function SkeletonGrid({ columns = 3, rows = 3 }: { columns?: number; rows
 
 export function SkeletonBlock({ height, style }: { height: number; style?: StyleProp<ViewStyle> }) {
   const pulse = usePulse();
-  return <Animated.View style={[{ height, borderRadius: radius.lg, backgroundColor: color.surface2 }, pulse, style]} />;
+  return <Animated.View style={[{ height, borderRadius: radius.lg, backgroundColor: color.surface3 }, pulse, style]} />;
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
+  panel: {
+    backgroundColor: color.surface,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingTop: space.xxl,
+    ...elevation.card,
+  },
+  card: { backgroundColor: color.surface, borderRadius: radius.lg, ...elevation.card },
   pageHeader: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.lg },
   pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   headerActions: { flexDirection: "row", alignItems: "center", gap: space.sm },
   sectionHeader: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: space.lg,
     marginBottom: space.md,
   },
   empty: { alignItems: "center", gap: space.sm, paddingHorizontal: space.xxl, paddingVertical: space.xxxl * 2 },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: color.accentSoft,
-    borderWidth: 1,
-    borderColor: "rgba(255,178,36,0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: space.sm,
-  },
   group: { backgroundColor: color.surface, borderRadius: radius.lg, overflow: "hidden", ...elevation.card },
-  groupDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.08)", marginLeft: space.lg },
-  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 60, paddingVertical: space.md },
-  rowIcon: { width: 32, height: 32, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  groupDivider: { height: StyleSheet.hairlineWidth, backgroundColor: color.borderStrong, marginLeft: 64 },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 64, paddingVertical: space.md },
+  rowIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   sheetWrap: { flex: 1, justifyContent: "flex-end", backgroundColor: color.scrim },
   sheet: {
     backgroundColor: color.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: space.xl,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingHorizontal: space.xxl,
     paddingTop: space.md,
-    maxHeight: "85%",
+    maxHeight: "88%",
   },
   handle: {
     alignSelf: "center",
-    width: 40,
+    width: 44,
     height: 5,
     borderRadius: 3,
-    backgroundColor: color.surface3,
-    marginBottom: space.lg,
+    backgroundColor: color.borderStrong,
+    marginBottom: space.xl,
   },
   skeletonGrid: { paddingHorizontal: space.lg, gap: space.xl },
   skeletonRow: { flexDirection: "row", gap: space.md },
-  skeletonArt: { width: "100%", aspectRatio: CARD_ASPECT, borderRadius: 6, backgroundColor: color.surface2 },
-  skeletonLine: { height: 10, borderRadius: 5, backgroundColor: color.surface2 },
+  skeletonArt: { width: "100%", aspectRatio: CARD_ASPECT, borderRadius: 8, backgroundColor: color.surface3 },
+  skeletonLine: { height: 10, borderRadius: 5, backgroundColor: color.surface3 },
 });

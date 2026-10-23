@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { color, radius, rarity as rarityColor, space } from "@/design/tokens";
+import { color, elevation, radius, rarity as rarityColor, space } from "@/design/tokens";
 import { formatUsd, setLabel } from "@/design/format";
 import {
   addCollectionEvents,
@@ -160,7 +160,7 @@ export default function CardDetailScreen() {
           {card.imageUri && (
             <Image source={{ uri: card.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={40} />
           )}
-          <LinearGradient colors={["rgba(9,9,11,0.35)", color.bg]} locations={[0, 0.92]} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={["rgba(238,242,248,0.1)", "rgba(238,242,248,0.6)", color.bg]} locations={[0, 0.5, 0.82]} style={StyleSheet.absoluteFill} />
           <View style={styles.heroShadow}>
             <CardArt uri={card.imageUri} name={card.name} foil={finish !== "nonfoil"} style={{ width: artWidth }} />
           </View>
@@ -262,7 +262,7 @@ export default function CardDetailScreen() {
       </ScrollView>
 
       <View style={[styles.floatingBar, { top: insets.top + space.sm }]} pointerEvents="box-none">
-        <IconButton icon="chevron-back" label="Back" variant="overlay" onPress={() => router.back()} />
+        <IconButton icon="chevron-back" label="Back" variant="glass" onPress={() => router.back()} />
       </View>
 
       {toast && (
@@ -523,11 +523,11 @@ const styles = StyleSheet.create({
   backStandalone: { marginLeft: space.lg, marginTop: space.sm },
   hero: { alignItems: "center", paddingBottom: space.xxl, overflow: "hidden" },
   heroShadow: {
-    shadowColor: "#000",
-    shadowOpacity: 0.75,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 22 },
-    elevation: 20,
+    shadowColor: "#1D2939",
+    shadowOpacity: 0.35,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 18 },
+    elevation: 16,
   },
   body: { paddingHorizontal: space.lg, gap: space.lg },
   metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: space.md, rowGap: space.xs, marginTop: -space.xs },
@@ -539,11 +539,10 @@ const styles = StyleSheet.create({
     padding: space.xl,
     borderRadius: radius.xl,
     backgroundColor: color.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    ...elevation.card,
   },
   actions: { flexDirection: "row", gap: space.md },
-  oracle: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  oracle: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, ...elevation.card },
   sectionLabel: { marginTop: space.sm, marginBottom: -space.sm },
   storeRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, minHeight: 60 },
   alertRow: { flexDirection: "row", alignItems: "center", gap: space.md },

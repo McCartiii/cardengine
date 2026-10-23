@@ -60,7 +60,7 @@ export default function SignInScreen() {
   return (
     <Screen>
       <LinearGradient
-        colors={["rgba(255,178,36,0.13)", "rgba(255,178,36,0.04)", "rgba(255,178,36,0)"]}
+        colors={["rgba(123,77,255,0.18)", "rgba(47,111,235,0.10)", "rgba(47,111,235,0)"]}
         style={styles.glow}
         pointerEvents="none"
       />
@@ -72,7 +72,7 @@ export default function SignInScreen() {
             <Text variant="display">
               {step === "email" ? (
                 <>
-                  Know what your cards are <Text variant="display" color={color.accent} style={{ fontFamily: font.serifItalic }}>worth</Text>
+                  Know what your cards are <Text variant="display" color={color.accent}>worth</Text>
                 </>
               ) : (
                 "Check your email"
@@ -210,15 +210,15 @@ const styles = StyleSheet.create({
   form: { gap: space.md },
   input: {
     height: 54,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: color.border,
     paddingHorizontal: space.lg,
     color: color.text,
     fontSize: 16,
-    fontFamily: font.sans,
+    fontFamily: font.medium,
   },
-  codeInput: { fontSize: 26, letterSpacing: 10, textAlign: "center", fontFamily: font.mono, fontVariant: ["tabular-nums"] },
+  codeInput: { fontSize: 26, letterSpacing: 10, textAlign: "center", fontFamily: font.bold, fontVariant: ["tabular-nums"] },
   error: { flexDirection: "row", alignItems: "center", gap: space.sm },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text as RNText,
@@ -12,9 +13,11 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { color, radius, space, type, type TypeVariant } from "../design/tokens";
+import { bubble, color, elevation, glass, radius, space, type, type BubbleColor, type TypeVariant } from "../design/tokens";
 import { formatDeltaPct } from "../design/format";
 import { font } from "../design/fonts";
 
@@ -48,17 +51,68 @@ export function Touchable({ style, pressedScale = 0.97, ...rest }: TouchableProp
   return (
     <Pressable
       {...rest}
-      style={({ pressed }) => [
-        style,
-        pressed && { transform: [{ scale: pressedScale }], opacity: 0.88 },
-      ]}
+      style={({ pressed }) => [style, pressed && { transform: [{ scale: pressedScale }], opacity: 0.9 }]}
     />
+  );
+}
+
+// ── Glass ────────────────────────────────────────────────────────────────────
+
+// Android's blur is experimental and costly, so it gets a stronger plain fill.
+const canBlur = Platform.OS === "ios" || Platform.OS === "web";
+
+/** Frosted-glass backdrop. Put it first inside a rounded, overflow-hidden view. */
+export function GlassFill({ strong }: { strong?: boolean }) {
+  return (
+    <>
+      {canBlur && <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: canBlur ? (strong ? glass.fillStrong : glass.fill) : "rgba(255,255,255,0.94)" },
+        ]}
+      />
+    </>
+  );
+}
+
+/** Rounded frosted-glass container with a bright edge. */
+export function Glass({ children, style, strong }: { children?: React.ReactNode; style?: StyleProp<ViewStyle>; strong?: boolean }) {
+  return (
+    <View style={[styles.glass, style]}>
+      <View style={[StyleSheet.absoluteFill, styles.glassClip]}>
+        <GlassFill strong={strong} />
+      </View>
+      {children}
+    </View>
+  );
+}
+
+// ── Icon bubble ──────────────────────────────────────────────────────────────
+
+/** Bright gradient circle with a glossy highlight, for lively icons. */
+export function IconBubble({ icon, tint = "blue", size = 44 }: { icon: IconName; tint?: BubbleColor; size?: number }) {
+  return (
+    <View style={[styles.bubbleShadow, { width: size, height: size, borderRadius: size / 2 }]}>
+      <LinearGradient
+        colors={bubble[tint]}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={[styles.bubble, { borderRadius: size / 2 }]}
+      >
+        <LinearGradient
+          colors={["rgba(255,255,255,0.55)", "rgba(255,255,255,0)"]}
+          style={[styles.bubbleGloss, { borderTopLeftRadius: size / 2, borderTopRightRadius: size / 2, height: size / 2 }]}
+        />
+        <Ionicons name={icon} size={Math.round(size * 0.48)} color="#FFFFFF" />
+      </LinearGradient>
+    </View>
   );
 }
 
 // ── Button ───────────────────────────────────────────────────────────────────
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "dark" | "ghost" | "danger";
 
 interface ButtonProps {
   label: string;
@@ -73,14 +127,16 @@ interface ButtonProps {
 
 const BUTTON_COLORS: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
   primary: { bg: color.accent, fg: color.onAccent },
-  secondary: { bg: color.surface2, fg: color.text, border: "rgba(255,255,255,0.08)" },
-  ghost: { bg: "transparent", fg: color.text },
+  secondary: { bg: color.surface, fg: color.text, border: color.border },
+  dark: { bg: color.text, fg: "#FFFFFF" },
+  ghost: { bg: "transparent", fg: color.accent },
   danger: { bg: color.negativeSoft, fg: color.negative },
 };
 
 export function Button({ label, onPress, variant = "primary", size = "md", icon, loading, disabled, style }: ButtonProps) {
   const inactive = disabled || loading;
-  const c = disabled && variant === "primary" ? { bg: color.surface2, fg: color.textTertiary } : BUTTON_COLORS[variant];
+  const c =
+    disabled && (variant === "primary" || variant === "dark") ? { bg: color.surface3, fg: color.textTertiary } : BUTTON_COLORS[variant];
   return (
     <Touchable
       accessibilityRole="button"
@@ -94,7 +150,8 @@ export function Button({ label, onPress, variant = "primary", size = "md", icon,
         styles.button,
         size === "lg" && styles.buttonLg,
         { backgroundColor: c.bg, borderColor: c.border ?? "transparent" },
-        disabled && variant !== "primary" && { opacity: 0.45 },
+        variant === "primary" && !disabled && styles.primaryShadow,
+        disabled && variant !== "primary" && variant !== "dark" && { opacity: 0.45 },
         style,
       ]}
     >
@@ -102,8 +159,8 @@ export function Button({ label, onPress, variant = "primary", size = "md", icon,
         <ActivityIndicator color={c.fg} />
       ) : (
         <>
-          {icon && <Ionicons name={icon} size={size === "lg" ? 19 : 17} color={c.fg} />}
-          <Text variant="bodyStrong" color={c.fg} style={{ fontFamily: font.sansSemiBold }}>
+          {icon && <Ionicons name={icon} size={size === "lg" ? 20 : 18} color={c.fg} />}
+          <Text variant="bodyStrong" color={c.fg} style={{ fontFamily: font.bold, fontSize: size === "lg" ? 17 : 15 }}>
             {label}
           </Text>
         </>
@@ -118,15 +175,15 @@ interface IconButtonProps {
   icon: IconName;
   onPress?: () => void;
   label: string;
-  variant?: "surface" | "overlay" | "accent";
+  variant?: "glass" | "surface" | "accent" | "dark";
   size?: number;
   badge?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-export function IconButton({ icon, onPress, label, variant = "surface", size = 38, badge, style }: IconButtonProps) {
-  const bg = variant === "accent" ? color.accent : variant === "overlay" ? "rgba(28,28,34,0.82)" : color.surface2;
-  const fg = variant === "accent" ? color.onAccent : color.text;
+export function IconButton({ icon, onPress, label, variant = "glass", size = 44, badge, style }: IconButtonProps) {
+  const fg = variant === "accent" || variant === "dark" ? "#FFFFFF" : color.text;
+  const bg = variant === "accent" ? color.accent : variant === "dark" ? color.text : variant === "surface" ? color.surface : undefined;
   return (
     <Touchable
       accessibilityRole="button"
@@ -137,9 +194,20 @@ export function IconButton({ icon, onPress, label, variant = "surface", size = 3
         onPress?.();
       }}
       pressedScale={0.92}
-      style={[styles.iconButton, variant !== "accent" && styles.iconEdge, { width: size, height: size, backgroundColor: bg }, style]}
+      style={[
+        styles.iconButton,
+        { width: size, height: size, borderRadius: size / 2 },
+        variant === "glass" ? styles.glassEdge : { backgroundColor: bg },
+        variant === "accent" ? styles.primaryShadow : elevation.card,
+        style,
+      ]}
     >
-      <Ionicons name={icon} size={Math.round(size * 0.47)} color={fg} />
+      {variant === "glass" && (
+        <View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, overflow: "hidden" }]}>
+          <GlassFill />
+        </View>
+      )}
+      <Ionicons name={icon} size={Math.round(size * 0.48)} color={fg} />
       {badge && <View style={styles.badgeDot} />}
     </Touchable>
   );
@@ -165,8 +233,8 @@ export function Chip({ label, active, onPress, icon }: ChipProps) {
       }}
       style={[styles.chip, active && styles.chipActive]}
     >
-      {icon && <Ionicons name={icon} size={14} color={active ? color.textInverse : color.textSecondary} />}
-      <Text variant="callout" color={active ? color.textInverse : color.textSecondary}>
+      {icon && <Ionicons name={icon} size={15} color={active ? "#FFFFFF" : color.text} />}
+      <Text variant="callout" color={active ? "#FFFFFF" : color.text} style={{ fontSize: 14 }}>
         {label}
       </Text>
     </Touchable>
@@ -176,7 +244,7 @@ export function Chip({ label, active, onPress, icon }: ChipProps) {
 // ── Segmented control ────────────────────────────────────────────────────────
 
 interface SegmentedProps<T extends string> {
-  options: ReadonlyArray<{ value: T; label: string }>;
+  options: ReadonlyArray<{ value: T; label: string; icon?: IconName }>;
   value: T;
   onChange: (value: T) => void;
 }
@@ -197,7 +265,8 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
             }}
             style={[styles.segment, selected && styles.segmentActive]}
           >
-            <Text variant="callout" color={selected ? color.text : color.textTertiary}>
+            {o.icon && <Ionicons name={o.icon} size={16} color={selected ? color.text : color.textSecondary} />}
+            <Text variant="callout" color={selected ? color.text : color.textSecondary} style={{ fontSize: 14 }}>
               {o.label}
             </Text>
           </Pressable>
@@ -221,7 +290,7 @@ interface SearchFieldProps {
 export function SearchField({ value, onChangeText, placeholder, loading, autoFocus, style }: SearchFieldProps) {
   return (
     <View style={[styles.search, style]}>
-      <Ionicons name="search" size={18} color={color.textTertiary} />
+      <Ionicons name="search" size={20} color={color.text} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -238,14 +307,14 @@ export function SearchField({ value, onChangeText, placeholder, loading, autoFoc
         <ActivityIndicator size="small" color={color.textTertiary} />
       ) : value.length > 0 ? (
         <Pressable accessibilityLabel="Clear search" hitSlop={10} onPress={() => onChangeText("")}>
-          <Ionicons name="close-circle" size={18} color={color.textTertiary} />
+          <Ionicons name="close-circle" size={20} color={color.textTertiary} />
         </Pressable>
       ) : null}
     </View>
   );
 }
 
-// ── Price & delta ────────────────────────────────────────────────────────────
+// ── Delta ────────────────────────────────────────────────────────────────────
 
 export function Delta({ pct, variant = "number" }: { pct: number | null | undefined; variant?: TypeVariant }) {
   if (pct == null || !Number.isFinite(pct)) return null;
@@ -257,10 +326,34 @@ export function Delta({ pct, variant = "number" }: { pct: number | null | undefi
   );
 }
 
+/** Small rounded label, e.g. "Great deal" or "+12%". */
+export function Badge({ label, tone = "positive" }: { label: string; tone?: "positive" | "negative" | "accent" | "dark" }) {
+  const bg = tone === "positive" ? color.positive : tone === "negative" ? color.negative : tone === "accent" ? color.accent : color.text;
+  return (
+    <View style={[styles.badge, { backgroundColor: bg }]}>
+      <Text variant="number" color="#FFFFFF">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  glass: { borderRadius: radius.pill, borderWidth: 1, borderColor: glass.edge, ...elevation.card },
+  glassClip: { borderRadius: radius.pill, overflow: "hidden" },
+  glassEdge: { borderWidth: 1, borderColor: glass.edge, overflow: "visible" },
+  bubbleShadow: {
+    shadowColor: "#1D2939",
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  bubble: { flex: 1, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  bubbleGloss: { position: "absolute", top: 0, left: 0, right: 0 },
   button: {
-    minHeight: 50,
-    paddingHorizontal: space.xl,
+    minHeight: 52,
+    paddingHorizontal: space.xxl,
     borderRadius: radius.pill,
     borderWidth: 1,
     flexDirection: "row",
@@ -268,52 +361,63 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.sm,
   },
-  buttonLg: { minHeight: 56, paddingHorizontal: space.xxl },
-  iconButton: { borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  iconEdge: { borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
+  buttonLg: { minHeight: 58, paddingHorizontal: space.xxxl },
+  primaryShadow: {
+    shadowColor: color.accent,
+    shadowOpacity: 0.32,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  iconButton: { alignItems: "center", justifyContent: "center" },
   badgeDot: {
     position: "absolute",
-    top: 6,
-    right: 6,
-    width: 9,
-    height: 9,
+    top: 8,
+    right: 9,
+    width: 10,
+    height: 10,
     borderRadius: 5,
-    backgroundColor: color.accent,
+    backgroundColor: color.negative,
     borderWidth: 2,
-    borderColor: color.surface2,
+    borderColor: "#FFFFFF",
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space.xs,
-    height: 34,
-    paddingHorizontal: 14,
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 18,
     borderRadius: radius.pill,
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: color.surface2,
   },
-  chipActive: { backgroundColor: color.text, borderColor: color.text },
+  chipActive: { backgroundColor: color.text },
   segmented: {
     flexDirection: "row",
-    padding: 3,
+    padding: 4,
+    borderRadius: radius.pill,
+    backgroundColor: color.surface3,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentActive: { backgroundColor: color.surface, ...elevation.card },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    height: 52,
+    paddingHorizontal: space.lg,
     borderRadius: radius.pill,
     backgroundColor: color.surface,
     borderWidth: 1,
     borderColor: color.border,
   },
-  segment: { flex: 1, height: 34, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  segmentActive: { backgroundColor: color.surface3 },
-  search: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    height: 46,
-    paddingHorizontal: 14,
-    borderRadius: radius.md,
-    backgroundColor: color.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
-  },
-  searchInput: { flex: 1, color: color.text, fontSize: 15, fontFamily: font.sans, height: "100%" },
+  searchInput: { flex: 1, color: color.text, fontSize: 16, fontFamily: font.medium, height: "100%" },
+  badge: { height: 22, paddingHorizontal: 8, borderRadius: 7, justifyContent: "center" },
 });

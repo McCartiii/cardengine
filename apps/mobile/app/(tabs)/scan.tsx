@@ -7,6 +7,7 @@ import {
 } from "react-native-vision-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useCardScanner } from "@/hooks/useCardScanner";
 import { ScanOverlay } from "@/components/ScanOverlay";
@@ -70,6 +71,7 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.root}>
+      <StatusBar style="light" />
       {/* Full-screen camera feed */}
       <Camera
         style={StyleSheet.absoluteFill}
@@ -94,7 +96,7 @@ export default function ScanScreen() {
         <SafeAreaView edges={["top"]}>
           <View style={styles.topBar}>
             <View style={styles.topBarRight}>
-              <IconButton icon="close" label="Close scanner" variant="overlay" onPress={close} />
+              <IconButton icon="close" label="Close scanner" variant="glass" onPress={close} />
             {/* Flash toggle */}
             <TouchableOpacity
               style={styles.iconBtn}

@@ -1,12 +1,12 @@
 import React from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { BlurView } from "expo-blur";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { color, elevation, radius, space } from "../design/tokens";
+import { bubble, color, elevation, glass, radius, space } from "../design/tokens";
 import { font } from "../design/fonts";
-import { Text, tap } from "./primitives";
+import { GlassFill, Text, tap } from "./primitives";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -18,19 +18,17 @@ const TABS: Record<string, { label: string; icon: IconName; iconActive: IconName
   decks: { label: "Decks", icon: "layers-outline", iconActive: "layers" },
 };
 
-/** Floating, frosted tab bar with a raised Scan button in the middle. */
+/** Floating frosted-glass tab bar; the active tab sits in a raised pill. */
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const focusedName = state.routes[state.index]?.name;
   // The camera screen is full-bleed; keep the bar out of its way.
-  if (focusedName === "scan") return null;
+  if (state.routes[state.index]?.name === "scan") return null;
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom - 6, space.md) }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom - 8, space.md) }]}>
       <View style={styles.bar}>
-        <View style={[StyleSheet.absoluteFill, styles.barClip]}>
-          {Platform.OS === "ios" ? <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} /> : null}
-          <View style={[StyleSheet.absoluteFill, styles.barTint]} />
+        <View style={[StyleSheet.absoluteFill, styles.clip]}>
+          <GlassFill strong />
         </View>
         {state.routes.map((route, index) => {
           const meta = TABS[route.name];
@@ -51,14 +49,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 onPress={onPress}
                 accessibilityRole="button"
                 accessibilityLabel="Scan cards"
-                style={({ pressed }) => [styles.scanButton, pressed && { transform: [{ scale: 0.94 }] }]}
+                style={({ pressed }) => [styles.scanWrap, pressed && { transform: [{ scale: 0.93 }] }]}
               >
-                <Ionicons name="scan" size={22} color={color.onAccent} />
+                <LinearGradient colors={bubble.blue} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }} style={styles.scanButton}>
+                  <Ionicons name="scan" size={24} color="#FFFFFF" />
+                </LinearGradient>
               </Pressable>
             );
           }
 
-          const tint = focused ? color.text : color.textTertiary;
           return (
             <Pressable
               key={route.key}
@@ -68,11 +67,12 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
               accessibilityLabel={meta.label}
               style={styles.tab}
             >
-              <Ionicons name={focused ? meta.iconActive : meta.icon} size={21} color={tint} />
-              <Text variant="caption" color={tint} style={styles.label} numberOfLines={1}>
-                {meta.label}
-              </Text>
-              <View style={[styles.indicator, focused && { backgroundColor: color.accent }]} />
+              <View style={[styles.tabInner, focused && styles.tabActive]}>
+                <Ionicons name={focused ? meta.iconActive : meta.icon} size={22} color={focused ? color.text : color.textSecondary} />
+                <Text style={[styles.label, { color: focused ? color.text : color.textSecondary }]} numberOfLines={1}>
+                  {meta.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -82,31 +82,37 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: space.lg },
+  wrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: space.md },
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    height: 62,
+    height: 72,
+    paddingHorizontal: 6,
     borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.14)",
-    paddingHorizontal: space.xs,
+    borderWidth: 1,
+    borderColor: glass.edge,
     ...elevation.floating,
   },
-  barClip: { borderRadius: radius.pill, overflow: "hidden" },
-  barTint: { backgroundColor: Platform.OS === "ios" ? "rgba(20,20,24,0.72)" : "rgba(20,20,24,0.97)" },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2, height: "100%" },
-  label: { fontFamily: font.sansMedium, fontSize: 10, lineHeight: 12, letterSpacing: 0.1 },
-  indicator: { width: 3, height: 3, borderRadius: 2, marginTop: 1, backgroundColor: "transparent" },
-  scanButton: {
-    width: 46,
-    height: 46,
-    marginHorizontal: space.sm,
-    borderRadius: 23,
-    backgroundColor: color.accent,
-    borderWidth: 3,
-    borderColor: "rgba(255,178,36,0.25)",
+  clip: { borderRadius: radius.pill, overflow: "hidden" },
+  tab: { flex: 1, height: "100%", alignItems: "center", justifyContent: "center" },
+  tabInner: {
     alignItems: "center",
     justifyContent: "center",
+    gap: 2,
+    height: 58,
+    width: "100%",
+    borderRadius: radius.pill,
   },
+  tabActive: { backgroundColor: "rgba(255,255,255,0.95)", ...elevation.card },
+  label: { fontFamily: font.semibold, fontSize: 11, lineHeight: 14 },
+  scanWrap: {
+    marginHorizontal: 4,
+    borderRadius: 28,
+    shadowColor: color.accent,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  scanButton: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
 });
