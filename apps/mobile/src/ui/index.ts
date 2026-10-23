@@ -4,3 +4,4 @@ export * from "./layout";
 export { TabBar } from "./TabBar";
 export * from "./holo";
 export * from "./market";
+export * from "./flipbook";

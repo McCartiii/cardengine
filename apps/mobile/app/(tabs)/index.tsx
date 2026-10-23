@@ -38,11 +38,11 @@ export default function HomeScreen() {
     const [m, v, top] = await Promise.allSettled([
       getMarketHome(),
       session ? getCollectionValue() : Promise.reject(),
-      session ? getCollectionCards({ sort: "value", limit: 3 }) : Promise.reject(),
+      session ? getCollectionCards({ sort: "value", limit: 24 }) : Promise.reject(),
     ]);
     if (m.status === "fulfilled") setMarket(m.value);
     if (v.status === "fulfilled") setValue({ total: v.value.totalValue, count: v.value.cardCount });
-    if (top.status === "fulfilled") setTopCards(top.value.cards.slice(0, 3));
+    if (top.status === "fulfilled") setTopCards(top.value.cards);
     setLoading(false);
     setRefreshing(false);
   }, [session]);
@@ -66,10 +66,10 @@ export default function HomeScreen() {
     [market]
   );
 
-  // Your best cards fill the binder pocket; signed out, market favorites stand in.
-  const pocket = session
-    ? topCards.map((c) => ({ id: c.holdingId, uri: c.imageUri, name: c.name }))
-    : (market?.popular ?? []).slice(0, 3).map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name }));
+  // Your most valuable cards fill the first pages; signed out, market favorites stand in.
+  const binderCards = session
+    ? topCards.map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name, price: c.priceUsd }))
+    : (market?.popular ?? []).slice(0, 8).map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name, price: c.bestUsd ?? c.priceUsd }));
 
   return (
     <Screen>
@@ -112,14 +112,16 @@ export default function HomeScreen() {
 
         <Animated.View entering={FadeInDown.duration(400)} style={styles.section}>
           {loading ? (
-            <SkeletonBlock height={200} style={{ borderRadius: 28 }} />
+            <SkeletonBlock height={330} style={{ borderRadius: 28 }} />
           ) : (
             <BinderCover
-              cards={pocket}
+              cards={binderCards}
               value={value?.total ?? null}
               count={value?.count ?? 0}
               signedIn={!!session}
-              onPress={() => (session ? router.navigate("/(tabs)/collection") : router.push("/(auth)/sign-in"))}
+              onOpen={() => (session ? router.navigate("/(tabs)/collection") : router.push("/(auth)/sign-in"))}
+              onCard={openCard}
+              onEmpty={() => (session ? router.navigate("/(tabs)/scan") : router.push("/(auth)/sign-in"))}
             />
           )}
         </Animated.View>

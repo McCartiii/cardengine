@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAuthStore } from "../src/store/authStore";
 import { initOfflineDB, startSyncLoop } from "../src/lib/offlineQueue";
 import { addCollectionEvents } from "../src/lib/api";
@@ -73,20 +74,22 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <AuthGate>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bg } }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="deck/[id]" options={pushedHeader} />
-          <Stack.Screen name="card/[id]" />
-          <Stack.Screen name="profile" />
-          <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
-          <Stack.Screen name="shops" options={{ ...pushedHeader, title: "Local shops" }} />
-          <Stack.Screen name="alerts" options={{ ...pushedHeader, title: "Price alerts" }} />
-        </Stack>
-      </AuthGate>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <AuthGate>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bg } }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="deck/[id]" options={pushedHeader} />
+            <Stack.Screen name="card/[id]" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="shops" options={{ ...pushedHeader, title: "Local shops" }} />
+            <Stack.Screen name="alerts" options={{ ...pushedHeader, title: "Price alerts" }} />
+          </Stack>
+        </AuthGate>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

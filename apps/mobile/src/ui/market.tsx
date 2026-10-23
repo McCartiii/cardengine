@@ -1,6 +1,6 @@
-// Home pieces: the binder-cover hero, the live price ticker, the spotlight
+// Home pieces: the flip-through binder hero, the live price ticker, the spotlight
 // stack and ranked market rows.
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +12,7 @@ import type { MarketCard } from "../lib/api";
 import { Text, Touchable, tap } from "./primitives";
 import { CardArt } from "./cards";
 import { CountUp, FoilSweep, HoloRing, Sparkline } from "./holo";
+import { FlipBook } from "./flipbook";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -37,80 +38,143 @@ function Change({ pct, size = 12 }: { pct: number | null | undefined; size?: num
   );
 }
 
-// ── Binder cover ─────────────────────────────────────────────────────────────
+// ── Binder ───────────────────────────────────────────────────────────────────
+
+export interface BinderCard {
+  id: string;
+  uri: string | null;
+  name: string;
+  price: number | null;
+}
 
 interface BinderCoverProps {
-  cards: Array<{ id: string; uri: string | null; name: string }>;
+  cards: BinderCard[];
   value: number | null;
   count: number;
   signedIn: boolean;
-  onPress: () => void;
+  onOpen: () => void;
+  onCard: (id: string) => void;
+  onEmpty: () => void;
 }
 
-/** Home's hero: the binder's cover with the best cards slipped into its pocket. */
-export function BinderCover({ cards, value, count, signedIn, onPress }: BinderCoverProps) {
-  const slots = [0, 1, 2].map((i) => cards[i] ?? null);
-  const tilt = ["-7deg", "0deg", "7deg"];
-  return (
-    <Touchable onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={signedIn ? "Open your binder" : "Sign in"}>
-      <View style={styles.cover}>
-        <LinearGradient colors={[binder.coverTop, binder.cover, binder.coverDeep]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-        <View style={styles.spine}>
-          {[0, 1, 2].map((i) => (
-            <View key={i} style={styles.hole} />
-          ))}
-        </View>
+const POCKETS = 8;
+const POCKET_GAP = 6;
+const PAGE_PAD = 8;
+const RINGS = 3;
 
-        <View style={styles.pocketCards} pointerEvents="none">
-          {slots.map((c, i) => (
-            <View key={i} style={[styles.pocketCard, { transform: [{ rotate: tilt[i] }, { translateY: i === 1 ? -10 : 0 }] }]}>
-              {c ? (
-                <View style={{ borderRadius: cardRadius(78), overflow: "hidden" }}>
-                  <CardArt uri={c.uri} name={c.name} />
-                  {i === 1 && <FoilSweep width={78} strength={0.45} />}
-                </View>
-              ) : (
-                <View style={styles.emptySleeve} />
-              )}
-            </View>
-          ))}
-        </View>
+/** Home's hero: an open binder whose pages you can turn, on its indigo cover. */
+export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onEmpty }: BinderCoverProps) {
+  const [pageWidth, setPageWidth] = useState(0);
+  const [page, setPage] = useState(0);
+  const pocketWidth = pageWidth ? Math.floor((pageWidth - PAGE_PAD * 2 - POCKET_GAP * 3) / 4) : 0;
 
-        <View style={styles.pocket}>
-          <LinearGradient colors={["rgba(255,255,255,0.16)", "rgba(255,255,255,0.04)"]} style={StyleSheet.absoluteFill} />
-          <View style={styles.stitch} />
-          {signedIn ? (
-            <>
-              <Text variant="label" color={binder.coverMuted} style={styles.coverLabel}>
-                MY BINDER · {count} CARDS
-              </Text>
-              <View style={styles.coverRow}>
-                <CountUp value={value ?? 0} format={(n) => formatUsd(n)} style={styles.coverValue} numberOfLines={1} adjustsFontSizeToFit />
-                <LinearGradient colors={binder.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
-                  <Text variant="callout" color={binder.onGold}>
-                    Open
-                  </Text>
-                  <Ionicons name="arrow-forward" size={14} color={binder.onGold} />
-                </LinearGradient>
-              </View>
-            </>
+  const pages = useMemo(() => {
+    const slots: Array<BinderCard | null> = [...cards];
+    while (slots.length === 0 || slots.length % POCKETS) slots.push(null);
+    const out: Array<Array<BinderCard | null>> = [];
+    for (let i = 0; i < slots.length; i += POCKETS) out.push(slots.slice(i, i + POCKETS));
+    return out;
+  }, [cards]);
+
+  const renderPage = (i: number) => (
+    <View style={styles.page}>
+      <View style={styles.pockets}>
+        {pages[i].map((c, j) =>
+          c ? (
+            <Pocket key={c.id} card={c} width={pocketWidth} onPress={() => onCard(c.id)} />
           ) : (
-            <>
-              <Text style={styles.coverTitle}>Start your binder</Text>
-              <View style={styles.coverRow}>
-                <Text variant="callout" color={binder.coverMuted} style={{ flex: 1, fontFamily: font.medium }}>
-                  Sleeve every card and watch what it's worth.
-                </Text>
-                <LinearGradient colors={binder.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
-                  <Text variant="callout" color={binder.onGold}>
-                    Sign in
-                  </Text>
-                </LinearGradient>
+            <Touchable key={`empty-${j}`} onPress={onEmpty} pressedScale={0.95} accessibilityRole="button" accessibilityLabel="Add a card">
+              <View style={[styles.emptyPocket, { width: pocketWidth, height: (pocketWidth - 4) / CARD_ASPECT + 4 }]}>
+                <Ionicons name="add" size={16} color={binder.pageInk} />
               </View>
-            </>
+            </Touchable>
+          )
+        )}
+      </View>
+      <View style={styles.pageFoot}>
+        <Text variant="caption" color={binder.pageInk} style={{ fontFamily: font.bold }}>
+          Page {i + 1} of {pages.length}
+        </Text>
+        {i < pages.length - 1 && (
+          <Text variant="caption" color={binder.pageInk}>
+            Swipe to turn
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.cover}>
+      <LinearGradient colors={[binder.coverTop, binder.cover, binder.coverDeep]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.coverStitch} pointerEvents="none" />
+
+      <View style={styles.coverHead}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text variant="label" color={binder.coverMuted} style={{ letterSpacing: 1 }}>
+            {signedIn ? `MY BINDER · ${count} CARDS` : "YOUR BINDER"}
+          </Text>
+          {signedIn ? (
+            <CountUp value={value ?? 0} format={(n) => formatUsd(n)} style={styles.coverValue} numberOfLines={1} adjustsFontSizeToFit />
+          ) : (
+            <Text style={styles.coverTitle}>Start collecting</Text>
+          )}
+        </View>
+        <Touchable onPress={onOpen} pressedScale={0.94} accessibilityRole="button" accessibilityLabel={signedIn ? "Open binder" : "Sign in"}>
+          <LinearGradient colors={binder.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
+            <Text variant="callout" color={binder.onGold}>
+              {signedIn ? "Open" : "Sign in"}
+            </Text>
+            <Ionicons name="arrow-forward" size={14} color={binder.onGold} />
+          </LinearGradient>
+        </Touchable>
+      </View>
+
+      <View style={styles.spread}>
+        <View style={styles.spine} pointerEvents="none">
+          {Array.from({ length: RINGS }, (_, r) => (
+            <View key={r} style={styles.ring} />
+          ))}
+        </View>
+        <View style={{ flex: 1 }} onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}>
+          {pocketWidth > 0 && (
+            <FlipBook key={pages.length} pageCount={pages.length} renderPage={renderPage} onIndexChange={setPage} pageStyle={styles.pageRadius} />
           )}
         </View>
       </View>
+
+      {pages.length > 1 && (
+        <View style={styles.pageDots} accessibilityElementsHidden>
+          {pages.map((_, i) => (
+            <View key={i} style={[styles.pageDot, i === page && styles.pageDotOn]} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Pocket({ card, width, onPress }: { card: BinderCard; width: number; onPress: () => void }) {
+  return (
+    <Touchable onPress={onPress} pressedScale={0.94} accessibilityRole="button" accessibilityLabel={`${card.name}, ${formatUsd(card.price)}`} style={[styles.pocket, { width }]}>
+      <CardArt uri={card.uri} name={card.name} />
+      <LinearGradient
+        colors={["rgba(255,255,255,0.5)", "rgba(255,255,255,0)", "rgba(255,255,255,0)", "rgba(255,255,255,0.18)"]}
+        locations={[0, 0.3, 0.7, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFill, { borderRadius: 5 }]}
+        pointerEvents="none"
+      />
+      {card.price != null && (
+        <View style={styles.pocketTabRow} pointerEvents="none">
+          <View style={styles.pocketTab}>
+            <Text variant="number" color="#FFFFFF" style={{ fontSize: 10 }}>
+              {formatUsd(card.price, { compact: true })}
+            </Text>
+          </View>
+        </View>
+      )}
     </Touchable>
   );
 }
@@ -318,44 +382,51 @@ export function RankRow({ rank, card, onPress, style }: { rank: number; card: Ma
 const styles = StyleSheet.create({
   change: { flexDirection: "row", alignItems: "center", gap: 2 },
 
-  cover: { height: 200, borderRadius: 28, overflow: "hidden", backgroundColor: binder.cover },
-  spine: { position: "absolute", left: 0, top: 0, bottom: 0, width: 26, alignItems: "center", justifyContent: "space-evenly", backgroundColor: "rgba(0,0,0,0.18)" },
-  hole: { width: 10, height: 10, borderRadius: 5, backgroundColor: binder.coverDeep, borderWidth: 1.5, borderColor: binder.ring },
-  pocketCards: { position: "absolute", top: 18, left: 26, right: 0, flexDirection: "row", justifyContent: "center", gap: 12 },
-  pocketCard: {
-    width: 78,
-    shadowColor: "#000",
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+  cover: { borderRadius: 28, overflow: "hidden", backgroundColor: binder.cover, padding: 12, paddingBottom: 14 },
+  coverStitch: { position: "absolute", top: 6, left: 6, right: 6, bottom: 6, borderRadius: 23, borderWidth: 1.5, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.14)" },
+  coverHead: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 8, paddingTop: 6, paddingBottom: 12 },
+  coverTitle: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: "#FFFFFF" },
+  coverValue: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
+  goldButton: { flexDirection: "row", alignItems: "center", gap: 6, height: 38, paddingHorizontal: 16, borderRadius: radius.pill },
+  spread: { flexDirection: "row" },
+  spine: { width: 22, justifyContent: "space-around", paddingVertical: 28, zIndex: 2 },
+  ring: { width: 30, height: 11, borderRadius: 6, borderWidth: 2.5, borderColor: binder.ring, backgroundColor: "rgba(0,0,0,0.25)", marginLeft: 2 },
+  pageRadius: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4, borderTopRightRadius: 16, borderBottomRightRadius: 16 },
+  page: {
+    backgroundColor: binder.page,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 4,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
+    padding: PAGE_PAD,
+    paddingLeft: PAGE_PAD + 2,
   },
-  emptySleeve: {
-    aspectRatio: CARD_ASPECT,
+  pockets: { flexDirection: "row", flexWrap: "wrap", gap: POCKET_GAP },
+  pocket: {
+    padding: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.5)",
+    shadowColor: "#141938",
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  emptyPocket: {
     borderRadius: 6,
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: "rgba(255,255,255,0.25)",
+    borderColor: "rgba(30,40,90,0.22)",
+    backgroundColor: "rgba(255,255,255,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  pocket: {
-    position: "absolute",
-    left: 26,
-    right: 0,
-    bottom: 0,
-    height: 104,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    backgroundColor: binder.cover,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.22)",
-    overflow: "hidden",
-  },
-  stitch: { position: "absolute", top: 7, left: 8, right: 8, borderTopWidth: 1.5, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.22)" },
-  coverLabel: { letterSpacing: 1 },
-  coverTitle: { fontFamily: font.heavy, fontSize: 22, letterSpacing: -0.5, color: "#FFFFFF" },
-  coverRow: { flexDirection: "row", alignItems: "center", gap: space.md, marginTop: 6 },
-  coverValue: { flex: 1, fontFamily: font.heavy, fontSize: 36, lineHeight: 42, letterSpacing: -1.2, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
-  goldButton: { flexDirection: "row", alignItems: "center", gap: 6, height: 38, paddingHorizontal: 16, borderRadius: radius.pill },
+  pocketTabRow: { position: "absolute", left: 0, right: 0, bottom: -1, alignItems: "center" },
+  pocketTab: { minWidth: 38, paddingHorizontal: 5, paddingTop: 1, paddingBottom: 2, borderTopLeftRadius: 6, borderTopRightRadius: 6, backgroundColor: binder.coverDeep, alignItems: "center" },
+  pageFoot: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingRight: 26 },
+  pageDots: { flexDirection: "row", justifyContent: "center", gap: 5, marginTop: 12 },
+  pageDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)" },
+  pageDotOn: { width: 16, backgroundColor: "#FFFFFF" },
 
   ticker: {
     flexDirection: "row",

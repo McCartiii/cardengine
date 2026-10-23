@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions, type ViewToken } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,7 +11,7 @@ import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { CardArt, FoilSweep, Text, Tilt, Touchable, tap } from "@/ui";
+import { CardArt, FlipBook, FoilSweep, Text, Tilt, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
@@ -33,7 +33,6 @@ export default function BinderScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
-  const listRef = useRef<FlatList<Slot[]>>(null);
 
   const [areaHeight, setAreaHeight] = useState(0);
   const pageWidth = width - space.lg * 2;
@@ -86,16 +85,10 @@ export default function BinderScreen() {
     return out.length ? out : [Array<Slot>(PER_PAGE).fill(null)];
   }, [cards, set, query, hasMore]);
 
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const i = viewableItems[0]?.index;
-    if (i != null) setPageIndex(i);
-  }).current;
-
   const pickSet = (id: string) => {
     tap();
     setSet(id);
     setPageIndex(0);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
 
   const openCard = (c: OwnedCard) => router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
@@ -168,23 +161,16 @@ export default function BinderScreen() {
         </ScrollView>
 
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
-        <FlatList
-          ref={listRef}
-          horizontal
-          style={{ flexGrow: 0 }}
-          pagingEnabled
-          data={pages}
-          keyExtractor={(_, i) => `page-${set}-${i}`}
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={pageWidth + space.lg * 2}
-          decelerationRate="fast"
-          onViewableItemsChanged={onViewable}
-          viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
-          onEndReached={() => {
-            if (hasMore) load(fetchedPage + 1);
-          }}
-          renderItem={({ item: slots, index }) => (
-            <View style={{ width: pageWidth + space.lg * 2, paddingHorizontal: space.lg }}>
+        <View style={{ paddingHorizontal: space.lg }}>
+          <FlipBook
+            key={`${set}|${query}`}
+            pageCount={pages.length}
+            pageStyle={styles.pageRadius}
+            onIndexChange={(i) => {
+              setPageIndex(i);
+              if (hasMore && i >= pages.length - 2) load(fetchedPage + 1);
+            }}
+            renderPage={(index) => (
               <View style={styles.page}>
                 <View style={styles.rings} pointerEvents="none">
                   {[0, 1, 2].map((r) => (
@@ -193,7 +179,7 @@ export default function BinderScreen() {
                 </View>
                 <View style={{ flex: 1, paddingTop: 16, paddingRight: 14, paddingBottom: 12, paddingLeft: 4 }}>
                   <View style={[styles.grid, { width: sleeveWidth * 3 + GAP * 2 }]}>
-                    {slots.map((c, i) =>
+                    {pages[index].map((c, i) =>
                       c ? (
                         <Sleeve key={c.holdingId} card={c} width={sleeveWidth} order={i} onPress={() => openCard(c)} />
                       ) : (
@@ -211,9 +197,9 @@ export default function BinderScreen() {
                   </View>
                 </View>
               </View>
-            </View>
-          )}
-        />
+            )}
+          />
+        </View>
         </View>
 
         <View style={styles.dots} accessibilityElementsHidden>
@@ -322,6 +308,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 18 },
     elevation: 14,
   },
+  pageRadius: { borderTopLeftRadius: 6, borderTopRightRadius: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
   rings: { width: RING_COLUMN, justifyContent: "space-around", alignItems: "center", paddingVertical: 40 },
   ring: {
     width: 16,
