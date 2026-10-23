@@ -123,6 +123,6 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   searchWrap: { paddingHorizontal: space.lg, paddingBottom: space.md },
   grid: { paddingHorizontal: space.lg, paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
-  row: { gap: space.md, marginBottom: space.xl },
+  row: { gap: 14, marginBottom: space.xxl },
   listLabel: { marginTop: space.sm, marginBottom: space.md },
 });

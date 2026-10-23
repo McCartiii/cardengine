@@ -260,6 +260,8 @@ const styles = StyleSheet.create({
     padding: space.lg,
     borderRadius: radius.lg,
     backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   deckIcon: {
     width: 48,

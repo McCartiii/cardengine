@@ -189,7 +189,7 @@ function Header({ value }: { value?: { cards: number; value: number } }) {
       <Text variant="title">Collection</Text>
       {value && value.cards > 0 && (
         <View style={styles.totals}>
-          <Text variant="priceLarge" style={{ fontSize: 28, lineHeight: 34 }}>
+          <Text variant="priceLarge" style={{ fontSize: 30, lineHeight: 34 }}>
             {formatUsd(value.value)}
           </Text>
           <Text variant="callout" color={color.textSecondary}>
@@ -207,5 +207,5 @@ const styles = StyleSheet.create({
   controls: { gap: space.md, paddingBottom: space.lg },
   chips: { gap: space.sm, paddingHorizontal: space.lg },
   grid: { paddingHorizontal: space.lg, paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 },
-  row: { gap: space.md, marginBottom: space.xl },
+  row: { gap: 14, marginBottom: space.xxl },
 });

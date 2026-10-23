@@ -4,7 +4,8 @@ import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { color, radius, space } from "../design/tokens";
+import { color, elevation, radius, space } from "../design/tokens";
+import { font } from "../design/fonts";
 import { Text, tap } from "./primitives";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -27,10 +28,10 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom - 6, space.md) }]}>
       <View style={styles.bar}>
-        {Platform.OS === "ios" ? (
-          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-        ) : null}
-        <View style={[StyleSheet.absoluteFill, styles.barTint]} />
+        <View style={[StyleSheet.absoluteFill, styles.barClip]}>
+          {Platform.OS === "ios" ? <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+          <View style={[StyleSheet.absoluteFill, styles.barTint]} />
+        </View>
         {state.routes.map((route, index) => {
           const meta = TABS[route.name];
           if (!meta) return null;
@@ -52,7 +53,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 accessibilityLabel="Scan cards"
                 style={({ pressed }) => [styles.scanButton, pressed && { transform: [{ scale: 0.94 }] }]}
               >
-                <Ionicons name="scan" size={26} color={color.onAccent} />
+                <Ionicons name="scan" size={22} color={color.onAccent} />
               </Pressable>
             );
           }
@@ -67,7 +68,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
               accessibilityLabel={meta.label}
               style={styles.tab}
             >
-              <Ionicons name={focused ? meta.iconActive : meta.icon} size={22} color={tint} />
+              <Ionicons name={focused ? meta.iconActive : meta.icon} size={21} color={tint} />
               <Text variant="caption" color={tint} style={styles.label} numberOfLines={1}>
                 {meta.label}
               </Text>
@@ -85,23 +86,26 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    height: 68,
+    height: 62,
     borderRadius: radius.pill,
-    overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.borderStrong,
+    borderColor: "rgba(255,255,255,0.14)",
     paddingHorizontal: space.xs,
+    ...elevation.floating,
   },
+  barClip: { borderRadius: radius.pill, overflow: "hidden" },
   barTint: { backgroundColor: Platform.OS === "ios" ? "rgba(20,20,24,0.72)" : "rgba(20,20,24,0.97)" },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2, height: "100%" },
-  label: { fontSize: 10, lineHeight: 12, fontWeight: "600" },
-  indicator: { width: 4, height: 4, borderRadius: 2, marginTop: 2, backgroundColor: "transparent" },
+  label: { fontFamily: font.sansMedium, fontSize: 10, lineHeight: 12, letterSpacing: 0.1 },
+  indicator: { width: 3, height: 3, borderRadius: 2, marginTop: 1, backgroundColor: "transparent" },
   scanButton: {
-    width: 52,
-    height: 52,
-    marginHorizontal: space.xs,
-    borderRadius: 26,
+    width: 46,
+    height: 46,
+    marginHorizontal: space.sm,
+    borderRadius: 23,
     backgroundColor: color.accent,
+    borderWidth: 3,
+    borderColor: "rgba(255,178,36,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },

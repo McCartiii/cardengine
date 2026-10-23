@@ -1,6 +1,7 @@
 // Design tokens for the mobile app. Dark-first: card art is the hero, so the
 // chrome stays near-black and neutral, with a single warm accent.
-import type { TextStyle } from "react-native";
+import type { TextStyle, ViewStyle } from "react-native";
+import { font } from "./fonts";
 
 export const color = {
   bg: "#09090B",
@@ -48,9 +49,27 @@ export const rarity: Record<string, string> = {
   bonus: "#C084FC",
 };
 
+/** Raised surface: hairline edge plus a soft drop shadow. */
+export const elevation = {
+  card: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  floating: {
+    shadowColor: "#000",
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 12,
+  },
+} satisfies Record<string, ViewStyle>;
+
 export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 } as const;
 
-export const radius = { sm: 8, md: 12, lg: 16, xl: 24, card: 10, pill: 999 } as const;
+export const radius = { sm: 8, md: 12, lg: 18, xl: 26, pill: 999 } as const;
+
+/** Real cards round their corners at ~4.7% of the width. */
+export const cardRadius = (width: number) => Math.max(4, Math.round(width * 0.047));
 
 /** Width/height of a Magic card (63 × 88 mm). */
 export const CARD_ASPECT = 63 / 88;
@@ -60,18 +79,23 @@ export const TAB_BAR_CLEARANCE = 112;
 
 const tabular: TextStyle = { fontVariant: ["tabular-nums"] };
 
+// Instrument Serif carries headlines and hero numbers, Geist everything else,
+// with tabular digits wherever numbers line up. Weights live in the family name, so no
+// fontWeight here (Android ignores it for custom fonts anyway).
 export const type = {
-  display: { fontSize: 34, lineHeight: 40, fontWeight: "800", letterSpacing: -0.8 },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.6 },
-  headline: { fontSize: 20, lineHeight: 26, fontWeight: "700", letterSpacing: -0.3 },
-  body: { fontSize: 15, lineHeight: 21, fontWeight: "500" },
-  bodyStrong: { fontSize: 15, lineHeight: 21, fontWeight: "700" },
-  callout: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
-  label: { fontSize: 11, lineHeight: 14, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
-  price: { fontSize: 15, lineHeight: 20, fontWeight: "800", ...tabular },
-  priceLarge: { fontSize: 34, lineHeight: 40, fontWeight: "800", letterSpacing: -0.8, ...tabular },
-  number: { fontSize: 13, lineHeight: 18, fontWeight: "700", ...tabular },
+  display: { fontFamily: font.serif, fontSize: 44, lineHeight: 48, letterSpacing: -0.6 },
+  title: { fontFamily: font.serif, fontSize: 36, lineHeight: 40, letterSpacing: -0.4 },
+  section: { fontFamily: font.serif, fontSize: 26, lineHeight: 30, letterSpacing: -0.2 },
+  headline: { fontFamily: font.sansSemiBold, fontSize: 17, lineHeight: 22, letterSpacing: -0.2 },
+  body: { fontFamily: font.sans, fontSize: 15, lineHeight: 22 },
+  bodyStrong: { fontFamily: font.sansMedium, fontSize: 15, lineHeight: 22, letterSpacing: -0.1 },
+  callout: { fontFamily: font.sansMedium, fontSize: 13, lineHeight: 18 },
+  caption: { fontFamily: font.sans, fontSize: 12, lineHeight: 16 },
+  label: { fontFamily: font.sansMedium, fontSize: 11, lineHeight: 14, letterSpacing: 0.9, textTransform: "uppercase" },
+  price: { fontFamily: font.sansSemiBold, fontSize: 14, lineHeight: 18, letterSpacing: -0.2, ...tabular },
+  priceLarge: { fontFamily: font.serif, fontSize: 52, lineHeight: 56, letterSpacing: -1, ...tabular },
+  number: { fontFamily: font.sansSemiBold, fontSize: 11, lineHeight: 14, letterSpacing: 0, ...tabular },
+  code: { fontFamily: font.sansMedium, fontSize: 11, lineHeight: 14, letterSpacing: 0.3, textTransform: "uppercase", ...tabular },
 } satisfies Record<string, TextStyle>;
 
 export type TypeVariant = keyof typeof type;

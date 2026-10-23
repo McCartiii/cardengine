@@ -15,7 +15,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { color, radius, space, type, type TypeVariant } from "../design/tokens";
-import { formatDeltaPct, formatUsd } from "../design/format";
+import { formatDeltaPct } from "../design/format";
+import { font } from "../design/fonts";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -72,7 +73,7 @@ interface ButtonProps {
 
 const BUTTON_COLORS: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
   primary: { bg: color.accent, fg: color.onAccent },
-  secondary: { bg: color.surface2, fg: color.text, border: color.border },
+  secondary: { bg: color.surface2, fg: color.text, border: "rgba(255,255,255,0.08)" },
   ghost: { bg: "transparent", fg: color.text },
   danger: { bg: color.negativeSoft, fg: color.negative },
 };
@@ -101,8 +102,8 @@ export function Button({ label, onPress, variant = "primary", size = "md", icon,
         <ActivityIndicator color={c.fg} />
       ) : (
         <>
-          {icon && <Ionicons name={icon} size={size === "lg" ? 20 : 18} color={c.fg} />}
-          <Text variant="bodyStrong" color={c.fg}>
+          {icon && <Ionicons name={icon} size={size === "lg" ? 19 : 17} color={c.fg} />}
+          <Text variant="bodyStrong" color={c.fg} style={{ fontFamily: font.sansSemiBold }}>
             {label}
           </Text>
         </>
@@ -123,7 +124,7 @@ interface IconButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function IconButton({ icon, onPress, label, variant = "surface", size = 40, badge, style }: IconButtonProps) {
+export function IconButton({ icon, onPress, label, variant = "surface", size = 38, badge, style }: IconButtonProps) {
   const bg = variant === "accent" ? color.accent : variant === "overlay" ? "rgba(28,28,34,0.82)" : color.surface2;
   const fg = variant === "accent" ? color.onAccent : color.text;
   return (
@@ -136,9 +137,9 @@ export function IconButton({ icon, onPress, label, variant = "surface", size = 4
         onPress?.();
       }}
       pressedScale={0.92}
-      style={[styles.iconButton, { width: size, height: size, backgroundColor: bg }, style]}
+      style={[styles.iconButton, variant !== "accent" && styles.iconEdge, { width: size, height: size, backgroundColor: bg }, style]}
     >
-      <Ionicons name={icon} size={Math.round(size * 0.5)} color={fg} />
+      <Ionicons name={icon} size={Math.round(size * 0.47)} color={fg} />
       {badge && <View style={styles.badgeDot} />}
     </Touchable>
   );
@@ -256,28 +257,9 @@ export function Delta({ pct, variant = "number" }: { pct: number | null | undefi
   );
 }
 
-/** Translucent pill laid over card art. */
-export function PricePill({ amount, foil }: { amount: number | null | undefined; foil?: boolean }) {
-  if (amount == null) return null;
-  return (
-    <View style={styles.pricePill}>
-      {foil && (
-        <View style={styles.foilDot}>
-          <Text variant="label" color={color.onAccent} style={{ fontSize: 8, lineHeight: 10 }}>
-            F
-          </Text>
-        </View>
-      )}
-      <Text variant="number" style={{ fontSize: 12 }}>
-        {formatUsd(amount, { compact: true })}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: space.xl,
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -288,6 +270,7 @@ const styles = StyleSheet.create({
   },
   buttonLg: { minHeight: 56, paddingHorizontal: space.xxl },
   iconButton: { borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  iconEdge: { borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
   badgeDot: {
     position: "absolute",
     top: 6,
@@ -303,12 +286,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space.xs,
-    height: 36,
-    paddingHorizontal: space.lg,
+    height: 34,
+    paddingHorizontal: 14,
     borderRadius: radius.pill,
-    backgroundColor: color.surface2,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
-  chipActive: { backgroundColor: color.text },
+  chipActive: { backgroundColor: color.text, borderColor: color.text },
   segmented: {
     flexDirection: "row",
     padding: 3,
@@ -323,27 +308,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space.sm,
-    height: 48,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.pill,
-    backgroundColor: color.surface2,
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
   },
-  searchInput: { flex: 1, color: color.text, fontSize: 16, fontWeight: "500", height: "100%" },
-  pricePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    height: 24,
-    borderRadius: radius.pill,
-    backgroundColor: color.overlay,
-  },
-  foilDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: color.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  searchInput: { flex: 1, color: color.text, fontSize: 15, fontFamily: font.sans, height: "100%" },
 });

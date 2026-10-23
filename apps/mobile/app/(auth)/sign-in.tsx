@@ -6,8 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { CARD_ASPECT, color, radius, space } from "@/design/tokens";
+import { font } from "@/design/fonts";
 import { useAuthStore } from "@/store/authStore";
-import { Button, Screen, Text } from "@/ui";
+import { Button, CardArt, Screen, Text } from "@/ui";
 
 const CODE_LENGTH = 6;
 
@@ -58,13 +59,24 @@ export default function SignInScreen() {
 
   return (
     <Screen>
+      <LinearGradient
+        colors={["rgba(255,178,36,0.13)", "rgba(255,178,36,0.04)", "rgba(255,178,36,0)"]}
+        style={styles.glow}
+        pointerEvents="none"
+      />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.page}>
           <CardFan />
 
           <Animated.View entering={FadeInDown.duration(400)} style={styles.copy}>
             <Text variant="display">
-              {step === "email" ? "Know what\nyour cards are worth" : "Check your email"}
+              {step === "email" ? (
+                <>
+                  Know what your cards are <Text variant="display" color={color.accent} style={{ fontFamily: font.serifItalic }}>worth</Text>
+                </>
+              ) : (
+                "Check your email"
+              )}
             </Text>
             <Text variant="body" color={color.textSecondary} style={{ marginTop: space.sm }}>
               {step === "email"
@@ -160,29 +172,26 @@ export default function SignInScreen() {
   );
 }
 
-/** Three fanned card silhouettes in place of a logo. */
+/** A fanned hand of three cards; the front one is foil. */
 function CardFan() {
   const cards = [
-    { rotate: "-14deg", x: -54, colors: ["#3B2340", "#160E18"] as const },
-    { rotate: "12deg", x: 54, colors: ["#22324A", "#0D141E"] as const },
-    { rotate: "0deg", x: 0, colors: ["#5A4216", "#1B1300"] as const },
+    { name: "Scan", rotate: "-15deg", x: -62, y: 14 },
+    { name: "Build", rotate: "13deg", x: 62, y: 12 },
+    { name: "Collect", rotate: "0deg", x: 0, y: 0, foil: true },
   ];
   return (
     <View style={styles.fan} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {cards.map((c, i) => (
-        <LinearGradient
-          key={i}
-          colors={c.colors}
-          style={[styles.fanCard, { transform: [{ translateX: c.x }, { rotate: c.rotate }] }, i === 2 && styles.fanCardFront]}
-        >
-          {i === 2 && <Ionicons name="diamond" size={28} color={color.accent} />}
-        </LinearGradient>
+
+      {cards.map((c) => (
+        <View key={c.name} style={[styles.fanCard, { transform: [{ translateX: c.x }, { translateY: c.y }, { rotate: c.rotate }] }]}>
+          <CardArt uri={null} name={c.name} foil={c.foil} />
+        </View>
       ))}
     </View>
   );
 }
 
-const FAN_CARD_WIDTH = 92;
+const FAN_CARD_WIDTH = 104;
 
 const styles = StyleSheet.create({
   page: { flex: 1, paddingHorizontal: space.xxl, justifyContent: "flex-end", paddingBottom: space.xxl },
@@ -190,25 +199,26 @@ const styles = StyleSheet.create({
   fanCard: {
     position: "absolute",
     width: FAN_CARD_WIDTH,
-    aspectRatio: CARD_ASPECT,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: color.borderStrong,
-    alignItems: "center",
-    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.7,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 14,
   },
-  fanCardFront: { borderColor: "rgba(255,178,36,0.5)" },
+  glow: { position: "absolute", top: 0, left: 0, right: 0, height: 420 },
   copy: { marginBottom: space.xxl },
   form: { gap: space.md },
   input: {
-    height: 56,
-    borderRadius: radius.lg,
-    backgroundColor: color.surface2,
+    height: 54,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
     paddingHorizontal: space.lg,
     color: color.text,
-    fontSize: 17,
-    fontWeight: "500",
+    fontSize: 16,
+    fontFamily: font.sans,
   },
-  codeInput: { fontSize: 26, letterSpacing: 10, textAlign: "center", fontWeight: "700", fontVariant: ["tabular-nums"] },
+  codeInput: { fontSize: 26, letterSpacing: 10, textAlign: "center", fontFamily: font.mono, fontVariant: ["tabular-nums"] },
   error: { flexDirection: "row", alignItems: "center", gap: space.sm },
 });

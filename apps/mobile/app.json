@@ -26,7 +26,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "CardEngine uses your location to find nearby game stores."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

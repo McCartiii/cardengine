@@ -129,7 +129,7 @@ export default function CardDetailScreen() {
     }
   };
 
-  const artWidth = Math.min(width * 0.62, 280);
+  const artWidth = Math.min(width * 0.66, 300);
 
   if (status !== "ready" || !card) {
     return (
@@ -162,7 +162,7 @@ export default function CardDetailScreen() {
           )}
           <LinearGradient colors={["rgba(9,9,11,0.35)", color.bg]} locations={[0, 0.92]} style={StyleSheet.absoluteFill} />
           <View style={styles.heroShadow}>
-            <CardArt uri={card.imageUri} name={card.name} style={{ width: artWidth }} rounded={radius.md} />
+            <CardArt uri={card.imageUri} name={card.name} foil={finish !== "nonfoil"} style={{ width: artWidth }} />
           </View>
         </View>
 
@@ -301,9 +301,14 @@ function StoreRow({ store }: { store: CardDetail["storePricing"][number] }) {
     .join("  ·  ");
   const content = (
     <View style={styles.storeRow}>
+      <View style={styles.monogram}>
+        <Text variant="callout" color={color.textSecondary}>
+          {store.store.slice(0, 1).toUpperCase()}
+        </Text>
+      </View>
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong">{store.store}</Text>
-        <Text variant="callout" color={color.textSecondary} style={{ marginTop: 2, fontVariant: ["tabular-nums"] }}>
+        <Text variant="number" color={color.textSecondary} style={{ marginTop: 3, fontSize: 12 }}>
           {summary || "No price data"}
         </Text>
       </View>
@@ -519,10 +524,10 @@ const styles = StyleSheet.create({
   hero: { alignItems: "center", paddingBottom: space.xxl, overflow: "hidden" },
   heroShadow: {
     shadowColor: "#000",
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 16,
+    shadowOpacity: 0.75,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 22 },
+    elevation: 20,
   },
   body: { paddingHorizontal: space.lg, gap: space.lg },
   metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: space.md, rowGap: space.xs, marginTop: -space.xs },
@@ -534,9 +539,11 @@ const styles = StyleSheet.create({
     padding: space.xl,
     borderRadius: radius.xl,
     backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   actions: { flexDirection: "row", gap: space.md },
-  oracle: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface },
+  oracle: { padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
   sectionLabel: { marginTop: space.sm, marginBottom: -space.sm },
   storeRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, minHeight: 60 },
   alertRow: { flexDirection: "row", alignItems: "center", gap: space.md },
@@ -551,6 +558,14 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface2,
   },
   amountInput: { flex: 1, color: color.text, fontSize: 17, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  monogram: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.sm,
+    backgroundColor: color.surface2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   floatingBar: { position: "absolute", left: space.lg, right: space.lg, flexDirection: "row", justifyContent: "space-between" },
   toast: {
     position: "absolute",

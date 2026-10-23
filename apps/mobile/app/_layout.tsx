@@ -5,7 +5,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuthStore } from "../src/store/authStore";
 import { initOfflineDB, startSyncLoop } from "../src/lib/offlineQueue";
 import { addCollectionEvents } from "../src/lib/api";
+import { useFonts } from "expo-font";
 import { color } from "../src/design/tokens";
+import { FONT_ASSETS } from "../src/design/fonts";
 
 const pushedHeader = {
   headerShown: true,
@@ -40,6 +42,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const { initialize, session } = useAuthStore();
+  // Fall through on error so a missing font never blocks the app.
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
 
   // Init SQLite once
   useEffect(() => { initOfflineDB(); }, []);
@@ -65,6 +69,8 @@ export default function RootLayout() {
     const unsub = initialize();
     return unsub;
   }, [initialize]);
+
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <SafeAreaProvider>

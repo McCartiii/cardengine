@@ -129,7 +129,7 @@ function Stat({ label, value, onPress }: { label: string; value: string; onPress
       <Text variant="label" color={color.textTertiary}>
         {label}
       </Text>
-      <Text variant="price" style={{ fontSize: 22, lineHeight: 28, marginTop: space.xs }}>
+      <Text variant="priceLarge" style={{ fontSize: 32, lineHeight: 36, marginTop: space.sm }}>
         {value}
       </Text>
     </Touchable>
@@ -143,6 +143,6 @@ const styles = StyleSheet.create({
   avatar: { width: 64, height: 64, borderRadius: 32 },
   avatarFallback: { backgroundColor: color.accent, alignItems: "center", justifyContent: "center" },
   stats: { flexDirection: "row", gap: space.md, paddingHorizontal: space.lg, marginTop: space.xxl },
-  stat: { flex: 1, padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface },
+  stat: { flex: 1, padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
   groupLabel: { paddingHorizontal: space.lg + space.xs, marginTop: space.xxl, marginBottom: space.sm },
 });

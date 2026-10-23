@@ -14,7 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { CARD_ASPECT, color, radius, space } from "../design/tokens";
+import { CARD_ASPECT, color, elevation, radius, space } from "../design/tokens";
 import { IconButton, Text, Touchable, Button } from "./primitives";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -60,7 +60,7 @@ export function PageHeader({ title, subtitle, back, right }: PageHeaderProps) {
 export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text variant="headline">{title}</Text>
+      <Text variant="section">{title}</Text>
       {action && (
         <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
           <Text variant="callout" color={color.accent}>
@@ -127,7 +127,7 @@ export function ListRow({ icon, iconColor = color.accent, title, subtitle, value
   const content = (
     <View style={styles.row}>
       {icon && (
-        <View style={[styles.rowIcon, { backgroundColor: destructive ? color.negativeSoft : color.surface3 }]}>
+        <View style={[styles.rowIcon, { backgroundColor: destructive ? color.negativeSoft : color.surface2 }]}>
           <Ionicons name={icon} size={18} color={destructive ? color.negative : iconColor} />
         </View>
       )}
@@ -241,7 +241,7 @@ export function SkeletonBlock({ height, style }: { height: number; style?: Style
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
-  pageHeader: { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.md },
+  pageHeader: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.lg },
   pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   headerActions: { flexDirection: "row", alignItems: "center", gap: space.sm },
   sectionHeader: {
@@ -257,12 +257,14 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     backgroundColor: color.accentSoft,
+    borderWidth: 1,
+    borderColor: "rgba(255,178,36,0.25)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: space.sm,
   },
-  group: { backgroundColor: color.surface, borderRadius: radius.lg, overflow: "hidden" },
-  groupDivider: { height: StyleSheet.hairlineWidth, backgroundColor: color.borderStrong, marginLeft: space.lg },
+  group: { backgroundColor: color.surface, borderRadius: radius.lg, overflow: "hidden", ...elevation.card },
+  groupDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.08)", marginLeft: space.lg },
   row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 60, paddingVertical: space.md },
   rowIcon: { width: 32, height: 32, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
   sheetWrap: { flex: 1, justifyContent: "flex-end", backgroundColor: color.scrim },
@@ -284,6 +286,6 @@ const styles = StyleSheet.create({
   },
   skeletonGrid: { paddingHorizontal: space.lg, gap: space.xl },
   skeletonRow: { flexDirection: "row", gap: space.md },
-  skeletonArt: { width: "100%", aspectRatio: CARD_ASPECT, borderRadius: radius.card, backgroundColor: color.surface2 },
+  skeletonArt: { width: "100%", aspectRatio: CARD_ASPECT, borderRadius: 6, backgroundColor: color.surface2 },
   skeletonLine: { height: 10, borderRadius: 5, backgroundColor: color.surface2 },
 });
