@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { CARD_ASPECT, color, elevation, radius, skyGradient, space, type BubbleColor } from "../design/tokens";
+import { CARD_ASPECT, color, elevation, hairline, radius, skyGradient, space, type BubbleColor } from "../design/tokens";
 import { Button, IconBubble, IconButton, Text, Touchable } from "./primitives";
 import { HoloBackdrop } from "./holo";
 
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     paddingTop: space.xxl,
     ...elevation.card,
   },
-  card: { backgroundColor: color.surface, borderRadius: radius.lg, ...elevation.card },
+  card: { backgroundColor: color.surface, borderRadius: radius.lg, ...hairline, ...elevation.card },
   pageHeader: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.lg },
   pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   headerActions: { flexDirection: "row", alignItems: "center", gap: space.sm },
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   empty: { alignItems: "center", gap: space.sm, paddingHorizontal: space.xxl, paddingVertical: space.xxxl * 2 },
-  group: { backgroundColor: color.surface, borderRadius: radius.lg, overflow: "hidden", ...elevation.card },
+  group: { backgroundColor: color.surface, borderRadius: radius.lg, overflow: "hidden", ...hairline, ...elevation.card },
   groupDivider: { height: StyleSheet.hairlineWidth, backgroundColor: color.borderStrong, marginLeft: 64 },
   row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 64, paddingVertical: space.md },
   rowIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },

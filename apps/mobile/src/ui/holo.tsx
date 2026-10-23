@@ -64,15 +64,15 @@ function Blob({ size, left, top, tint, delay }: { size: number; left: number; to
 const canBlur = Platform.OS === "ios" || Platform.OS === "web";
 
 /** Drifting pastel blobs, softened by a blur, behind the top of a screen. */
-export function HoloBackdrop({ height = 420 }: { height?: number }) {
+export function HoloBackdrop({ height = 340 }: { height?: number }) {
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: color.bg }]} pointerEvents="none">
-      <View style={{ height, overflow: "hidden", opacity: canBlur ? 0.85 : 0.45 }}>
+      <View style={{ height, overflow: "hidden", opacity: canBlur ? 0.5 : 0.25 }}>
         <Blob size={280} left={-90} top={-100} tint={blobs[0]} delay={0} />
         <Blob size={250} left={220} top={30} tint={blobs[1]} delay={1500} />
         <Blob size={210} left={110} top={150} tint={blobs[2]} delay={3000} />
         {canBlur && <BlurView intensity={90} tint="light" style={StyleSheet.absoluteFill} />}
-        <LinearGradient colors={["rgba(243,244,250,0)", color.bg]} locations={[0.55, 1]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={["rgba(244,244,247,0)", color.bg]} locations={[0.35, 0.9]} style={StyleSheet.absoluteFill} />
       </View>
     </View>
   );

@@ -5,15 +5,15 @@ import type { TextStyle, ViewStyle } from "react-native";
 import { font } from "./fonts";
 
 export const color = {
-  bg: "#F3F4FA",
+  bg: "#F4F4F7",
   surface: "#FFFFFF",
-  surface2: "#F1F2F8",
-  surface3: "#E6E8F2",
+  surface2: "#F2F2F6",
+  surface3: "#E8E8EE",
   overlay: "rgba(18,20,43,0.72)",
   scrim: "rgba(18,20,43,0.45)",
 
-  border: "#E7E8F1",
-  borderStrong: "#D5D7E6",
+  border: "#E9E9EF",
+  borderStrong: "#D6D6DF",
 
   text: "#12142B",
   textSecondary: "#5B5F7A",
@@ -56,7 +56,7 @@ export const binder = {
 } as const;
 
 /** The sky gradient behind every screen. */
-export const skyGradient = ["#F3F4FA", "#F3F4FA", "#F3F4FA"] as const;
+export const skyGradient = ["#F4F4F7", "#F4F4F7", "#F4F4F7"] as const;
 
 /** Frosted-glass fill and edge for pills, bars and floating buttons. */
 export const glass = {
@@ -96,15 +96,15 @@ export type BubbleColor = keyof typeof bubble;
 
 export const elevation = {
   card: {
-    shadowColor: "#3C2E8C",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: "#0B0D1F",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
   floating: {
-    shadowColor: "#3C2E8C",
-    shadowOpacity: 0.18,
+    shadowColor: "#0B0D1F",
+    shadowOpacity: 0.16,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
@@ -120,6 +120,9 @@ export const cardRadius = (width: number) => Math.max(4, Math.round(width * 0.04
 
 /** Width/height of a Magic card (63 × 88 mm). */
 export const CARD_ASPECT = 63 / 88;
+
+/** Crisp 1px edge for white surfaces. */
+export const hairline = { borderWidth: 1, borderColor: "rgba(12,14,31,0.06)" } as const;
 
 /** Bottom padding that keeps content clear of the floating tab bar. */
 export const TAB_BAR_CLEARANCE = 120;
