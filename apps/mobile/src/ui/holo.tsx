@@ -178,11 +178,13 @@ export function Sparkline({
   width,
   height,
   stroke = color.accent,
+  strokeWidth = 3,
 }: {
   values: number[];
   width: number;
   height: number;
   stroke?: string;
+  strokeWidth?: number;
 }) {
   if (values.length < 2) return null;
   const min = Math.min(...values);
@@ -206,8 +208,8 @@ export function Sparkline({
         </SvgGradient>
       </Defs>
       <Path d={area} fill="url(#spark)" />
-      <Polyline points={line} fill="none" stroke={stroke} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx={lx} cy={ly} r={4} fill={stroke} />
+      <Polyline points={line} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx={lx} cy={ly} r={strokeWidth + 1} fill={stroke} />
     </Svg>
   );
 }

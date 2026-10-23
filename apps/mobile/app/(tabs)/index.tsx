@@ -1,29 +1,14 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { color, elevation, hairline, radius, space, TAB_BAR_CLEARANCE, type BubbleColor } from "@/design/tokens";
+import { bubble, color, elevation, hairline, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
 import { font } from "@/design/fonts";
-import { formatUsd } from "@/design/format";
 import { getCollectionCards, getCollectionValue, getMarketHome, type MarketCard, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import {
-  Button,
-  CardArt,
-  CountUp,
-  HeroCarousel,
-  HoloRing,
-  IconBubble,
-  ListingCard,
-  PromoBanner,
-  Screen,
-  Segmented,
-  SkeletonBlock,
-  Text,
-  Touchable,
-  tap,
-} from "@/ui";
+import { BinderCover, FoilTabs, HoloRing, RankRow, Screen, SkeletonBlock, Spotlight, Text, Ticker, Touchable, tap } from "@/ui";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 type MarketTab = "popular" | "movers" | "newCards";
@@ -41,8 +26,6 @@ function greeting() {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const columnWidth = (width - space.lg * 2 - space.md) / 2;
   const { session, user } = useAuthStore();
   const [market, setMarket] = useState<Record<MarketTab, MarketCard[]> | null>(null);
   const [value, setValue] = useState<{ total: number; count: number } | null>(null);
@@ -72,17 +55,21 @@ export default function HomeScreen() {
 
   const openCard = (variantId: string) => router.push({ pathname: "/card/[id]", params: { id: variantId } });
   const name = user?.email?.split("@")[0];
-  const listings = (market?.[tab] ?? []).slice(0, 6);
+  const ranked = (market?.[tab] ?? []).slice(0, 8);
 
-  // The most valuable cards moving through the market lead the page.
-  const featured = useMemo(() => {
-    const pool = [...(market?.popular ?? []), ...(market?.movers ?? [])];
-    const seen = new Set<string>();
-    return pool
-      .filter((c) => (seen.has(c.variantId) ? false : (seen.add(c.variantId), true)))
-      .sort((a, b) => (b.bestUsd ?? b.priceUsd ?? 0) - (a.bestUsd ?? a.priceUsd ?? 0))
-      .slice(0, 5);
-  }, [market]);
+  // The biggest movers, either way, get the spotlight.
+  const spotlight = useMemo(
+    () =>
+      [...(market?.movers ?? market?.popular ?? [])]
+        .sort((a, b) => Math.abs(b.deltaPct ?? 0) - Math.abs(a.deltaPct ?? 0))
+        .slice(0, 5),
+    [market]
+  );
+
+  // Your best cards fill the binder pocket; signed out, market favorites stand in.
+  const pocket = session
+    ? topCards.map((c) => ({ id: c.holdingId, uri: c.imageUri, name: c.name }))
+    : (market?.popular ?? []).slice(0, 3).map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name }));
 
   return (
     <Screen>
@@ -101,6 +88,15 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text variant="caption" color={color.textSecondary}>
+              {greeting()}
+            </Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {name ?? "Collector"}
+            </Text>
+          </View>
+          <HeaderButton icon="notifications-outline" label="Price alerts" onPress={() => router.push("/alerts")} />
           <Touchable onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="Profile" pressedScale={0.92}>
             <HoloRing radius={22} thickness={2.5}>
               <View style={styles.avatar}>
@@ -112,139 +108,67 @@ export default function HomeScreen() {
               </View>
             </HoloRing>
           </Touchable>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text variant="caption" color={color.textSecondary}>
-              {greeting()}
-            </Text>
-            <Text style={styles.name} numberOfLines={1}>
-              {name ?? "Collector"}
-            </Text>
-          </View>
-          <View style={styles.headerPill}>
-            <HeaderIcon icon="search" label="Search" onPress={() => router.navigate("/(tabs)/search")} />
-            <View style={styles.headerDivider} />
-            <HeaderIcon icon="notifications-outline" label="Price alerts" onPress={() => router.push("/alerts")} />
-          </View>
         </View>
 
-        <Animated.View entering={FadeInDown.duration(400)}>
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.section}>
           {loading ? (
-            <SkeletonBlock height={212} style={{ marginHorizontal: space.lg, borderRadius: 26 }} />
-          ) : featured.length > 0 ? (
-            <HeroCarousel cards={featured} onOpen={openCard} />
-          ) : null}
+            <SkeletonBlock height={200} style={{ borderRadius: 28 }} />
+          ) : (
+            <BinderCover
+              cards={pocket}
+              value={value?.total ?? null}
+              count={value?.count ?? 0}
+              signedIn={!!session}
+              onPress={() => (session ? router.navigate("/(tabs)/collection") : router.push("/(auth)/sign-in"))}
+            />
+          )}
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(70).duration(400)} style={styles.section}>
-          <View style={styles.searchRow}>
-            <Touchable onPress={() => router.navigate("/(tabs)/search")} accessibilityRole="search" pressedScale={0.98} style={styles.searchPill}>
-              <Ionicons name="search" size={18} color={color.text} />
-              <Text variant="bodyStrong" color={color.textTertiary} style={{ fontFamily: font.medium }}>
-                Search any card
-              </Text>
-            </Touchable>
-            <Touchable
-              onPress={() => {
-                tap();
-                router.navigate("/(tabs)/scan");
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Scan a card"
-              pressedScale={0.94}
-              style={styles.scanPill}
-            >
-              <Ionicons name="scan" size={17} color="#FFFFFF" />
-              <Text variant="callout" color="#FFFFFF">
-                Scan
-              </Text>
-            </Touchable>
-          </View>
+          <Ticker cards={market?.movers?.length ? market.movers : market?.popular ?? []} onOpen={openCard} />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(140).duration(400)} style={styles.section}>
-          {session ? (
-            <Touchable onPress={() => router.navigate("/(tabs)/collection")} pressedScale={0.985} accessibilityRole="button" style={styles.binderRow}>
-              <View style={styles.thumbs}>
-                {topCards.map((c, i) => (
-                  <View key={c.holdingId} style={[styles.thumb, { left: i * 16, zIndex: 3 - i, transform: [{ rotate: `${(i - 1) * 6}deg` }] }]}>
-                    <CardArt uri={c.imageUri} name={c.name} />
-                  </View>
-                ))}
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text variant="caption" color={color.textSecondary}>
-                  Binder value · {value?.count ?? 0} cards
-                </Text>
-                <CountUp value={value?.total ?? 0} format={(n) => formatUsd(n)} style={styles.binderValue} numberOfLines={1} />
-              </View>
-              <View style={styles.chevron}>
-                <Ionicons name="chevron-forward" size={16} color={color.ink} />
-              </View>
-            </Touchable>
-          ) : (
-            <View style={[styles.binderRow, { alignItems: "center" }]}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="headline">Start your binder</Text>
-                <Text variant="caption" color={color.textSecondary}>
-                  Sign in to track what your cards are worth.
-                </Text>
-              </View>
-              <Button label="Sign in" onPress={() => router.push("/(auth)/sign-in")} />
-            </View>
-          )}
+        <Animated.View entering={FadeInDown.delay(140).duration(400)} style={[styles.section, styles.actions]}>
+          <Action icon="scan" label="Scan" hint="Add cards" dark onPress={() => router.navigate("/(tabs)/scan")} />
+          <Action icon="heart" label="Life" hint="Game night" colors={bubble.pink} onPress={() => router.push("/life")} />
+          <Action icon="location" label="Shops" hint="Near you" onPress={() => router.push("/shops")} />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(210).duration(400)} style={styles.section}>
-          <PromoBanner
-            title="Game night?"
-            body="Life, poison and commander damage for 2–6 players."
-            action="Open life counter"
-            colors={["#25125E", "#5B32E6", "#FF5FA2"]}
-            art={featured.slice(2, 5).map((c) => ({ uri: c.imageUri, name: c.name }))}
-            onPress={() => router.push("/life")}
-          />
-        </Animated.View>
+        {spotlight.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(210).duration(400)} style={styles.section}>
+            <Spotlight cards={spotlight} onOpen={openCard} />
+          </Animated.View>
+        )}
 
         <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Market</Text>
-            <Touchable onPress={() => router.navigate("/(tabs)/search")} accessibilityRole="link" style={styles.seeAll}>
-              <Text variant="callout" color={color.ink}>
+          <View style={styles.marketHead}>
+            <FoilTabs options={MARKET_TABS} value={tab} onChange={setTab} />
+            <Touchable onPress={() => router.navigate("/(tabs)/search")} accessibilityRole="link" hitSlop={8} style={{ marginBottom: 9 }}>
+              <Text variant="callout" color={color.accent}>
                 See all
               </Text>
-              <Ionicons name="chevron-forward" size={14} color={color.ink} />
             </Touchable>
           </View>
-          <Segmented options={MARKET_TABS} value={tab} onChange={setTab} />
-          {loading ? (
-            <View style={styles.grid}>
-              {[0, 1].map((i) => (
-                <SkeletonBlock key={i} height={250} style={{ flex: 1, borderRadius: 20 }} />
-              ))}
-            </View>
-          ) : listings.length === 0 ? (
-            <Text variant="body" color={color.textSecondary} align="center" style={styles.empty}>
-              {tab === "movers" ? "Movers appear once there are two days of price history." : "Nothing here yet. Check back after the next price update."}
-            </Text>
-          ) : (
-            <View style={styles.grid}>
-              {listings.map((c) => (
-                <ListingCard key={c.variantId} card={c} onPress={() => openCard(c.variantId)} style={{ width: columnWidth }} />
-              ))}
-            </View>
-          )}
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(350).duration(400)} style={[styles.section, styles.tiles]}>
-          <Tile icon="location" tint="green" title="Local shops" body="Events near you" onPress={() => router.push("/shops")} />
-          <Tile icon="layers" tint="violet" title="Decks" body="Build and price" onPress={() => router.navigate("/(tabs)/decks")} />
+          <View style={styles.board}>
+            {loading ? (
+              [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} height={56} style={{ borderRadius: 12, marginVertical: 6 }} />)
+            ) : ranked.length === 0 ? (
+              <Text variant="body" color={color.textSecondary} align="center" style={styles.empty}>
+                {tab === "movers" ? "Movers appear once there are two days of price history." : "Nothing here yet. Check back after the next price update."}
+              </Text>
+            ) : (
+              ranked.map((c, i) => (
+                <RankRow key={c.variantId} rank={i + 1} card={c} onPress={() => openCard(c.variantId)} style={i > 0 && styles.rowDivider} />
+              ))
+            )}
+          </View>
         </Animated.View>
       </ScrollView>
     </Screen>
   );
 }
 
-function HeaderIcon({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+function HeaderButton({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
     <Touchable
       onPress={() => {
@@ -255,98 +179,89 @@ function HeaderIcon({ icon, label, onPress }: { icon: IconName; label: string; o
       accessibilityLabel={label}
       hitSlop={6}
       pressedScale={0.9}
-      style={styles.headerIcon}
+      style={styles.headerButton}
     >
       <Ionicons name={icon} size={20} color={color.ink} />
     </Touchable>
   );
 }
 
-function Tile({ icon, tint, title, body, onPress }: { icon: IconName; tint: BubbleColor; title: string; body: string; onPress: () => void }) {
-  return (
-    <Touchable onPress={onPress} accessibilityRole="button" accessibilityLabel={title} pressedScale={0.97} style={styles.tile}>
-      <IconBubble icon={icon} tint={tint} size={40} />
-      <View style={{ gap: 2, flex: 1, minWidth: 0 }}>
-        <Text variant="headline" style={{ fontSize: 15 }}>
-          {title}
-        </Text>
-        <Text variant="caption" color={color.textSecondary} numberOfLines={2}>
-          {body}
+/** Square quick action; dark for the main one, gradient or white for the rest. */
+function Action({
+  icon,
+  label,
+  hint,
+  dark,
+  colors,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  hint: string;
+  dark?: boolean;
+  colors?: readonly [string, string];
+  onPress: () => void;
+}) {
+  const onColor = dark || colors;
+  const fg = onColor ? "#FFFFFF" : color.ink;
+  const body = (
+    <>
+      <View style={[styles.actionIcon, { backgroundColor: onColor ? "rgba(255,255,255,0.18)" : color.surface2 }]}>
+        <Ionicons name={icon} size={19} color={fg} />
+      </View>
+      <View>
+        <Text style={[styles.actionLabel, { color: fg }]}>{label}</Text>
+        <Text variant="caption" color={onColor ? "rgba(255,255,255,0.72)" : color.textSecondary}>
+          {hint}
         </Text>
       </View>
+    </>
+  );
+  return (
+    <Touchable
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      pressedScale={0.95}
+      style={{ flex: 1 }}
+    >
+      {colors ? (
+        <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.action}>
+          {body}
+        </LinearGradient>
+      ) : (
+        <View style={[styles.action, dark ? { backgroundColor: color.ink } : styles.actionLight]}>{body}</View>
+      )}
     </Touchable>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.lg },
+  header: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm },
+  name: { fontFamily: font.heavy, fontSize: 26, lineHeight: 32, letterSpacing: -0.8, color: color.ink },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: color.ink, alignItems: "center", justifyContent: "center" },
   avatarText: { fontFamily: font.heavy, fontSize: 16, color: "#FFFFFF" },
-  name: { fontFamily: font.heavy, fontSize: 20, lineHeight: 25, letterSpacing: -0.5, color: color.ink },
-  headerPill: {
-    flexDirection: "row",
-    alignItems: "center",
+  headerButton: {
+    width: 44,
     height: 44,
-    paddingHorizontal: 4,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
     ...hairline,
     ...elevation.card,
   },
-  headerIcon: { width: 40, height: 36, alignItems: "center", justifyContent: "center" },
-  headerDivider: { width: 1, height: 18, backgroundColor: color.border },
-  section: { paddingHorizontal: space.lg, marginTop: space.xl },
-  searchRow: { flexDirection: "row", gap: space.sm },
-  searchPill: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    height: 48,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.pill,
-    backgroundColor: color.surface,
-    ...hairline,
-    ...elevation.card,
-  },
-  scanPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    height: 48,
-    paddingHorizontal: 18,
-    borderRadius: radius.pill,
-    backgroundColor: color.ink,
-    ...elevation.card,
-  },
-  binderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: color.surface,
-    ...hairline,
-    ...elevation.card,
-  },
-  thumbs: { width: 72, height: 56 },
-  thumb: {
-    position: "absolute",
-    top: 0,
-    width: 40,
-    shadowColor: "#0B0D1F",
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  binderValue: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.8, color: color.ink, fontVariant: ["tabular-nums"] },
-  chevron: { width: 32, height: 32, borderRadius: 16, backgroundColor: color.surface2, alignItems: "center", justifyContent: "center" },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: space.md },
-  sectionTitle: { fontFamily: font.heavy, fontSize: 22, letterSpacing: -0.6, color: color.ink },
-  seeAll: { flexDirection: "row", alignItems: "center", gap: 2, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: color.surface, ...hairline },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.md, marginTop: space.md },
-  empty: { paddingHorizontal: space.xl, paddingVertical: space.xxl },
-  tiles: { flexDirection: "row", gap: space.md },
-  tile: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.md, padding: 14, borderRadius: 20, backgroundColor: color.surface, ...hairline, ...elevation.card },
+  section: { paddingHorizontal: space.lg, marginTop: space.lg },
+  actions: { flexDirection: "row", gap: 10 },
+  action: { height: 112, borderRadius: 22, padding: 14, justifyContent: "space-between", ...elevation.card },
+  actionLight: { backgroundColor: "#FFFFFF", ...hairline },
+  actionIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  actionLabel: { fontFamily: font.heavy, fontSize: 16, letterSpacing: -0.3 },
+  marketHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: space.sm, marginBottom: space.md },
+  board: { backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, ...hairline, ...elevation.card },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderStrong },
+  empty: { paddingHorizontal: space.lg, paddingVertical: space.xxl },
 });
