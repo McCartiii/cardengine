@@ -11,7 +11,7 @@ import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { CardArt, FlipBook, FoilSweep, Text, Tilt, Touchable, tap } from "@/ui";
+import { CardArt, FlipBook, FoilSweep, MetalRing, PageStack, PaperPage, Text, Tilt, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
@@ -39,7 +39,7 @@ export default function BinderScreen() {
   // Fit three rows of sleeves in the measured space; page padding and footer take ~62.
   const rowHeight = ((areaHeight || height * 0.55) - 62 - GAP * 2) / 3;
   const byHeight = (rowHeight - 6) * CARD_ASPECT + 6;
-  const byWidth = (pageWidth - RING_COLUMN - 4 - 14 - GAP * 2) / 3;
+  const byWidth = (pageWidth - 6 - RING_COLUMN - 4 - 14 - GAP * 2) / 3;
   const sleeveWidth = Math.floor(Math.max(64, Math.min(byWidth, byHeight)));
 
   const load = useCallback(async (p: number) => {
@@ -97,7 +97,7 @@ export default function BinderScreen() {
   return (
     <View style={styles.root}>
       <LinearGradient colors={[binder.coverTop, binder.cover, binder.coverDeep]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
-      <View style={styles.stitch} pointerEvents="none" />
+      <LinearGradient colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0)"]} style={styles.sheen} pointerEvents="none" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={styles.header}>
           <View style={{ flex: 1, gap: 4 }}>
@@ -162,6 +162,12 @@ export default function BinderScreen() {
 
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
         <View style={{ paddingHorizontal: space.lg }}>
+          <View style={styles.coverRings} pointerEvents="none">
+            {[0, 1, 2].map((r) => (
+              <MetalRing key={r} width={30} height={12} />
+            ))}
+          </View>
+          <PageStack pageStyle={styles.pageRadius}>
           <FlipBook
             key={`${set}|${query}`}
             pageCount={pages.length}
@@ -172,9 +178,10 @@ export default function BinderScreen() {
             }}
             renderPage={(index) => (
               <View style={styles.page}>
+                <PaperPage pageStyle={styles.pageRadius} gutter={40} />
                 <View style={styles.rings} pointerEvents="none">
                   {[0, 1, 2].map((r) => (
-                    <View key={r} style={styles.ring} />
+                    <View key={r} style={styles.hole} />
                   ))}
                 </View>
                 <View style={{ flex: 1, paddingTop: 16, paddingRight: 14, paddingBottom: 12, paddingLeft: 4 }}>
@@ -199,6 +206,7 @@ export default function BinderScreen() {
               </View>
             )}
           />
+          </PageStack>
         </View>
         </View>
 
@@ -239,7 +247,7 @@ function Sleeve({ card, width, order, onPress }: { card: OwnedCard; width: numbe
         )}
         <View style={styles.priceTabRow} pointerEvents="none">
           <View style={styles.priceTab}>
-            <Text variant="number" color="#FFFFFF" style={{ fontSize: 11 }}>
+            <Text variant="number" color={binder.coverDeep} style={{ fontSize: 11 }}>
               {formatUsd(card.priceUsd, { compact: true })}
             </Text>
           </View>
@@ -264,7 +272,7 @@ function EmptySleeve({ width, onPress }: { width: number; onPress: () => void })
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: binder.cover },
-  stitch: { position: "absolute", top: 10, left: 10, right: 10, bottom: 10, borderRadius: 40, borderWidth: 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.12)" },
+  sheen: { position: "absolute", top: 0, left: 0, right: 0, height: 220 },
   header: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 24, paddingTop: space.md },
   title: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: "#FFFFFF" },
   coverButton: {
@@ -293,7 +301,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, color: "#FFFFFF", fontFamily: font.medium, fontSize: 15, height: "100%" },
   tabs: { gap: 4, paddingLeft: space.lg + RING_COLUMN + 6, paddingRight: space.lg, paddingTop: space.xl, alignItems: "flex-end" },
   tab: { height: 34, paddingHorizontal: 16, borderTopLeftRadius: 14, borderTopRightRadius: 14, backgroundColor: "rgba(255,255,255,0.12)", justifyContent: "center" },
-  tabOn: { height: 40, backgroundColor: binder.page },
+  tabOn: { height: 40, backgroundColor: "#FBFCFF" },
   tabText: { fontFamily: font.heavy, fontSize: 13 },
   page: {
     flexDirection: "row",
@@ -301,57 +309,50 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
-    backgroundColor: binder.page,
-    shadowColor: "#000",
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 14,
   },
+
   pageRadius: { borderTopLeftRadius: 6, borderTopRightRadius: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
   rings: { width: RING_COLUMN, justifyContent: "space-around", alignItems: "center", paddingVertical: 40 },
-  ring: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: binder.coverDeep,
-    borderWidth: 3,
-    borderColor: binder.ring,
-  },
+  hole: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(20,26,66,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.7)" },
+  coverRings: { position: "absolute", left: space.lg - 12, top: 0, bottom: space.sm, width: 30, justifyContent: "space-around", paddingVertical: 40, zIndex: 3 },
+
   grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP, alignSelf: "center" },
   sleeve: {
     padding: 3,
     borderRadius: 7,
-    backgroundColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(255,255,255,0.8)",
     shadowColor: "#141938",
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.16,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
   qty: { position: "absolute", top: 7, left: 7, paddingHorizontal: 5, height: 18, borderRadius: 9, backgroundColor: "rgba(18,22,47,0.85)", justifyContent: "center" },
-  priceTabRow: { position: "absolute", left: 0, right: 0, bottom: -1, alignItems: "center" },
+  priceTabRow: { position: "absolute", left: 0, right: 0, bottom: -9, alignItems: "center" },
   priceTab: {
-    minWidth: 48,
-    paddingHorizontal: 7,
-    paddingTop: 2,
-    paddingBottom: 3,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    backgroundColor: binder.coverDeep,
+    minWidth: 50,
+    height: 20,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#141938",
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   empty: {
     borderRadius: 7,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "rgba(30,40,90,0.25)",
-    backgroundColor: "rgba(255,255,255,0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(30,40,90,0.10)",
+    backgroundColor: "rgba(255,255,255,0.55)",
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
   },
-  pageFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
+  pageFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingRight: 22 },
   dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: space.md },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)" },
   dotOn: { width: 18, backgroundColor: "#FFFFFF" },
