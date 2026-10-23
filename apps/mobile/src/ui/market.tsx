@@ -5,14 +5,14 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { Easing, FadeIn, SlideInRight, useAnimatedStyle, useSharedValue, withRepeat, withTiming, cancelAnimation } from "react-native-reanimated";
-import { binder, CARD_ASPECT, cardRadius, color, holo, radius, space } from "../design/tokens";
+import { CARD_ASPECT, cardRadius, color, holo, radius, space } from "../design/tokens";
 import { font } from "../design/fonts";
 import { formatDeltaPct, formatUsd, setLabel } from "../design/format";
 import type { MarketCard } from "../lib/api";
 import { Text, Touchable, tap } from "./primitives";
 import { CardArt } from "./cards";
 import { CountUp, FoilSweep, HoloRing, Sparkline } from "./holo";
-import { BinderSpine, FlipBook, PageStack, PaperPage } from "./flipbook";
+import { FlipBook, PageStack, PunchHoles } from "./flipbook";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -58,17 +58,19 @@ interface BinderCoverProps {
 }
 
 const POCKETS = 8;
-const POCKET_GAP = 6;
-const PAGE_PAD = 8;
-const RINGS = 3;
-// Room the stacked pages take on the right.
-const STACK = 6;
+const COLUMNS = 4;
+const POCKET_GAP = 10;
+const PAGE_PAD = 12;
+// The binding edge of the page, where the holes are punched.
+const BINDING = 22;
+const PAGE_RADIUS = 18;
+const COVER = "#1D2350";
 
 /** Home's hero: an open binder whose pages you can turn, on its indigo cover. */
 export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onEmpty }: BinderCoverProps) {
   const [pageWidth, setPageWidth] = useState(0);
   const [page, setPage] = useState(0);
-  const pocketWidth = pageWidth ? Math.floor((pageWidth - STACK - PAGE_PAD * 2 - 16 - POCKET_GAP * 3) / 4) : 0;
+  const pocketWidth = pageWidth ? Math.floor((pageWidth - BINDING - PAGE_PAD - POCKET_GAP * (COLUMNS - 1)) / COLUMNS) : 0;
 
   const pages = useMemo(() => {
     const slots: Array<BinderCard | null> = [...cards];
@@ -80,15 +82,18 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
 
   const renderPage = (i: number) => (
     <View style={styles.page}>
-      <PaperPage pageStyle={styles.pageRadius} />
+      <PunchHoles color={COVER} />
       <View style={styles.pockets}>
         {pages[i].map((c, j) =>
           c ? (
             <Pocket key={c.id} card={c} width={pocketWidth} onPress={() => onCard(c.id)} />
           ) : (
             <Touchable key={`empty-${j}`} onPress={onEmpty} pressedScale={0.95} accessibilityRole="button" accessibilityLabel="Add a card">
-              <View style={[styles.emptyPocket, { width: pocketWidth, height: (pocketWidth - 4) / CARD_ASPECT + 4 }]}>
-                <Ionicons name="add" size={16} color="rgba(74,85,133,0.55)" />
+              <View style={{ width: pocketWidth }}>
+                <View style={[styles.emptyPocket, { height: pocketWidth / CARD_ASPECT, borderRadius: cardRadius(pocketWidth) + 2 }]}>
+                  <Ionicons name="add" size={18} color={color.textTertiary} />
+                </View>
+                <View style={styles.pocketPrice} />
               </View>
             </Touchable>
           )
@@ -98,79 +103,54 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
   );
 
   return (
-    <View style={styles.coverShadow}>
-      <View style={styles.cover}>
-        <LinearGradient colors={["#3B4790", "#242C63", "#13183A"]} locations={[0, 0.5, 1]} start={{ x: 0, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
-        <LinearGradient colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0)"]} style={styles.coverSheen} pointerEvents="none" />
-        <View style={styles.coverEdge} pointerEvents="none" />
-
-        <View style={styles.coverHead}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text variant="caption" color="rgba(214,220,250,0.75)" style={{ fontFamily: font.semibold }}>
-              {signedIn ? `My binder · ${count} cards` : "Your binder"}
-            </Text>
-            {signedIn ? (
-              <CountUp value={value ?? 0} format={(n) => formatUsd(n)} style={styles.coverValue} numberOfLines={1} adjustsFontSizeToFit />
-            ) : (
-              <Text style={styles.coverTitle}>Start collecting</Text>
-            )}
-          </View>
-          <Touchable onPress={onOpen} pressedScale={0.94} accessibilityRole="button" accessibilityLabel={signedIn ? "Open binder" : "Sign in"}>
-            <LinearGradient colors={binder.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.goldButton}>
-              <Text variant="callout" color={binder.onGold}>
-                {signedIn ? "Open" : "Sign in"}
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color={binder.onGold} />
-            </LinearGradient>
-          </Touchable>
+    <View style={styles.cover}>
+      <View style={styles.coverHead}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text variant="caption" color="rgba(255,255,255,0.6)">
+            {signedIn ? `My binder · ${count} cards` : "Your binder"}
+          </Text>
+          {signedIn ? (
+            <CountUp value={value ?? 0} format={(n) => formatUsd(n)} style={styles.coverValue} numberOfLines={1} adjustsFontSizeToFit />
+          ) : (
+            <Text style={styles.coverValue}>Start collecting</Text>
+          )}
         </View>
+        <Touchable onPress={onOpen} pressedScale={0.94} accessibilityRole="button" accessibilityLabel={signedIn ? "Open binder" : "Sign in"} style={styles.openButton}>
+          <Text variant="callout" color={color.ink}>
+            {signedIn ? "Open" : "Sign in"}
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={color.ink} />
+        </Touchable>
+      </View>
 
-        <View style={styles.spread}>
-          <View style={styles.spine} pointerEvents="none">
-            <BinderSpine rings={RINGS} reach={18} inset={18} />
-          </View>
-          <View style={{ flex: 1 }} onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}>
-            {pocketWidth > 0 && (
-              <PageStack pageStyle={styles.pageRadius}>
-                <FlipBook key={pages.length} pageCount={pages.length} renderPage={renderPage} onIndexChange={setPage} pageStyle={styles.pageRadius} />
-              </PageStack>
-            )}
-          </View>
-        </View>
-
-        {pages.length > 1 && (
-          <View style={styles.pageDots} accessibilityElementsHidden>
-            {pages.map((_, i) => (
-              <View key={i} style={[styles.pageDot, i === page && styles.pageDotOn]} />
-            ))}
-          </View>
+      <View onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}>
+        {pocketWidth > 0 && (
+          <PageStack radius={PAGE_RADIUS}>
+            <FlipBook key={pages.length} pageCount={pages.length} renderPage={renderPage} onIndexChange={setPage} pageStyle={styles.pageRadius} />
+          </PageStack>
         )}
       </View>
+
+      {pages.length > 1 && (
+        <View style={styles.pageDots} accessibilityElementsHidden>
+          {pages.map((_, i) => (
+            <View key={i} style={[styles.pageDot, i === page && styles.pageDotOn]} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
 function Pocket({ card, width, onPress }: { card: BinderCard; width: number; onPress: () => void }) {
   return (
-    <Touchable onPress={onPress} pressedScale={0.94} accessibilityRole="button" accessibilityLabel={`${card.name}, ${formatUsd(card.price)}`} style={[styles.pocket, { width }]}>
-      <CardArt uri={card.uri} name={card.name} />
-      <LinearGradient
-        colors={["rgba(255,255,255,0.5)", "rgba(255,255,255,0)", "rgba(255,255,255,0)", "rgba(255,255,255,0.18)"]}
-        locations={[0, 0.3, 0.7, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderRadius: 5 }]}
-        pointerEvents="none"
-      />
-      {card.price != null && (
-        <View style={styles.pocketTabRow} pointerEvents="none">
-          <View style={styles.pocketTab}>
-            <Text variant="number" color={color.ink} style={{ fontSize: 10 }}>
-              {formatUsd(card.price, { compact: true })}
-            </Text>
-          </View>
-        </View>
-      )}
+    <Touchable onPress={onPress} pressedScale={0.95} accessibilityRole="button" accessibilityLabel={`${card.name}, ${formatUsd(card.price)}`} style={{ width }}>
+      <View style={styles.pocketCard}>
+        <CardArt uri={card.uri} name={card.name} />
+      </View>
+      <Text variant="number" color={color.ink} align="center" style={styles.pocketPrice} numberOfLines={1}>
+        {card.price != null ? formatUsd(card.price, { compact: true }) : " "}
+      </Text>
     </Touchable>
   );
 }
@@ -378,60 +358,23 @@ export function RankRow({ rank, card, onPress, style }: { rank: number; card: Ma
 const styles = StyleSheet.create({
   change: { flexDirection: "row", alignItems: "center", gap: 2 },
 
-  coverShadow: {
-    borderRadius: 28,
-    shadowColor: "#141A4A",
-    shadowOpacity: 0.35,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 12,
-  },
-  cover: { borderRadius: 28, overflow: "hidden", backgroundColor: binder.cover, padding: 14, paddingTop: 16 },
-  coverSheen: { position: "absolute", top: 0, left: 0, right: 0, height: 110 },
-  coverEdge: { ...StyleSheet.absoluteFillObject, borderRadius: 28, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
+  cover: { borderRadius: 28, backgroundColor: COVER, padding: 14, paddingTop: 18 },
   coverHead: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 6, paddingBottom: 16 },
-  coverTitle: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: "#FFFFFF" },
-  coverValue: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
-  goldButton: { flexDirection: "row", alignItems: "center", gap: 4, height: 36, paddingLeft: 16, paddingRight: 12, borderRadius: radius.pill },
-  spread: { flexDirection: "row" },
-  spine: { width: 16, zIndex: 2, marginRight: -4, marginLeft: -2 },
-  pageRadius: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4, borderTopRightRadius: 14, borderBottomRightRadius: 14 },
-  page: { padding: PAGE_PAD, paddingLeft: PAGE_PAD + 16, paddingBottom: PAGE_PAD + 6 },
-  pockets: { flexDirection: "row", flexWrap: "wrap", columnGap: POCKET_GAP, rowGap: 14 },
-  pocket: {
-    padding: 2,
-    borderRadius: 6,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    shadowColor: "#141938",
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
+  coverValue: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.9, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
+  openButton: { flexDirection: "row", alignItems: "center", gap: 2, height: 34, paddingLeft: 14, paddingRight: 10, borderRadius: radius.pill, backgroundColor: "#FFFFFF" },
+  pageRadius: { borderRadius: PAGE_RADIUS },
+  page: { borderRadius: PAGE_RADIUS, backgroundColor: "#FFFFFF", paddingTop: PAGE_PAD, paddingBottom: PAGE_PAD - 4, paddingLeft: BINDING, paddingRight: PAGE_PAD },
+  pockets: { flexDirection: "row", flexWrap: "wrap", columnGap: POCKET_GAP, rowGap: 8 },
+  pocketCard: {
+    shadowColor: "#0B0E26",
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
-  emptyPocket: {
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(30,40,90,0.10)",
-    backgroundColor: "rgba(255,255,255,0.55)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pocketTabRow: { position: "absolute", left: 0, right: 0, bottom: -8, alignItems: "center" },
-  pocketTab: {
-    minWidth: 40,
-    height: 18,
-    paddingHorizontal: 6,
-    borderRadius: 9,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#141938",
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  pageDots: { flexDirection: "row", justifyContent: "center", gap: 5, marginTop: 12 },
+  pocketPrice: { height: 16, marginTop: 5, fontSize: 11, lineHeight: 16 },
+  emptyPocket: { backgroundColor: "#F1F2F6", alignItems: "center", justifyContent: "center" },
+  pageDots: { flexDirection: "row", justifyContent: "center", gap: 5, marginTop: 10 },
   pageDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)" },
   pageDotOn: { width: 16, backgroundColor: "#FFFFFF" },
 
