@@ -120,6 +120,9 @@ export function MapTab() {
     </Card>
   );
 
+  // Module-level lets lose their null-narrowing inside the .map callback
+  const Marker = RNMarker;
+
   return (
     <View style={styles.container}>
       <Header title="Local Scene" />
@@ -169,11 +172,11 @@ export function MapTab() {
             longitudeDelta: 0.5,
           }}
         >
-          {RNMarker &&
+          {Marker &&
             shops
               .filter((s) => s.lat != null && s.lng != null)
               .map((shop) => (
-                <RNMarker
+                <Marker
                   key={shop.id}
                   coordinate={{ latitude: shop.lat!, longitude: shop.lng! }}
                   title={shop.name}
@@ -312,8 +315,8 @@ const styles = StyleSheet.create({
   },
   searchButtonText: {
     color: t.textInverse,
-    fontWeight: "600",
     ...typography.caption,
+    fontWeight: "600",
   },
   map: { flex: 1 },
   listContent: {

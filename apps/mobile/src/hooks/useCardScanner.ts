@@ -1,7 +1,7 @@
-import { useCallback, useRef } from "react";
-import { runOnJS } from "react-native-reanimated";
+import { useCallback, useMemo, useRef } from "react";
 import { useFrameProcessor } from "react-native-vision-camera";
-import TextRecognition from "react-native-vision-camera-text-recognition";
+import { useTextRecognition } from "react-native-vision-camera-text-recognition";
+import { useSharedValue, Worklets } from "react-native-worklets-core";
 import * as Haptics from "expo-haptics";
 import { scanIdentify } from "../lib/api";
 import { useScanStore } from "../store/scanStore";
@@ -45,8 +45,12 @@ function extractCardName(rawText: string): string | null {
 export function useCardScanner() {
   const { addPending, setDetectedName, setDetectedPrice } = useScanStore();
 
+  const { scanText } = useTextRecognition({ language: "latin" });
+
+  // Shared with the camera thread, so it must be a worklets-core shared value
+  const frameCount = useSharedValue(0);
+
   // Refs live on the JS thread and survive renders without causing them
-  const frameCount = useRef(0);
   const lastSeenText = useRef<{ text: string; since: number } | null>(null);
   const recentlyScanned = useRef<Map<string, number>>(new Map()); // name → timestamp
   const identifying = useRef(false); // prevent overlapping API calls
@@ -121,21 +125,29 @@ export function useCardScanner() {
     [addPending, setDetectedName, setDetectedPrice]
   );
 
+  // Frame processors run on worklets-core, so Reanimated's runOnJS can't bridge back
+  const onOCRResultJS = useMemo(() => Worklets.createRunOnJS(onOCRResult), [onOCRResult]);
+
   // Frame processor — runs as a worklet on the camera thread (no JS bridge)
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
 
       // Throttle: only process every FRAME_INTERVAL frames
-      frameCount.value = (frameCount.value ?? 0) + 1;
+      frameCount.value = frameCount.value + 1;
       if (frameCount.value % SCANNER.FRAME_INTERVAL !== 0) return;
 
-      const result = TextRecognition.recognize(frame);
-      if (result?.text) {
-        runOnJS(onOCRResult)(result.text);
+      // The plugin is typed as returning Text[], but its native side returns a
+      // single { resultText } object. Accept either shape.
+      const result = scanText(frame) as unknown;
+      const text = Array.isArray(result)
+        ? result.map((r: { resultText?: string }) => r.resultText ?? "").join("\n")
+        : (result as { resultText?: string } | undefined)?.resultText;
+      if (text) {
+        onOCRResultJS(text);
       }
     },
-    [onOCRResult]
+    [scanText, frameCount, onOCRResultJS]
   );
 
   return { frameProcessor };

@@ -209,7 +209,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
 
       let activeIndex = s.activePlayerIndex;
       let phase: GamePhase = s.phase;
-      let clockRunning = s.isClockRunning;
+      let clockRunning: boolean = s.isClockRunning;
 
       if (newTime <= 0) {
         players = players.map((p, i) =>

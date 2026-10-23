@@ -164,7 +164,7 @@ export default function DecksScreen() {
               ))}
             </View>
 
-            {(newFormat === "commander" || newFormat === "oathbreaker") && (
+            {newFormat === "commander" && (
               <>
                 <Text style={styles.label}>Commander (optional)</Text>
                 <TextInput

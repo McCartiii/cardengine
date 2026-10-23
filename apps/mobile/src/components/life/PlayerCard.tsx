@@ -410,10 +410,10 @@ export function PlayerCard({
             fontSize: deltaFontSize,
             color: (displayDelta ?? 0) < 0 ? LC.danger : LC.success,
             top: "25%",
+            pointerEvents: "none",
           },
           deltaStyle,
         ]}
-        pointerEvents="none"
       >
         {displayDelta !== null
           ? displayDelta > 0

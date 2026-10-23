@@ -10,6 +10,13 @@ import {
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 
+/** One page of GET /v1/bundles/:game/hashes */
+type HashBundlePage = {
+  items?: Parameters<typeof insertHashBundle>[1];
+  hasMore?: boolean;
+  nextCursor?: string | null;
+};
+
 interface SyncManager {
   pushEvents(events: unknown[]): Promise<{ pushed: number }>;
   pullEvents(since: string): Promise<{ events: unknown[]; latestAt: string | null }>;
@@ -133,9 +140,9 @@ export async function downloadHashBundle(
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Hash bundle fetch failed: ${res.status}`);
-    const data = await res.json();
+    const data: HashBundlePage = await res.json();
 
-    if (data.items?.length > 0) {
+    if (data.items && data.items.length > 0) {
       await insertHashBundle(database, data.items);
       totalDownloaded += data.items.length;
       onProgress?.(totalDownloaded);
