@@ -11,6 +11,10 @@ coverage/
 .env
 .env.local
 .env*.local
+
+# Personal Claude Code notes. Shared memory is CLAUDE.md and .claude/rules/.
+CLAUDE.local.md
+.claude/settings.local.json
 apps/api/.env
 apps/api/dev.db
 apps/api/dev.db-journal
