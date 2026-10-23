@@ -12,7 +12,7 @@ import type { MarketCard } from "../lib/api";
 import { Text, Touchable, tap } from "./primitives";
 import { CardArt } from "./cards";
 import { CountUp, FoilSweep, HoloRing, Sparkline } from "./holo";
-import { FlipBook, MetalRing, PageStack, PaperPage } from "./flipbook";
+import { BinderSpine, FlipBook, PageStack, PaperPage } from "./flipbook";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -68,7 +68,7 @@ const STACK = 6;
 export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onEmpty }: BinderCoverProps) {
   const [pageWidth, setPageWidth] = useState(0);
   const [page, setPage] = useState(0);
-  const pocketWidth = pageWidth ? Math.floor((pageWidth - STACK - PAGE_PAD * 2 - 4 - POCKET_GAP * 3) / 4) : 0;
+  const pocketWidth = pageWidth ? Math.floor((pageWidth - STACK - PAGE_PAD * 2 - 16 - POCKET_GAP * 3) / 4) : 0;
 
   const pages = useMemo(() => {
     const slots: Array<BinderCard | null> = [...cards];
@@ -127,9 +127,7 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
 
         <View style={styles.spread}>
           <View style={styles.spine} pointerEvents="none">
-            {Array.from({ length: RINGS }, (_, r) => (
-              <MetalRing key={r} />
-            ))}
+            <BinderSpine rings={RINGS} reach={18} inset={18} />
           </View>
           <View style={{ flex: 1 }} onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}>
             {pocketWidth > 0 && (
@@ -396,9 +394,9 @@ const styles = StyleSheet.create({
   coverValue: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
   goldButton: { flexDirection: "row", alignItems: "center", gap: 4, height: 36, paddingLeft: 16, paddingRight: 12, borderRadius: radius.pill },
   spread: { flexDirection: "row" },
-  spine: { width: 18, justifyContent: "space-around", paddingVertical: 26, zIndex: 2, marginRight: -4 },
+  spine: { width: 16, zIndex: 2, marginRight: -4, marginLeft: -2 },
   pageRadius: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4, borderTopRightRadius: 14, borderBottomRightRadius: 14 },
-  page: { padding: PAGE_PAD, paddingLeft: PAGE_PAD + 4, paddingBottom: PAGE_PAD + 6 },
+  page: { padding: PAGE_PAD, paddingLeft: PAGE_PAD + 16, paddingBottom: PAGE_PAD + 6 },
   pockets: { flexDirection: "row", flexWrap: "wrap", columnGap: POCKET_GAP, rowGap: 14 },
   pocket: {
     padding: 2,

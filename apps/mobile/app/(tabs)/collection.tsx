@@ -11,7 +11,7 @@ import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { CardArt, FlipBook, FoilSweep, MetalRing, PageStack, PaperPage, Text, Tilt, Touchable, tap } from "@/ui";
+import { BinderSpine, CardArt, FlipBook, FoilSweep, PageStack, PaperPage, Text, Tilt, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
@@ -163,9 +163,7 @@ export default function BinderScreen() {
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
         <View style={{ paddingHorizontal: space.lg }}>
           <View style={styles.coverRings} pointerEvents="none">
-            {[0, 1, 2].map((r) => (
-              <MetalRing key={r} width={30} height={12} />
-            ))}
+            <BinderSpine rings={3} reach={24} inset={28} />
           </View>
           <PageStack pageStyle={styles.pageRadius}>
           <FlipBook
@@ -179,11 +177,7 @@ export default function BinderScreen() {
             renderPage={(index) => (
               <View style={styles.page}>
                 <PaperPage pageStyle={styles.pageRadius} gutter={40} />
-                <View style={styles.rings} pointerEvents="none">
-                  {[0, 1, 2].map((r) => (
-                    <View key={r} style={styles.hole} />
-                  ))}
-                </View>
+                <View style={styles.rings} pointerEvents="none" />
                 <View style={{ flex: 1, paddingTop: 16, paddingRight: 14, paddingBottom: 12, paddingLeft: 4 }}>
                   <View style={[styles.grid, { width: sleeveWidth * 3 + GAP * 2 }]}>
                     {pages[index].map((c, i) =>
@@ -313,8 +307,7 @@ const styles = StyleSheet.create({
 
   pageRadius: { borderTopLeftRadius: 6, borderTopRightRadius: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
   rings: { width: RING_COLUMN, justifyContent: "space-around", alignItems: "center", paddingVertical: 40 },
-  hole: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(20,26,66,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.7)" },
-  coverRings: { position: "absolute", left: space.lg - 12, top: 0, bottom: space.sm, width: 30, justifyContent: "space-around", paddingVertical: 40, zIndex: 3 },
+  coverRings: { position: "absolute", left: space.lg - 12, top: 0, bottom: space.sm, width: 44, zIndex: 3 },
 
   grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP, alignSelf: "center" },
   sleeve: {

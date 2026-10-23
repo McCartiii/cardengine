@@ -246,19 +246,66 @@ const styles = StyleSheet.create({
   },
 });
 
-/** A chrome binder ring, drawn as a lit metal loop with a soft shadow on the page. */
-export function MetalRing({ width = 34, height = 12 }: { width?: number; height?: number }) {
+// Cylindrical chrome: dark rims, a hot highlight just off-center, a soft mid-tone.
+const CHROME = ["#4E566E", "#C9CFDD", "#FFFFFF", "#AEB6C8", "#7A8299", "#3E4559"] as const;
+const CHROME_STOPS = [0, 0.22, 0.38, 0.6, 0.82, 1] as const;
+
+/**
+ * The ring mechanism along the spine: a chrome bar with rings that run out
+ * across the page edge and disappear into punched holes. Fills its parent's
+ * height; the arms reach `reach` points past the bar.
+ */
+export function BinderSpine({ rings = 3, reach = 22, inset = 24 }: { rings?: number; reach?: number; inset?: number }) {
   return (
-    <View style={[ringStyles.shadow, { width, height, borderRadius: height / 2 }]}>
-      <LinearGradient
-        colors={["#FFFFFF", "#C7CCDA", "#8E96AD", "#D9DDE8", "#6F7891"]}
-        locations={[0, 0.3, 0.55, 0.75, 1]}
-        style={[StyleSheet.absoluteFill, { borderRadius: height / 2 }]}
-      />
-      <View style={[ringStyles.inner, { borderRadius: height / 2 - 3 }]} />
+    <View style={[spineStyles.root, { paddingVertical: inset }]} pointerEvents="none">
+      <View style={spineStyles.bar}>
+        <LinearGradient colors={CHROME} locations={CHROME_STOPS} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[StyleSheet.absoluteFill, { borderRadius: 5 }]} />
+        <View style={[spineStyles.rivet, { top: 6 }]} />
+        <View style={[spineStyles.rivet, { bottom: 6 }]} />
+      </View>
+      <View style={[spineStyles.arms, { top: inset, bottom: inset }]}>
+        {Array.from({ length: rings }, (_, i) => (
+          <View key={i} style={[spineStyles.arm, { width: reach + 10 }]}>
+            <View style={[spineStyles.hole, { left: reach + 1 }]} />
+            <View style={[spineStyles.armShadow, { width: reach + 4 }]} />
+            <View style={[spineStyles.tube, { width: reach + 6 }]}>
+              <LinearGradient colors={CHROME} locations={CHROME_STOPS} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 3.5 }]} />
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
+
+const spineStyles = StyleSheet.create({
+  root: { ...StyleSheet.absoluteFillObject, flexDirection: "row" },
+  bar: {
+    width: 10,
+    borderRadius: 5,
+    shadowColor: "#05081E",
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    shadowOffset: { width: 2, height: 2 },
+    elevation: 4,
+  },
+  rivet: { position: "absolute", left: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: "#5A6178", borderWidth: 0.5, borderColor: "#E6E9F2" },
+  arms: { position: "absolute", left: 5, justifyContent: "space-around", paddingVertical: 12 },
+  arm: { height: 14, justifyContent: "center" },
+  // The punched hole in the page that the ring runs into.
+  hole: {
+    position: "absolute",
+    top: 2,
+    width: 9,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#262D52",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.85)",
+  },
+  armShadow: { position: "absolute", left: 2, top: 7, height: 5, borderRadius: 3, backgroundColor: "rgba(8,10,30,0.28)" },
+  tube: { height: 7, borderRadius: 3.5, overflow: "hidden" },
+});
 
 /** Light paper with a soft gutter shadow along the rings. Children sit on top. */
 export function PaperFill({ gutter = 26 }: { gutter?: number }) {
@@ -310,12 +357,4 @@ export function PaperPage({ pageStyle, gutter }: { pageStyle?: StyleProp<ViewSty
 const ringStyles = StyleSheet.create({
   sheet: { borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(20,26,66,0.12)" },
   sheetShadow: { shadowColor: "#05081E", shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 10 }, elevation: 10 },
-  shadow: {
-    shadowColor: "#0B0F2E",
-    shadowOpacity: 0.45,
-    shadowRadius: 3,
-    shadowOffset: { width: 1, height: 3 },
-    elevation: 4,
-  },
-  inner: { position: "absolute", top: 3, bottom: 3, left: 4, right: 4, backgroundColor: "rgba(20,26,60,0.55)" },
 });
