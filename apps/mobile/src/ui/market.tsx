@@ -46,6 +46,8 @@ export interface BinderCard {
   uri: string | null;
   name: string;
   price: number | null;
+  /** Recent price change in percent, when known. */
+  change?: number | null;
 }
 
 interface BinderCoverProps {
@@ -83,7 +85,7 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
       <View style={styles.pockets}>
         {pages[i].map((c, j) =>
           c ? (
-            <Pocket key={c.id} width={pocketWidth} name={c.name} uri={c.uri} price={c.price} order={j} onPress={() => onCard(c.id)} />
+            <Pocket key={c.id} width={pocketWidth} name={c.name} uri={c.uri} price={c.price} change={c.change} order={j} onPress={() => onCard(c.id)} />
           ) : (
             <EmptyPocket key={`empty-${j}`} width={pocketWidth} onPress={onEmpty} />
           )

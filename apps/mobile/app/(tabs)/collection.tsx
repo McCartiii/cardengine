@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { color, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
-import { formatDeltaPct, formatUsd } from "@/design/format";
+import { formatUsd } from "@/design/format";
 import { getCollectionCards, type CollectionSort, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { binderPage, EmptyPocket, FlipBook, Pocket, pocketWidthForHeight, SearchField, Segmented, Sheet, Text, Touchable, tap } from "@/ui";
@@ -116,13 +116,6 @@ export default function BinderScreen() {
   };
 
   const sortOption = SORTS.find((o) => o.value === sort) ?? SORTS[0];
-  // While sorting by change, the corner chip shows each card's move instead of its price.
-  const chipFor = (c: OwnedCard) => {
-    if (sort !== "change") return undefined;
-    if (c.changePct == null) return { label: "—", color: binderPage.muted };
-    return { label: formatDeltaPct(c.changePct), color: c.changePct >= 0 ? "#5CE0A0" : "#FF8A9A" };
-  };
-
   const openCard = (c: OwnedCard) => router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
   const scan = () => router.navigate("/(tabs)/scan");
 
@@ -207,7 +200,8 @@ export default function BinderScreen() {
                           price={c.priceUsd}
                           foil={c.finish !== "nonfoil"}
                           quantity={c.quantity}
-                          chip={chipFor(c)}
+                          change={c.changePct}
+                          showChange={sort === "change"}
                           order={i}
                           onPress={() => openCard(c)}
                         />

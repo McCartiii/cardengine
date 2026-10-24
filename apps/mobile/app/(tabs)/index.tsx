@@ -68,8 +68,8 @@ export default function HomeScreen() {
 
   // Your most valuable cards fill the first pages; signed out, market favorites stand in.
   const binderCards = session
-    ? topCards.map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name, price: c.priceUsd }))
-    : (market?.popular ?? []).slice(0, 8).map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name, price: c.bestUsd ?? c.priceUsd }));
+    ? topCards.map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name, price: c.priceUsd, change: c.changePct }))
+    : (market?.popular ?? []).slice(0, 8).map((c) => ({ id: c.variantId, uri: c.imageUri, name: c.name, price: c.bestUsd ?? c.priceUsd, change: c.deltaPct }));
 
   return (
     <Screen>

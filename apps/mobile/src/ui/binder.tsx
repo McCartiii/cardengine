@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { CARD_ASPECT, cardRadius } from "../design/tokens";
 import { font } from "../design/fonts";
-import { formatUsd } from "../design/format";
+import { formatDeltaPct, formatUsd } from "../design/format";
 import { Text, Touchable } from "./primitives";
 import { CardArt } from "./cards";
 import { Tilt } from "./holo";
@@ -39,19 +39,27 @@ interface PocketProps {
   price?: number | null;
   foil?: boolean;
   quantity?: number;
-  /** Replaces the price in the corner chip, e.g. a price change. */
-  chip?: { label: string; color?: string };
+  /** Price change in percent, shown as the chip's color and arrow; null when unknown. */
+  change?: number | null;
+  /** Show the change itself in the chip instead of the price. */
+  showChange?: boolean;
   /** Stagger for the fade-in. */
   order?: number;
   onPress: () => void;
 }
 
 /** A sleeved card in its pocket, with the plastic catching a little light. */
-export function Pocket({ width, name, uri, price, foil, quantity, chip, order = 0, onPress }: PocketProps) {
+export function Pocket({ width, name, uri, price, foil, quantity, change, showChange, order = 0, onPress }: PocketProps) {
   const inner = cardWidthIn(width);
+  const t = trend(change);
+  const label = showChange ? (change != null ? formatDeltaPct(change) : "—") : price != null ? formatUsd(price, { compact: true }) : null;
   return (
     <Animated.View entering={FadeIn.delay(order * 35).duration(260)}>
-      <Tilt onPress={onPress} accessibilityRole="button" accessibilityLabel={price != null ? `${name}, ${formatUsd(price)}` : name}>
+      <Tilt
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={[name, price != null ? formatUsd(price) : null, t ? t.spoken : null].filter(Boolean).join(", ")}
+      >
         <View style={[styles.pocket, { width, height: pocketHeight(width), borderRadius: cardRadius(inner) + POCKET_INSET }]}>
           <CardArt uri={uri} name={name} foil={foil} />
           {/* The sleeve: a soft diagonal glare over the card. */}
@@ -71,11 +79,12 @@ export function Pocket({ width, name, uri, price, foil, quantity, chip, order = 
               </Text>
             </View>
           )}
-          {(chip || price != null) && (
+          {label != null && (
             <View style={styles.priceRow} pointerEvents="none">
-              <View style={styles.price}>
-                <Text variant="number" color={chip?.color ?? "#FFFFFF"} style={{ fontSize: 10, lineHeight: 13 }}>
-                  {chip ? chip.label : formatUsd(price, { compact: true })}
+              <View style={[styles.price, t && { borderColor: t.edge }]}>
+                {t && <Ionicons name={t.icon} size={9} color={t.color} />}
+                <Text variant="number" color={t?.color ?? "#FFFFFF"} style={{ fontSize: 10, lineHeight: 13 }}>
+                  {label}
                 </Text>
               </View>
             </View>
@@ -84,6 +93,17 @@ export function Pocket({ width, name, uri, price, foil, quantity, chip, order = 
       </Tilt>
     </Animated.View>
   );
+}
+
+// Moves smaller than this read as holding steady.
+const FLAT_PCT = 1;
+
+/** Color, arrow and wording for a price change; null when there's no history. */
+export function trend(change: number | null | undefined) {
+  if (change == null || !Number.isFinite(change)) return null;
+  if (change >= FLAT_PCT) return { color: "#5CE0A0", edge: "rgba(92,224,160,0.45)", icon: "caret-up" as const, spoken: `up ${formatDeltaPct(change)} this week` };
+  if (change <= -FLAT_PCT) return { color: "#FF8A9A", edge: "rgba(255,138,154,0.45)", icon: "caret-down" as const, spoken: `down ${formatDeltaPct(change)} this week` };
+  return { color: "rgba(255,255,255,0.72)", edge: "rgba(255,255,255,0.18)", icon: "remove" as const, spoken: "steady this week" };
 }
 
 /** An empty pocket waiting for a card. */
@@ -117,6 +137,9 @@ const styles = StyleSheet.create({
   qty: { position: "absolute", top: 7, left: 7, paddingHorizontal: 6, height: 18, borderRadius: 9, backgroundColor: "rgba(8,9,12,0.8)", justifyContent: "center" },
   priceRow: { position: "absolute", right: 7, bottom: 7 },
   price: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
     height: 17,
     paddingHorizontal: 6,
     borderRadius: 9,
