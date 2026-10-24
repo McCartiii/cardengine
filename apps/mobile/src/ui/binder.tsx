@@ -39,13 +39,15 @@ interface PocketProps {
   price?: number | null;
   foil?: boolean;
   quantity?: number;
+  /** Replaces the price in the corner chip, e.g. a price change. */
+  chip?: { label: string; color?: string };
   /** Stagger for the fade-in. */
   order?: number;
   onPress: () => void;
 }
 
 /** A sleeved card in its pocket, with the plastic catching a little light. */
-export function Pocket({ width, name, uri, price, foil, quantity, order = 0, onPress }: PocketProps) {
+export function Pocket({ width, name, uri, price, foil, quantity, chip, order = 0, onPress }: PocketProps) {
   const inner = cardWidthIn(width);
   return (
     <Animated.View entering={FadeIn.delay(order * 35).duration(260)}>
@@ -69,11 +71,11 @@ export function Pocket({ width, name, uri, price, foil, quantity, order = 0, onP
               </Text>
             </View>
           )}
-          {price != null && (
+          {(chip || price != null) && (
             <View style={styles.priceRow} pointerEvents="none">
               <View style={styles.price}>
-                <Text variant="number" color="#FFFFFF" style={{ fontSize: 10, lineHeight: 13 }}>
-                  {formatUsd(price, { compact: true })}
+                <Text variant="number" color={chip?.color ?? "#FFFFFF"} style={{ fontSize: 10, lineHeight: 13 }}>
+                  {chip ? chip.label : formatUsd(price, { compact: true })}
                 </Text>
               </View>
             </View>

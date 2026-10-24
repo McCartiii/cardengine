@@ -10,6 +10,10 @@ import {
   priceKindForHolding,
   preferredPriceKind,
 } from "../lib/pricing.js";
+import { changeFromPoints, COLLECTION_SORTS, sortCollection } from "../lib/collectionSort.js";
+
+// How far back the collection price change looks.
+const CHANGE_WINDOW_DAYS = 7;
 
 const retailKindParam = z
   .enum(["auto", "normal", "nonfoil", "non-foil", "market", "foil", "etched"])
@@ -104,7 +108,8 @@ export function registerCollectionRoutes(app: FastifyInstance) {
         market: z.string().default("tcgplayer").transform(normalizeMarket),
         kind: retailKindParam.default("auto"),
         currency: z.string().default("USD").transform(normalizeCurrency),
-        sort: z.enum(["name", "value", "qty", "added"]).default("value"),
+        sort: z.enum(COLLECTION_SORTS).default("value"),
+        dir: z.enum(["asc", "desc"]).optional(),
         page: z.coerce.number().int().min(1).default(1),
         limit: z.coerce.number().int().min(1).max(200).default(60),
       })
@@ -177,6 +182,20 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       pricesByVariant.set(price.variantId, entries);
     }
 
+    // Price change over the last week, from each holding's own price kind.
+    const since = new Date(Date.now() - CHANGE_WINDOW_DAYS * 86_400_000);
+    const recentPoints = await prisma.pricePoint.findMany({
+      where: { variantId: { in: variantIds }, market: query.market, currency: query.currency, at: { gte: since } },
+      select: { variantId: true, kind: true, amount: true, at: true },
+    });
+    const pointsByVariantKind = new Map<string, Array<{ at: Date; amount: number }>>();
+    for (const p of recentPoints) {
+      const k = `${p.variantId}|${p.kind}`;
+      const arr = pointsByVariantKind.get(k) ?? [];
+      arr.push({ at: p.at, amount: p.amount });
+      pointsByVariantKind.set(k, arr);
+    }
+
     const variantsById = new Map(variants.map((variant) => [variant.variantId, variant]));
     const cards = owned.flatMap(([holdingId, qty]) => {
       const holding = holdings.get(holdingId);
@@ -203,23 +222,12 @@ export function registerCollectionRoutes(app: FastifyInstance) {
         quantity: qty,
         priceUsd: price,
         lineValue: price != null ? price * qty : null,
+        changePct: changeFromPoints(pointsByVariantKind.get(`${v.variantId}|${preferredKind}`) ?? []),
         addedAt: firstAdded.get(holdingId)?.toISOString() ?? null,
       }];
     });
 
-    cards.sort((a, b) => {
-      switch (query.sort) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "qty":
-          return b.quantity - a.quantity;
-        case "added":
-          return (b.addedAt ?? "").localeCompare(a.addedAt ?? "");
-        case "value":
-        default:
-          return (b.lineValue ?? 0) - (a.lineValue ?? 0);
-      }
-    });
+    sortCollection(cards, query.sort, query.dir);
 
     const totalValue = cards.reduce((s, c) => s + (c.lineValue ?? 0), 0);
     const start = (query.page - 1) * query.limit;

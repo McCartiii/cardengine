@@ -144,12 +144,17 @@ export interface OwnedCard {
   quantity: number;
   priceUsd: number | null;
   lineValue: number | null;
+  /** Price change over the last week, in percent; null without enough history. */
+  changePct?: number | null;
   addedAt: string | null;
 }
 
+export type CollectionSort = "value" | "price" | "change" | "type" | "rarity" | "added" | "name" | "qty";
+
 export async function getCollectionCards(params?: {
   q?: string;
-  sort?: "name" | "value" | "qty" | "added";
+  sort?: CollectionSort;
+  dir?: "asc" | "desc";
   page?: number;
   limit?: number;
 }): Promise<{

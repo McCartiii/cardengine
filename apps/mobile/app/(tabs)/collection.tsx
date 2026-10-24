@@ -3,15 +3,14 @@ import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "re
 import { useFocusEffect, useRouter } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { space } from "@/design/tokens";
+import { color, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
-import { formatUsd } from "@/design/format";
-import { getCollectionCards, type OwnedCard } from "@/lib/api";
+import { formatDeltaPct, formatUsd } from "@/design/format";
+import { getCollectionCards, type CollectionSort, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { binderPage, EmptyPocket, FlipBook, Pocket, pocketWidthForHeight, SearchField, Text, Touchable, tap } from "@/ui";
+import { binderPage, EmptyPocket, FlipBook, Pocket, pocketWidthForHeight, SearchField, Segmented, Sheet, Text, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
@@ -20,6 +19,19 @@ const MARGIN = 12;
 const GUTTER = 6;
 
 type Slot = OwnedCard | null;
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
+
+// Each sort, its natural direction first, and how to say each direction.
+const SORTS: ReadonlyArray<{ value: CollectionSort; label: string; icon: IconName; dir: "asc" | "desc"; dirLabels: [string, string] }> = [
+  { value: "value", label: "Value", icon: "wallet-outline", dir: "desc", dirLabels: ["Highest", "Lowest"] },
+  { value: "price", label: "Price", icon: "pricetag-outline", dir: "desc", dirLabels: ["Highest", "Lowest"] },
+  { value: "change", label: "Price change", icon: "trending-up", dir: "desc", dirLabels: ["Biggest gains", "Biggest drops"] },
+  { value: "added", label: "Date added", icon: "time-outline", dir: "desc", dirLabels: ["Newest", "Oldest"] },
+  { value: "type", label: "Card type", icon: "layers-outline", dir: "asc", dirLabels: ["Creatures first", "Lands first"] },
+  { value: "rarity", label: "Rarity", icon: "diamond-outline", dir: "asc", dirLabels: ["Mythic first", "Common first"] },
+  { value: "name", label: "Name", icon: "text-outline", dir: "asc", dirLabels: ["A to Z", "Z to A"] },
+  { value: "qty", label: "Quantity", icon: "copy-outline", dir: "desc", dirLabels: ["Most copies", "Fewest"] },
+];
 
 export default function BinderScreen() {
   const router = useRouter();
@@ -37,6 +49,9 @@ export default function BinderScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
+  const [sort, setSort] = useState<CollectionSort>("value");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [sortOpen, setSortOpen] = useState(false);
 
   // Three rows of pockets fill the page: as wide as the screen allows, unless the height runs out first.
   const [areaHeight, setAreaHeight] = useState(0);
@@ -46,7 +61,7 @@ export default function BinderScreen() {
 
   const load = useCallback(async (p: number) => {
     try {
-      const res = await getCollectionCards({ sort: "value", page: p, limit: FETCH_SIZE });
+      const res = await getCollectionCards({ sort, dir, page: p, limit: FETCH_SIZE });
       setCards((prev) => (p > 1 ? [...prev, ...res.cards] : res.cards));
       setTotals({ cards: res.totalCards, value: res.totalValue });
       setHasMore(res.hasMore);
@@ -55,7 +70,7 @@ export default function BinderScreen() {
     } catch {
       if (p === 1) setStatus("error");
     }
-  }, []);
+  }, [sort, dir]);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,17 +108,31 @@ export default function BinderScreen() {
     setPageIndex(0);
   };
 
+  const pickSort = (next: CollectionSort, nextDir: "asc" | "desc") => {
+    tap();
+    setSort(next);
+    setDir(nextDir);
+    setPageIndex(0);
+  };
+
+  const sortOption = SORTS.find((o) => o.value === sort) ?? SORTS[0];
+  // While sorting by change, the corner chip shows each card's move instead of its price.
+  const chipFor = (c: OwnedCard) => {
+    if (sort !== "change") return undefined;
+    if (c.changePct == null) return { label: "—", color: binderPage.muted };
+    return { label: formatDeltaPct(c.changePct), color: c.changePct >= 0 ? "#5CE0A0" : "#FF8A9A" };
+  };
+
   const openCard = (c: OwnedCard) => router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
   const scan = () => router.navigate("/(tabs)/scan");
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={["#191A20", binderPage.page]} style={styles.sheen} pointerEvents="none" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={styles.header}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.title}>My Binder</Text>
-            <Text variant="callout" color={binderPage.muted}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.title}>Binder</Text>
+            <Text variant="caption" color={binderPage.muted} numberOfLines={1}>
               {session
                 ? status === "ready"
                   ? `${formatUsd(totals.value)} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
@@ -112,19 +141,17 @@ export default function BinderScreen() {
             </Text>
           </View>
           {session && (
-            <Touchable
-              onPress={() => {
-                tap();
-                setSearchOpen((o) => !o);
-                if (searchOpen) setQuery("");
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={searchOpen ? "Close search" : "Search binder"}
-              pressedScale={0.92}
-              style={styles.iconButton}
-            >
-              <Ionicons name={searchOpen ? "close" : "search"} size={20} color="#FFFFFF" />
-            </Touchable>
+            <View style={styles.actions}>
+              <HeaderButton
+                icon={searchOpen ? "close" : "search"}
+                label={searchOpen ? "Close search" : "Search binder"}
+                onPress={() => {
+                  setSearchOpen((o) => !o);
+                  if (searchOpen) setQuery("");
+                }}
+              />
+              <HeaderButton icon="swap-vertical" label="Sort" onPress={() => setSortOpen(true)} />
+            </View>
           )}
         </View>
 
@@ -134,7 +161,12 @@ export default function BinderScreen() {
           </Animated.View>
         )}
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.tabs} accessibilityRole="tablist">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters}>
+          <Pressable onPress={() => setSortOpen(true)} accessibilityRole="button" accessibilityLabel={`Sorted by ${sortOption.label}`} style={styles.sortChip}>
+            <Ionicons name={dir === "desc" ? "arrow-down" : "arrow-up"} size={13} color="#FFFFFF" />
+            <Text style={styles.sortText}>{sortOption.label}</Text>
+          </Pressable>
+          <View style={styles.divider} />
           {["all", ...setTabs].map((id) => {
             const on = set === id;
             return (
@@ -143,9 +175,10 @@ export default function BinderScreen() {
                 onPress={() => pickSet(id)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
-                style={[styles.tab, on && styles.tabOn]}
+                hitSlop={6}
+                style={[styles.setTab, on && styles.setTabOn]}
               >
-                <Text style={[styles.tabText, { color: on ? binderPage.page : "rgba(255,255,255,0.82)" }]}>{id === "all" ? "All" : id.toUpperCase()}</Text>
+                <Text style={[styles.setText, on && styles.setTextOn]}>{id === "all" ? "All sets" : id.toUpperCase()}</Text>
               </Pressable>
             );
           })}
@@ -154,7 +187,7 @@ export default function BinderScreen() {
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
           {areaHeight > 0 && (
             <FlipBook
-              key={`${set}|${query}`}
+              key={`${set}|${query}|${sort}|${dir}`}
               pageCount={pages.length}
               backColor="#17181D"
               onIndexChange={(i) => {
@@ -174,6 +207,7 @@ export default function BinderScreen() {
                           price={c.priceUsd}
                           foil={c.finish !== "nonfoil"}
                           quantity={c.quantity}
+                          chip={chipFor(c)}
                           order={i}
                           onPress={() => openCard(c)}
                         />
@@ -195,39 +229,87 @@ export default function BinderScreen() {
         </View>
         <View style={{ height: tabBarSpace }} />
       </SafeAreaView>
+
+      <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort binder">
+        <View style={styles.sortList}>
+          {SORTS.map((o) => {
+            const on = o.value === sort;
+            return (
+              <Pressable
+                key={o.value}
+                onPress={() => {
+                  pickSort(o.value, on ? dir : o.dir);
+                  setSortOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={({ pressed }) => [styles.sortRow, pressed && { backgroundColor: color.surface2 }]}
+              >
+                <Ionicons name={o.icon} size={20} color={on ? color.ink : color.textSecondary} />
+                <Text variant="bodyStrong" color={on ? color.ink : color.textSecondary} style={{ flex: 1 }}>
+                  {o.label}
+                </Text>
+                {on && <Ionicons name="checkmark" size={20} color={color.ink} />}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Segmented
+          options={[
+            { value: sortOption.dir, label: sortOption.dirLabels[0] },
+            { value: sortOption.dir === "desc" ? "asc" : "desc", label: sortOption.dirLabels[1] },
+          ]}
+          value={dir}
+          onChange={(d) => pickSort(sort, d)}
+        />
+      </Sheet>
     </View>
+  );
+}
+
+function HeaderButton({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  return (
+    <Touchable
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={4}
+      pressedScale={0.9}
+      style={styles.headerButton}
+    >
+      <Ionicons name={icon} size={18} color="#FFFFFF" />
+    </Touchable>
   );
 }
 
 const styles = StyleSheet.create({
   // The whole screen is a matte black binder page.
   root: { flex: 1, backgroundColor: binderPage.page },
-  sheen: { position: "absolute", top: 0, left: 0, right: 0, height: 140 },
-  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg + 2, paddingTop: space.sm },
-  title: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.8, color: binderPage.text },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingTop: space.xs },
+  title: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: binderPage.text },
+  actions: { flexDirection: "row", gap: space.sm },
+  headerButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.14)",
   },
   searchWrap: { marginHorizontal: MARGIN, marginTop: space.md },
-  tabs: { gap: 6, paddingHorizontal: MARGIN, paddingTop: space.lg, paddingBottom: MARGIN, alignItems: "center" },
-  tab: {
-    height: 34,
-    paddingHorizontal: 16,
-    borderRadius: 17,
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  tabOn: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
-  tabText: { fontFamily: font.bold, fontSize: 13 },
+  filters: { alignItems: "center", gap: 4, paddingHorizontal: space.lg, paddingTop: 14, paddingBottom: 10 },
+  sortChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.1)" },
+  sortText: { fontFamily: font.semibold, fontSize: 13, color: "#FFFFFF" },
+  divider: { width: StyleSheet.hairlineWidth, height: 16, backgroundColor: "rgba(255,255,255,0.2)", marginHorizontal: 8 },
+  setTab: { height: 30, paddingHorizontal: 10, borderRadius: 15, justifyContent: "center" },
+  setTabOn: { backgroundColor: "#FFFFFF" },
+  setText: { fontFamily: font.semibold, fontSize: 13, color: "rgba(255,255,255,0.6)" },
+  setTextOn: { color: binderPage.page },
+  sortList: { marginHorizontal: -space.sm },
+  sortRow: { flexDirection: "row", alignItems: "center", gap: space.md, height: 46, paddingHorizontal: space.sm, borderRadius: 12 },
   page: { backgroundColor: binderPage.page, alignItems: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: GUTTER },
   dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 4 },
