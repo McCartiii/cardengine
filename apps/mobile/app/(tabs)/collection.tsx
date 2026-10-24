@@ -1,24 +1,23 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { setStatusBarStyle } from "expo-status-bar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { CARD_ASPECT, cardRadius, color, space } from "@/design/tokens";
+import { space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { CardArt, FlipBook, IconButton, SearchField, Text, Tilt, Touchable, tap } from "@/ui";
+import { binderPage, EmptyPocket, FlipBook, Pocket, pocketWidthForHeight, SearchField, Text, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
-// The binding edge down the left of the screen, where the holes are punched.
-const BINDING = 26;
-const HOLES = 5;
-const GAP = 8;
-// Punched holes show the desk under the page.
-const HOLE = "#DCE0E8";
+// Margin around the pockets and the gutter between them.
+const MARGIN = 12;
+const GUTTER = 6;
 
 type Slot = OwnedCard | null;
 
@@ -39,13 +38,11 @@ export default function BinderScreen() {
   const [query, setQuery] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
 
+  // Three rows of pockets fill the page: as wide as the screen allows, unless the height runs out first.
   const [areaHeight, setAreaHeight] = useState(0);
-  // The page runs from the binding to the right edge of the screen; three rows of cards fit its height.
-  const pageWidth = width - BINDING;
-  const rowHeight = ((areaHeight || height * 0.55) - 12 - GAP * 2) / 3;
-  const byHeight = rowHeight * CARD_ASPECT;
-  const byWidth = (pageWidth - space.lg - GAP * 2) / 3;
-  const sleeveWidth = Math.floor(Math.max(64, Math.min(byWidth, byHeight)));
+  const byWidth = (width - MARGIN * 2 - GUTTER * 2) / 3;
+  const byHeight = pocketWidthForHeight(((areaHeight || height * 0.55) - MARGIN - GUTTER * 2) / 3);
+  const pocketWidth = Math.floor(Math.max(70, Math.min(byWidth, byHeight)));
 
   const load = useCallback(async (p: number) => {
     try {
@@ -62,8 +59,10 @@ export default function BinderScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setStatusBarStyle("light");
       if (session) load(1);
       else setStatus("ready");
+      return () => setStatusBarStyle("dark");
     }, [session, load])
   );
 
@@ -99,16 +98,12 @@ export default function BinderScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.binding} pointerEvents="none">
-        {Array.from({ length: HOLES }, (_, i) => (
-          <View key={i} style={styles.hole} />
-        ))}
-      </View>
+      <LinearGradient colors={["#191A20", binderPage.page]} style={styles.sheen} pointerEvents="none" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={styles.header}>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.title}>My Binder</Text>
-            <Text variant="callout" color={color.textSecondary}>
+            <Text variant="callout" color={binderPage.muted}>
               {session
                 ? status === "ready"
                   ? `${formatUsd(totals.value)} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
@@ -117,14 +112,19 @@ export default function BinderScreen() {
             </Text>
           </View>
           {session && (
-            <IconButton
-              icon={searchOpen ? "close" : "search"}
-              label={searchOpen ? "Close search" : "Search binder"}
+            <Touchable
               onPress={() => {
+                tap();
                 setSearchOpen((o) => !o);
                 if (searchOpen) setQuery("");
               }}
-            />
+              accessibilityRole="button"
+              accessibilityLabel={searchOpen ? "Close search" : "Search binder"}
+              pressedScale={0.92}
+              style={styles.iconButton}
+            >
+              <Ionicons name={searchOpen ? "close" : "search"} size={20} color="#FFFFFF" />
+            </Touchable>
           )}
         </View>
 
@@ -145,29 +145,40 @@ export default function BinderScreen() {
                 accessibilityState={{ selected: on }}
                 style={[styles.tab, on && styles.tabOn]}
               >
-                <Text style={[styles.tabText, { color: on ? "#FFFFFF" : color.ink }]}>{id === "all" ? "All" : id.toUpperCase()}</Text>
+                <Text style={[styles.tabText, { color: on ? binderPage.page : "rgba(255,255,255,0.82)" }]}>{id === "all" ? "All" : id.toUpperCase()}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
-        <View style={styles.pageArea} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
+        <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
           {areaHeight > 0 && (
             <FlipBook
               key={`${set}|${query}`}
               pageCount={pages.length}
+              backColor="#17181D"
               onIndexChange={(i) => {
                 setPageIndex(i);
                 if (hasMore && i >= pages.length - 2) load(fetchedPage + 1);
               }}
               renderPage={(index) => (
                 <View style={[styles.page, { height: areaHeight }]}>
-                  <View style={[styles.grid, { width: sleeveWidth * 3 + GAP * 2 }]}>
+                  <View style={[styles.grid, { width: pocketWidth * 3 + GUTTER * 2 }]}>
                     {pages[index].map((c, i) =>
                       c ? (
-                        <Sleeve key={c.holdingId} card={c} width={sleeveWidth} order={i} onPress={() => openCard(c)} />
+                        <Pocket
+                          key={c.holdingId}
+                          width={pocketWidth}
+                          name={c.name}
+                          uri={c.imageUri}
+                          price={c.priceUsd}
+                          foil={c.finish !== "nonfoil"}
+                          quantity={c.quantity}
+                          order={i}
+                          onPress={() => openCard(c)}
+                        />
                       ) : (
-                        <EmptySleeve key={`empty-${index}-${i}`} width={sleeveWidth} onPress={session ? scan : () => router.push("/(auth)/sign-in")} />
+                        <EmptyPocket key={`empty-${index}-${i}`} width={pocketWidth} label="Scan" onPress={session ? scan : () => router.push("/(auth)/sign-in")} />
                       )
                     )}
                   </View>
@@ -188,96 +199,38 @@ export default function BinderScreen() {
   );
 }
 
-function Sleeve({ card, width, order, onPress }: { card: OwnedCard; width: number; order: number; onPress: () => void }) {
-  return (
-    <Animated.View entering={FadeIn.delay(order * 40).duration(300)}>
-      <Tilt onPress={onPress} accessibilityRole="button" accessibilityLabel={`${card.name}, ${formatUsd(card.priceUsd)}`} style={{ width }}>
-        <View style={styles.card}>
-          <CardArt uri={card.imageUri} name={card.name} foil={card.finish !== "nonfoil"} />
-          {card.quantity > 1 && (
-            <View style={styles.qty}>
-              <Text variant="number" color="#FFFFFF" style={{ fontSize: 10 }}>
-                ×{card.quantity}
-              </Text>
-            </View>
-          )}
-        </View>
-        {card.priceUsd != null && (
-          <View style={styles.priceRow} pointerEvents="none">
-            <View style={styles.priceChip}>
-              <Text variant="number" color={color.ink} style={{ fontSize: 11 }}>
-                {formatUsd(card.priceUsd, { compact: true })}
-              </Text>
-            </View>
-          </View>
-        )}
-      </Tilt>
-    </Animated.View>
-  );
-}
-
-function EmptySleeve({ width, onPress }: { width: number; onPress: () => void }) {
-  return (
-    <Touchable onPress={onPress} accessibilityRole="button" accessibilityLabel="Scan a card into this sleeve" pressedScale={0.95} style={{ width }}>
-      <View style={[styles.empty, { height: width / CARD_ASPECT, borderRadius: cardRadius(width) + 2 }]}>
-        <Ionicons name="add" size={20} color={color.textTertiary} />
-        <Text variant="caption" color={color.textTertiary} style={{ fontFamily: font.semibold }}>
-          Scan
-        </Text>
-      </View>
-    </Touchable>
-  );
-}
-
 const styles = StyleSheet.create({
-  // The whole screen is the binder page.
-  root: { flex: 1, backgroundColor: "#FFFFFF" },
-  binding: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: BINDING,
+  // The whole screen is a matte black binder page.
+  root: { flex: 1, backgroundColor: binderPage.page },
+  sheen: { position: "absolute", top: 0, left: 0, right: 0, height: 140 },
+  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg + 2, paddingTop: space.sm },
+  title: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.8, color: binderPage.text },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
-    justifyContent: "space-evenly",
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: "rgba(18,20,43,0.08)",
-    zIndex: 2,
-  },
-  hole: { width: 10, height: 10, borderRadius: 5, backgroundColor: HOLE },
-  pageArea: { flex: 1, marginLeft: BINDING },
-  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingLeft: BINDING + 6, paddingRight: space.lg, paddingTop: space.sm },
-  title: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.8, color: color.ink },
-  searchWrap: { marginLeft: BINDING + 2, marginRight: space.lg, marginTop: space.md },
-  tabs: { gap: 6, paddingLeft: BINDING + 2, paddingRight: space.lg, paddingTop: space.lg, paddingBottom: 12, alignItems: "center" },
-  tab: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "#F2F3F7", justifyContent: "center" },
-  tabOn: { backgroundColor: color.ink, borderColor: color.ink },
-  tabText: { fontFamily: font.bold, fontSize: 13 },
-  page: { backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP },
-  card: {
-    shadowColor: "#1B2240",
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  qty: { position: "absolute", top: 6, left: 6, paddingHorizontal: 6, height: 18, borderRadius: 9, backgroundColor: "rgba(11,14,38,0.78)", justifyContent: "center" },
-  priceRow: { position: "absolute", left: 0, right: 0, bottom: 6, alignItems: "center" },
-  priceChip: {
-    height: 20,
-    paddingHorizontal: 8,
-    borderRadius: 10,
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.92)",
-    shadowColor: "#1B2240",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.14)",
   },
-  empty: { backgroundColor: "#F3F4F8", alignItems: "center", justifyContent: "center", gap: 2 },
-  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 6, marginLeft: BINDING },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(18,20,43,0.16)" },
-  dotOn: { width: 18, backgroundColor: color.ink },
+  searchWrap: { marginHorizontal: MARGIN, marginTop: space.md },
+  tabs: { gap: 6, paddingHorizontal: MARGIN, paddingTop: space.lg, paddingBottom: MARGIN, alignItems: "center" },
+  tab: {
+    height: 34,
+    paddingHorizontal: 16,
+    borderRadius: 17,
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  tabOn: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
+  tabText: { fontFamily: font.bold, fontSize: 13 },
+  page: { backgroundColor: binderPage.page, alignItems: "center" },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GUTTER },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.22)" },
+  dotOn: { width: 18, backgroundColor: "#FFFFFF" },
 });

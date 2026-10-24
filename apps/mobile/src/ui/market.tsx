@@ -12,7 +12,8 @@ import type { MarketCard } from "../lib/api";
 import { Text, Touchable, tap } from "./primitives";
 import { CardArt } from "./cards";
 import { CountUp, FoilSweep, HoloRing, Sparkline } from "./holo";
-import { FlipBook, PageStack, PunchHoles } from "./flipbook";
+import { FlipBook } from "./flipbook";
+import { binderPage, EmptyPocket, Pocket } from "./binder";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -59,20 +60,15 @@ interface BinderCoverProps {
 
 const POCKETS = 8;
 const COLUMNS = 4;
-const POCKET_GAP = 8;
-const ROW_GAP = 8;
-const PAGE_PAD = 10;
-// The binding edge of the page, where the holes are punched.
-const BINDING = 22;
+const GUTTER = 5;
+const PAGE_PAD = 9;
 const PAGE_RADIUS = 22;
-// Punched holes show the desk under the page.
-const HOLE = "#E3E7EF";
 
-/** Home's hero: an open binder whose pages you can turn, on its indigo cover. */
+/** Home's hero: a black binder page of pocketed cards you can turn. */
 export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onEmpty }: BinderCoverProps) {
   const [pageWidth, setPageWidth] = useState(0);
   const [page, setPage] = useState(0);
-  const pocketWidth = pageWidth ? Math.floor((pageWidth - BINDING - PAGE_PAD - POCKET_GAP * (COLUMNS - 1)) / COLUMNS) : 0;
+  const pocketWidth = pageWidth ? Math.floor((pageWidth - PAGE_PAD * 2 - GUTTER * (COLUMNS - 1)) / COLUMNS) : 0;
 
   const pages = useMemo(() => {
     const slots: Array<BinderCard | null> = [...cards];
@@ -84,19 +80,12 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
 
   const renderPage = (i: number) => (
     <View style={styles.page}>
-      <PunchHoles color={HOLE} />
       <View style={styles.pockets}>
         {pages[i].map((c, j) =>
           c ? (
-            <Pocket key={c.id} card={c} width={pocketWidth} onPress={() => onCard(c.id)} />
+            <Pocket key={c.id} width={pocketWidth} name={c.name} uri={c.uri} price={c.price} order={j} onPress={() => onCard(c.id)} />
           ) : (
-            <Touchable key={`empty-${j}`} onPress={onEmpty} pressedScale={0.95} accessibilityRole="button" accessibilityLabel="Add a card">
-              <View style={{ width: pocketWidth }}>
-                <View style={[styles.emptyPocket, { height: pocketWidth / CARD_ASPECT, borderRadius: cardRadius(pocketWidth) + 2 }]}>
-                  <Ionicons name="add" size={18} color={color.textTertiary} />
-                </View>
-              </View>
-            </Touchable>
+            <EmptyPocket key={`empty-${j}`} width={pocketWidth} onPress={onEmpty} />
           )
         )}
       </View>
@@ -126,9 +115,9 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
 
       <View onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}>
         {pocketWidth > 0 && (
-          <PageStack radius={PAGE_RADIUS}>
-            <FlipBook key={pages.length} pageCount={pages.length} renderPage={renderPage} onIndexChange={setPage} pageStyle={styles.pageRadius} />
-          </PageStack>
+          <View style={styles.pageShadow}>
+            <FlipBook key={pages.length} pageCount={pages.length} renderPage={renderPage} onIndexChange={setPage} pageStyle={styles.pageRadius} backColor="#17181D" />
+          </View>
         )}
       </View>
 
@@ -140,25 +129,6 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
         </View>
       )}
     </View>
-  );
-}
-
-function Pocket({ card, width, onPress }: { card: BinderCard; width: number; onPress: () => void }) {
-  return (
-    <Touchable onPress={onPress} pressedScale={0.95} accessibilityRole="button" accessibilityLabel={`${card.name}, ${formatUsd(card.price)}`} style={{ width }}>
-      <View style={styles.pocketCard}>
-        <CardArt uri={card.uri} name={card.name} />
-      </View>
-      {card.price != null && (
-        <View style={styles.priceRow} pointerEvents="none">
-          <View style={styles.priceChip}>
-            <Text variant="number" color={color.ink} style={{ fontSize: 10 }}>
-              {formatUsd(card.price, { compact: true })}
-            </Text>
-          </View>
-        </View>
-      )}
-    </Touchable>
   );
 }
 
@@ -369,29 +339,9 @@ const styles = StyleSheet.create({
   coverValue: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: color.ink, fontVariant: ["tabular-nums"] },
   openButton: { flexDirection: "row", alignItems: "center", gap: 2, height: 36, paddingLeft: 16, paddingRight: 12, borderRadius: radius.pill, backgroundColor: color.ink, marginBottom: 2 },
   pageRadius: { borderRadius: PAGE_RADIUS },
-  page: { borderRadius: PAGE_RADIUS, backgroundColor: "#FFFFFF", paddingTop: PAGE_PAD + 2, paddingBottom: PAGE_PAD + 2, paddingLeft: BINDING, paddingRight: PAGE_PAD },
-  pockets: { flexDirection: "row", flexWrap: "wrap", columnGap: POCKET_GAP, rowGap: ROW_GAP },
-  pocketCard: {
-    shadowColor: "#1B2240",
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
-  },
-  priceRow: { position: "absolute", left: 0, right: 0, bottom: 5, alignItems: "center" },
-  priceChip: {
-    height: 18,
-    paddingHorizontal: 7,
-    borderRadius: 9,
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.92)",
-    shadowColor: "#1B2240",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  emptyPocket: { backgroundColor: "#F3F4F8", alignItems: "center", justifyContent: "center" },
+  pageShadow: { borderRadius: PAGE_RADIUS, shadowColor: "#0B0D1F", shadowOpacity: 0.28, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
+  page: { borderRadius: PAGE_RADIUS, backgroundColor: binderPage.page, padding: PAGE_PAD },
+  pockets: { flexDirection: "row", flexWrap: "wrap", gap: GUTTER },
   pageDots: { flexDirection: "row", justifyContent: "center", gap: 5, marginTop: 10 },
   pageDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(18,20,43,0.16)" },
   pageDotOn: { width: 16, backgroundColor: color.ink },

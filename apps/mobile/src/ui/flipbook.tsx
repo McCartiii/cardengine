@@ -17,9 +17,11 @@ interface FlipBookProps {
   onIndexChange?: (index: number) => void;
   /** Corner radius of the pages, so the turning sheet matches them. */
   pageStyle?: StyleProp<ViewStyle>;
+  /** Color of the back of a turning page. */
+  backColor?: string;
 }
 
-export function FlipBook({ pageCount, renderPage, initialIndex = 0, onIndexChange, pageStyle }: FlipBookProps) {
+export function FlipBook({ pageCount, renderPage, initialIndex = 0, onIndexChange, pageStyle, backColor = "#EEF0F5" }: FlipBookProps) {
   const [index, setIndex] = useState(Math.min(initialIndex, Math.max(0, pageCount - 1)));
   const [dir, setDir] = useState<Direction | null>(null);
   const [width, setWidth] = useState(0);
@@ -154,7 +156,7 @@ export function FlipBook({ pageCount, renderPage, initialIndex = 0, onIndexChang
           // Clipped so the folded-over sheet never covers what's left of the page.
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: "hidden" }, pageStyle]}>
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.face, sheetBack]}>
-              <View style={[StyleSheet.absoluteFill, styles.back, pageStyle]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: backColor }, pageStyle]} />
             </Animated.View>
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.face, sheetFront]}>
               {renderPage(sheetIndex)}
@@ -169,35 +171,6 @@ export function FlipBook({ pageCount, renderPage, initialIndex = 0, onIndexChang
 
 const styles = StyleSheet.create({
   face: { backfaceVisibility: "hidden" },
-  back: { backgroundColor: "#EEF0F5" },
   castShadow: { position: "absolute", top: 0, bottom: 0, left: 0 },
   shade: { backgroundColor: "#0B0E26" },
-});
-
-/** A page that sits on a narrower page beneath it, so the binder reads as a stack. */
-export function PageStack({ children, radius = 18, tint = "#E4E8F0" }: { children: React.ReactNode; radius?: number; tint?: string }) {
-  return (
-    <View style={{ paddingBottom: 8 }}>
-      <View pointerEvents="none" style={[stackStyles.under, { borderRadius: radius, backgroundColor: tint }]} />
-      <View style={[stackStyles.page, { borderRadius: radius }]}>{children}</View>
-    </View>
-  );
-}
-
-/** Punched holes down the page's binding edge; they show the cover through the page. */
-export function PunchHoles({ count = 3, color: holeColor }: { count?: number; color: string }) {
-  return (
-    <View style={stackStyles.holes} pointerEvents="none">
-      {Array.from({ length: count }, (_, i) => (
-        <View key={i} style={[stackStyles.hole, { backgroundColor: holeColor }]} />
-      ))}
-    </View>
-  );
-}
-
-const stackStyles = StyleSheet.create({
-  under: { position: "absolute", left: 18, right: 18, bottom: 0, top: 16 },
-  page: { shadowColor: "#1B2240", shadowOpacity: 0.12, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
-  holes: { position: "absolute", left: 0, top: 0, bottom: 0, width: 22, alignItems: "center", justifyContent: "space-evenly" },
-  hole: { width: 7, height: 7, borderRadius: 4 },
 });
