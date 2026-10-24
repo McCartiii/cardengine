@@ -47,6 +47,8 @@ export interface ScanCandidate {
   score: number;
   matchType: string;
   prices: Array<{ market: string; kind: string; currency: string; amount: number }>;
+  /** Matched on the phone; prices are still on their way. */
+  pricing?: boolean;
 }
 
 export interface CollectionEntry {

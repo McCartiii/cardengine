@@ -35,6 +35,8 @@ interface ScanState {
   remove: (key: string) => void;
   replaceCandidate: (key: string, candidate: ScanCandidate) => void;
   setFinish: (key: string, finish: Finish) => void;
+  /** Fills in prices and printings for an instant local match, unless the user has since picked another card. */
+  enrich: (key: string, variantId: string, patch: Partial<ScanCandidate>, alternatives?: ScanCandidate[]) => void;
   markAdded: (keys: string[]) => void;
   clearAdded: () => void;
   setPhase: (phase: ScanPhase, detectedName?: string | null) => void;
@@ -85,6 +87,17 @@ export const useScanStore = create<ScanState>((set, get) => ({
         // Keep the old match in the list so the user can switch back.
         const alternatives = [p.candidate, ...p.alternatives.filter((a) => a.variantId !== candidate.variantId && a.variantId !== p.candidate.variantId)];
         return { ...p, candidate, alternatives };
+      }),
+    }));
+  },
+
+  enrich(key, variantId, patch, alternatives) {
+    set((s) => ({
+      pending: s.pending.map((p) => {
+        if (p.key !== key || p.candidate.variantId !== variantId) return p;
+        // The server may know the image and rarity; keep what we matched if it doesn't.
+        const candidate = { ...p.candidate, ...patch, imageUri: patch.imageUri ?? p.candidate.imageUri, variantId, pricing: false };
+        return { ...p, candidate, alternatives: alternatives?.length ? alternatives : p.alternatives };
       }),
     }));
   },

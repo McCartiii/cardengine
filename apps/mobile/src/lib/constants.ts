@@ -14,8 +14,8 @@ export const SCANNER = {
   MAX_NAME_LEN: 40,
   // Score threshold below which we discard API matches
   MIN_CONFIDENCE_SCORE: 45,
-  // Process every N frames (Vision Camera runs at ~30-60fps; we only need ~8/s)
-  FRAME_INTERVAL: 6,
+  // Read every Nth frame: at 30fps that is ~10 reads a second
+  FRAME_INTERVAL: 3,
 } as const;
 
 // Legacy palette for screens not yet moved to src/design/tokens. Values map

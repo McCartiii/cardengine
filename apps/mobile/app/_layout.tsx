@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAuthStore } from "../src/store/authStore";
 import { initOfflineDB, startSyncLoop } from "../src/lib/offlineQueue";
+import { loadCardMatcher } from "../src/lib/scanIndex";
 import { addCollectionEvents } from "../src/lib/api";
 import { useFonts } from "expo-font";
 import { color } from "../src/design/tokens";
@@ -46,8 +47,11 @@ export default function RootLayout() {
   // Fall through on error so a missing font never blocks the app.
   const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
 
-  // Init SQLite once
-  useEffect(() => { initOfflineDB(); }, []);
+  // Init SQLite once, and get the scan index ready before the first scan.
+  useEffect(() => {
+    initOfflineDB();
+    void loadCardMatcher();
+  }, []);
 
   // Start sync loop when authenticated
   useEffect(() => {

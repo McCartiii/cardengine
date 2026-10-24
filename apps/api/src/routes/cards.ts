@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { scryfallCache } from "../lib/scryfallCache.js";
 import { preferredPriceKind } from "../lib/pricing.js";
+import { buildScanIndex } from "../lib/scanIndex.js";
+import { gzipSync } from "node:zlib";
 import type { ScryfallLiveData, ScryfallLivePrices } from "../types/scryfall.js";
 
 export function registerCardRoutes(app: FastifyInstance) {
@@ -602,6 +604,31 @@ export function registerCardRoutes(app: FastifyInstance) {
   );
 
   // ── Scan: identify card from OCR fields ──
+  // ── Scan index: every printing's name, set and number, for on-device matching ──
+  // Built once per catalog version and served gzipped (~a few MB for all of Magic).
+  let scanIndexCache: { version: string; json: string; gz: Buffer } | null = null;
+  app.get("/v1/scan/index", async (req, reply) => {
+    const query = z.object({ have: z.string().optional() }).parse(req.query);
+    const stats = await prisma.cardVariant.aggregate({ where: { game: "mtg" }, _count: true, _max: { updatedAt: true } });
+    const version = `${stats._count}-${stats._max.updatedAt?.getTime() ?? 0}`;
+    if (query.have === version) return { version, upToDate: true };
+
+    if (scanIndexCache?.version !== version) {
+      const variants = await prisma.cardVariant.findMany({
+        where: { game: "mtg" },
+        select: { variantId: true, cardId: true, name: true, setId: true, collectorNumber: true },
+      });
+      const json = JSON.stringify(buildScanIndex(variants, version));
+      scanIndexCache = { version, json, gz: gzipSync(json) };
+    }
+    reply.header("content-type", "application/json; charset=utf-8");
+    reply.header("cache-control", "private, max-age=3600");
+    reply.header("vary", "accept-encoding");
+    if (!/\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) return reply.send(scanIndexCache.json);
+    reply.header("content-encoding", "gzip");
+    return reply.send(scanIndexCache.gz);
+  });
+
   app.post("/v1/scan/identify", async (req) => {
     const body = z
       .object({

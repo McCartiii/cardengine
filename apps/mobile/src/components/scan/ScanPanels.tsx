@@ -76,7 +76,7 @@ export function ResultCard({ scan, onWrongCard }: { scan: PendingScan; onWrongCa
   const { incrementQty, decrementQty, setFinish, dismissResult } = useScanStore();
   const c = scan.candidate;
   const price = candidatePrice(c, scan.finish);
-  const hasFoil = candidatePrice(c, "foil") != null;
+  const hasFoil = candidatePrice(c, "foil") != null || !!c.pricing;
 
   return (
     <Animated.View entering={FadeInDown.springify().damping(18)} exiting={FadeOutDown.duration(160)} layout={LinearTransition} style={styles.result}>
@@ -96,7 +96,7 @@ export function ResultCard({ scan, onWrongCard }: { scan: PendingScan; onWrongCa
           {[setLabel(c.setId, c.collectorNumber), c.rarity ? c.rarity[0].toUpperCase() + c.rarity.slice(1) : null].filter(Boolean).join(" · ")}
         </Text>
         <View style={styles.resultRow}>
-          <Text style={styles.resultPrice}>{price != null ? formatUsd(price) : "No price"}</Text>
+          <Text style={[styles.resultPrice, c.pricing && { opacity: 0.4 }]}>{price != null ? formatUsd(price) : c.pricing ? "$ —" : "No price"}</Text>
           <FinishToggle value={scan.finish} foilAvailable={hasFoil} onChange={(f) => setFinish(scan.key, f)} />
         </View>
         <View style={styles.resultRow}>

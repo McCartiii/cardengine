@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View, useWindowDimensions, type GestureResponderEvent } from "react-native";
-import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { Camera, useCameraDevice, useCameraFormat, useCameraPermission } from "react-native-vision-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -27,6 +27,8 @@ export default function ScanScreen() {
   const close = () => router.navigate("/(tabs)");
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice("back");
+  // 720p is plenty for a card held close and much quicker to read than 4K.
+  const format = useCameraFormat(device, [{ videoResolution: { width: 1280, height: 720 } }, { fps: 30 }]);
   const camera = useRef<Camera>(null);
 
   const [paused, setPaused] = useState(false);
@@ -99,6 +101,8 @@ export default function ScanScreen() {
         ref={camera}
         style={StyleSheet.absoluteFill}
         device={device}
+        format={format}
+        fps={format ? Math.min(30, format.maxFps) : undefined}
         isActive={focused && !paused}
         frameProcessor={frameProcessor}
         photo={false}
