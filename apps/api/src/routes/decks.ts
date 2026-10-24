@@ -144,6 +144,8 @@ export function registerDeckRoutes(app: FastifyInstance) {
                 typeLine: true,
                 rarity: true,
                 colors: true,
+                colorIdentity: true,
+                oracleText: true,
                 cmc: true,
               },
             },

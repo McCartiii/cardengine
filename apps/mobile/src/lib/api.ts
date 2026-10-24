@@ -229,6 +229,9 @@ export interface DeckCard {
     typeLine: string | null;
     rarity: string | null;
     cmc: number | null;
+    colors?: string[] | null;
+    colorIdentity?: string[] | null;
+    oracleText?: string | null;
   } | null;
 }
 

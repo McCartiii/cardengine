@@ -19,6 +19,8 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../src/lib/constants";
+import { DeckAnalysisView } from "../../src/components/deck/DeckAnalysisView";
+import { OpeningHand } from "../../src/components/deck/OpeningHand";
 import {
   getDeck,
   getDeckEdhrec,
@@ -32,7 +34,7 @@ import {
   type DeckCard,
 } from "../../src/lib/api";
 
-type Tab = "cards" | "edhrec" | "ai";
+type Tab = "cards" | "analysis" | "edhrec" | "ai";
 
 const SECTION_ORDER = ["commander", "mainboard", "sideboard", "companion"];
 const SECTION_LABEL: Record<string, string> = {
@@ -54,6 +56,7 @@ export default function DeckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("cards");
+  const [showHand, setShowHand] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deck, setDeck] = useState<Awaited<ReturnType<typeof getDeck>> | null>(null);
 
@@ -246,10 +249,10 @@ export default function DeckDetailScreen() {
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
-        {(["cards", "edhrec", "ai"] as Tab[]).map((t) => (
+        {(["cards", "analysis", "edhrec", "ai"] as Tab[]).map((t) => (
           <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]} onPress={() => setTab(t)}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === "cards" ? "Cards" : t === "edhrec" ? "EDHRec" : "AI Advice"}
+              {t === "cards" ? "Cards" : t === "analysis" ? "Analysis" : t === "edhrec" ? "EDHRec" : "AI"}
             </Text>
           </TouchableOpacity>
         ))}
@@ -300,6 +303,10 @@ export default function DeckDetailScreen() {
           }
         />
       )}
+
+      {/* Analysis tab */}
+      {tab === "analysis" && <DeckAnalysisView cards={d.cards} format={d.format} onTestHand={() => setShowHand(true)} />}
+      <OpeningHand visible={showHand} cards={d.cards} deckName={d.name} format={d.format} onClose={() => setShowHand(false)} />
 
       {/* EDHRec tab */}
       {tab === "edhrec" && (
