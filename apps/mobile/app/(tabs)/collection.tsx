@@ -2,24 +2,23 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { CARD_ASPECT, cardRadius, color, hairline, space } from "@/design/tokens";
+import { CARD_ASPECT, cardRadius, color, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { CardArt, FlipBook, IconButton, PageStack, PunchHoles, SearchField, Text, Tilt, Touchable, tap } from "@/ui";
+import { CardArt, FlipBook, IconButton, SearchField, Text, Tilt, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
-// The binding edge of each page, where the holes are punched.
-const RING_COLUMN = 22;
-const PAGE_PAD = 10;
+// The binding edge down the left of the screen, where the holes are punched.
+const BINDING = 26;
+const HOLES = 5;
 const GAP = 8;
 // Punched holes show the desk under the page.
-const HOLE = "#E3E7EF";
+const HOLE = "#DCE0E8";
 
 type Slot = OwnedCard | null;
 
@@ -41,11 +40,11 @@ export default function BinderScreen() {
   const [pageIndex, setPageIndex] = useState(0);
 
   const [areaHeight, setAreaHeight] = useState(0);
-  const pageWidth = width - space.lg * 2;
-  // Fit three rows of cards in the measured space; page padding and the stack edge take ~30.
-  const rowHeight = ((areaHeight || height * 0.55) - 30 - GAP * 2) / 3;
+  // The page runs from the binding to the right edge of the screen; three rows of cards fit its height.
+  const pageWidth = width - BINDING;
+  const rowHeight = ((areaHeight || height * 0.55) - 12 - GAP * 2) / 3;
   const byHeight = rowHeight * CARD_ASPECT;
-  const byWidth = (pageWidth - RING_COLUMN - PAGE_PAD - GAP * 2) / 3;
+  const byWidth = (pageWidth - space.lg - GAP * 2) / 3;
   const sleeveWidth = Math.floor(Math.max(64, Math.min(byWidth, byHeight)));
 
   const load = useCallback(async (p: number) => {
@@ -100,7 +99,11 @@ export default function BinderScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={["#DCE4EF", color.bg]} style={styles.sky} pointerEvents="none" />
+      <View style={styles.binding} pointerEvents="none">
+        {Array.from({ length: HOLES }, (_, i) => (
+          <View key={i} style={styles.hole} />
+        ))}
+      </View>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={styles.header}>
           <View style={{ flex: 1, gap: 2 }}>
@@ -148,22 +151,17 @@ export default function BinderScreen() {
           })}
         </ScrollView>
 
-        <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
-        <View style={{ paddingHorizontal: space.lg }}>
-          <PageStack radius={24}>
-          <FlipBook
-            key={`${set}|${query}`}
-            pageCount={pages.length}
-            pageStyle={styles.pageRadius}
-            onIndexChange={(i) => {
-              setPageIndex(i);
-              if (hasMore && i >= pages.length - 2) load(fetchedPage + 1);
-            }}
-            renderPage={(index) => (
-              <View style={styles.page}>
-                <PunchHoles color={HOLE} />
-                <View style={styles.rings} pointerEvents="none" />
-                <View style={{ flex: 1, paddingTop: PAGE_PAD + 2, paddingRight: PAGE_PAD, paddingBottom: 8 }}>
+        <View style={styles.pageArea} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
+          {areaHeight > 0 && (
+            <FlipBook
+              key={`${set}|${query}`}
+              pageCount={pages.length}
+              onIndexChange={(i) => {
+                setPageIndex(i);
+                if (hasMore && i >= pages.length - 2) load(fetchedPage + 1);
+              }}
+              renderPage={(index) => (
+                <View style={[styles.page, { height: areaHeight }]}>
                   <View style={[styles.grid, { width: sleeveWidth * 3 + GAP * 2 }]}>
                     {pages[index].map((c, i) =>
                       c ? (
@@ -174,11 +172,9 @@ export default function BinderScreen() {
                     )}
                   </View>
                 </View>
-              </View>
-            )}
-          />
-          </PageStack>
-        </View>
+              )}
+            />
+          )}
         </View>
 
         <View style={styles.dots} accessibilityElementsHidden>
@@ -234,19 +230,31 @@ function EmptySleeve({ width, onPress }: { width: number; onPress: () => void })
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bg },
-  sky: { position: "absolute", top: 0, left: 0, right: 0, height: 280 },
-  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingTop: space.sm },
+  // The whole screen is the binder page.
+  root: { flex: 1, backgroundColor: "#FFFFFF" },
+  binding: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: BINDING,
+    alignItems: "center",
+    justifyContent: "space-evenly",
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: "rgba(18,20,43,0.08)",
+    zIndex: 2,
+  },
+  hole: { width: 10, height: 10, borderRadius: 5, backgroundColor: HOLE },
+  pageArea: { flex: 1, marginLeft: BINDING },
+  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingLeft: BINDING + 6, paddingRight: space.lg, paddingTop: space.sm },
   title: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.8, color: color.ink },
-  searchWrap: { marginHorizontal: space.lg, marginTop: space.md },
-  tabs: { gap: 6, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: 14, alignItems: "center" },
-  tab: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.75)", justifyContent: "center", ...hairline },
+  searchWrap: { marginLeft: BINDING + 2, marginRight: space.lg, marginTop: space.md },
+  tabs: { gap: 6, paddingLeft: BINDING + 2, paddingRight: space.lg, paddingTop: space.lg, paddingBottom: 12, alignItems: "center" },
+  tab: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "#F2F3F7", justifyContent: "center" },
   tabOn: { backgroundColor: color.ink, borderColor: color.ink },
   tabText: { fontFamily: font.bold, fontSize: 13 },
-  page: { flexDirection: "row", borderRadius: 24, backgroundColor: "#FFFFFF" },
-  pageRadius: { borderRadius: 24 },
-  rings: { width: RING_COLUMN },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP, alignSelf: "center" },
+  page: { backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP },
   card: {
     shadowColor: "#1B2240",
     shadowOpacity: 0.16,
@@ -269,7 +277,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   empty: { backgroundColor: "#F3F4F8", alignItems: "center", justifyContent: "center", gap: 2 },
-  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 6, marginLeft: BINDING },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(18,20,43,0.16)" },
   dotOn: { width: 18, backgroundColor: color.ink },
 });
