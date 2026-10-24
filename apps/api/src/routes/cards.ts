@@ -632,21 +632,55 @@ export function registerCardRoutes(app: FastifyInstance) {
       return dp[la][lb];
     }
 
+    // Every non-foil printing of a card, with prices, ordered by set code.
+    async function printingsOf(cardId: string) {
+      const variants = await prisma.cardVariant.findMany({
+        where: { cardId, game: "mtg", NOT: { variantId: { endsWith: "-foil" } } },
+        take: 40,
+      });
+      if (variants.length <= 1) return [];
+      const ps = await prisma.priceCache.findMany({ where: { variantId: { in: variants.map((v) => v.variantId) } } });
+      return variants
+        .map((v) => ({
+          variantId: v.variantId,
+          cardId: v.cardId,
+          name: v.name,
+          setId: v.setId,
+          collectorNumber: v.collectorNumber,
+          imageUri: v.imageUri,
+          manaCost: v.manaCost,
+          typeLine: v.typeLine,
+          rarity: v.rarity,
+          score: 0,
+          matchType: "printing",
+          prices: ps
+            .filter((p) => p.variantId === v.variantId)
+            .map((p) => ({ market: p.market, kind: p.kind, currency: p.currency, amount: p.amount })),
+        }))
+        .sort((a, b) => (b.setId ?? "").localeCompare(a.setId ?? ""));
+    }
+
     const nameNorm = body.name
       .toLowerCase()
       .replace(/[^a-z0-9 ]/g, "")
       .trim();
 
+    // Printed collector numbers are zero-padded ("0386"); stored ones aren't.
+    const collectorNumber = body.collectorNumber?.replace(/^0+(?=\d)/, "");
+
     // If we have exact set+collector, try direct lookup first
-    if (body.setCode && body.collectorNumber) {
+    if (body.setCode && collectorNumber) {
       const exact = await prisma.cardVariant.findFirst({
         where: {
           setId: { equals: body.setCode.toLowerCase(), mode: "insensitive" },
-          collectorNumber: body.collectorNumber,
+          collectorNumber: { in: [...new Set([collectorNumber, body.collectorNumber!])] },
           game: "mtg",
+          NOT: { variantId: { endsWith: "-foil" } },
         },
       });
-      if (exact) {
+      // Trust it only when the name agrees too, so a misread number can't swap the card.
+      const exactName = exact?.name.toLowerCase().replace(/[^a-z0-9 ]/g, "") ?? "";
+      if (exact && (exactName.includes(nameNorm) || nameNorm.includes(exactName.split(" // ")[0]) || levenshtein(exactName, nameNorm) <= 3)) {
         const prices = await prisma.priceCache.findMany({ where: { variantId: exact.variantId } });
         return {
           candidates: [
@@ -670,6 +704,7 @@ export function registerCardRoutes(app: FastifyInstance) {
               })),
             },
           ],
+          printings: await printingsOf(exact.cardId),
         };
       }
     }
@@ -731,7 +766,7 @@ export function registerCardRoutes(app: FastifyInstance) {
 
       if (body.setCode && c.setId?.toLowerCase() === body.setCode.toLowerCase()) {
         score += 10;
-        if (body.collectorNumber && c.collectorNumber === body.collectorNumber) {
+        if (collectorNumber && c.collectorNumber === collectorNumber) {
           score += 10;
           matchType = "set_collector";
         }
@@ -788,6 +823,8 @@ export function registerCardRoutes(app: FastifyInstance) {
         matchType: c.matchType,
         prices: priceMap.get(c.variantId) ?? [],
       })),
+      // Other printings of the best match, so a wrong set is one tap to fix.
+      printings: top[0] ? await printingsOf(top[0].cardId) : [],
     };
   });
 

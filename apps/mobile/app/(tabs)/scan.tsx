@@ -1,49 +1,72 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
-import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-} from "react-native-vision-camera";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, View, useWindowDimensions, type GestureResponderEvent } from "react-native";
+import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { CARD_ASPECT, space } from "@/design/tokens";
 import { useCardScanner } from "@/hooks/useCardScanner";
-import { ScanOverlay } from "@/components/ScanOverlay";
-import { ScannedCardTray } from "@/components/ScannedCardTray";
-import { LastScannedThumb } from "@/components/LastScannedThumb";
 import { useScanStore } from "@/store/scanStore";
-import { COLORS } from "@/lib/constants";
-import { EmptyState, IconButton, Screen } from "@/ui";
+import { ScanFrame, type FrameRect } from "@/components/scan/ScanFrame";
+import { AlternativesSheet, ResultCard, ReviewSheet, SessionBar, useAddToBinder, useStack } from "@/components/scan/ScanPanels";
+import { EmptyState, IconButton, Screen, tap } from "@/ui";
+
+// Room reserved under the frame for the result card and the session bar.
+const RESULT_SPACE = 150;
+const SESSION_SPACE = 64;
 
 export default function ScanScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const focused = useIsFocused();
   // The tab bar is hidden while scanning, so this is the way out.
   const close = () => router.navigate("/(tabs)");
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [cameraPosition, setCameraPosition] = useState<"back" | "front">("back");
+  const device = useCameraDevice("back");
+  const camera = useRef<Camera>(null);
+
   const [paused, setPaused] = useState(false);
-  const [flashOn, setFlashOn] = useState(false);
-  const [trayOpen, setTrayOpen] = useState(false);
+  const [torch, setTorch] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number; id: number } | null>(null);
 
-  const device = useCameraDevice(cameraPosition);
-  const { frameProcessor } = useCardScanner();
-  const { detectedName, detectedPrice, pending } = useScanStore();
+  const sheetsOpen = reviewOpen || fixing != null;
+  const { frameProcessor } = useCardScanner({ enabled: !paused && !sheetsOpen });
+  const { phase, detectedName, lastKey, pending } = useScanStore();
+  const { waiting } = useStack();
+  const { add, state: addState } = useAddToBinder();
+  const result = pending.find((p) => p.key === lastKey && !p.added) ?? null;
+  const fixingScan = pending.find((p) => p.key === fixing) ?? null;
 
-  const unaddedPending = pending.filter((p) => !p.added);
-  const lastScanned = unaddedPending[0] ?? null;
-  const totalPending = unaddedPending.reduce((s, p) => s + p.quantity, 0);
-
-  // Request camera permission on mount
   useEffect(() => {
     if (!hasPermission) requestPermission();
   }, [hasPermission, requestPermission]);
 
-  // Close tray if all cards were cleared externally
   useEffect(() => {
-    if (trayOpen && unaddedPending.length === 0) setTrayOpen(false);
-  }, [trayOpen, unaddedPending.length]);
+    if (!focusPoint) return;
+    const t = setTimeout(() => setFocusPoint(null), 700);
+    return () => clearTimeout(t);
+  }, [focusPoint]);
+
+  // The biggest card-shaped window that fits between the controls and the panels.
+  const frameTop = insets.top + 112;
+  const bottomReserve = Math.max(insets.bottom, space.md) + SESSION_SPACE + RESULT_SPACE + space.lg;
+  const frameHeight = Math.max(200, height - frameTop - bottomReserve);
+  const frameWidth = Math.min(width * 0.78, frameHeight * CARD_ASPECT);
+  const rect: FrameRect = { top: frameTop, left: (width - frameWidth) / 2, width: frameWidth, height: frameWidth / CARD_ASPECT };
+
+  const focusAt = (e: GestureResponderEvent) => {
+    const { locationX: x, locationY: y } = e.nativeEvent;
+    if (!device?.supportsFocus) return;
+    camera.current?.focus({ x, y }).catch(() => {});
+    setFocusPoint({ x, y, id: Date.now() });
+    tap();
+  };
 
   if (!hasPermission) {
     return (
@@ -52,7 +75,7 @@ export default function ScanScreen() {
         <EmptyState
           icon="camera-outline"
           title="Allow camera access"
-          body="Card Engine reads the card name through your camera. Nothing is recorded or uploaded."
+          body="Card Engine reads the card's name and set through your camera. Nothing is recorded or uploaded."
           action="Allow camera"
           onAction={requestPermission}
         />
@@ -72,166 +95,92 @@ export default function ScanScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      {/* Full-screen camera feed */}
       <Camera
+        ref={camera}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={!paused}
+        isActive={focused && !paused}
         frameProcessor={frameProcessor}
         photo={false}
         video={false}
         videoStabilizationMode="auto"
         androidPreviewViewType="texture-view"
-        torch={flashOn ? "on" : "off"}
+        torch={torch ? "on" : "off"}
       />
 
-      {/* Vignette, bounding box, name badge, price overlay */}
-      <ScanOverlay
-        detectedName={detectedName}
-        detectedPrice={detectedPrice}
-      />
-
-      {/* Top control bar */}
-      <View style={styles.topBarWrap} pointerEvents="box-none">
-        <SafeAreaView edges={["top"]}>
-          <View style={styles.topBar}>
-            <View style={styles.topBarRight}>
-              <IconButton icon="close" label="Close scanner" variant="glass" onPress={close} />
-            {/* Flash toggle */}
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => setFlashOn((f) => !f)}
-              activeOpacity={0.75}
-            >
-              <Ionicons
-                name={flashOn ? "flash" : "flash-outline"}
-                size={20}
-                color="#fff"
-              />
-            </TouchableOpacity>
-            </View>
-
-            <View style={styles.topBarRight}>
-              {/* Pause / resume */}
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() => setPaused((p) => !p)}
-                activeOpacity={0.75}
-              >
-                <Ionicons
-                  name={paused ? "play" : "pause"}
-                  size={20}
-                  color="#fff"
-                />
-              </TouchableOpacity>
-
-              {/* Camera flip */}
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() =>
-                  setCameraPosition((pos) => (pos === "back" ? "front" : "back"))
-                }
-                activeOpacity={0.75}
-              >
-                <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </SafeAreaView>
-      </View>
-
-      {/* Last-scanned thumbnail (collapsed state) */}
-      {!trayOpen && lastScanned && (
-        <LastScannedThumb
-          scan={lastScanned}
-          totalCount={totalPending}
-          onViewMore={() => setTrayOpen(true)}
+      {/* Tap anywhere on the feed to focus there. */}
+      <Pressable style={StyleSheet.absoluteFill} onPress={focusAt} accessibilityLabel="Tap to focus" />
+      {focusPoint && (
+        <Animated.View
+          key={focusPoint.id}
+          entering={FadeIn.duration(120)}
+          exiting={FadeOut.duration(300)}
+          pointerEvents="none"
+          style={[styles.focusRing, { left: focusPoint.x - 32, top: focusPoint.y - 32 }]}
         />
       )}
 
-      {/* Full pending tray (expanded state) */}
-      {trayOpen && (
-        <ScannedCardTray onClose={() => setTrayOpen(false)} />
-      )}
+      <ScanFrame rect={rect} phase={phase} name={detectedName} paused={paused} />
 
-      {/* Hint when nothing is pending and not paused */}
-      {!lastScanned && !paused && (
-        <SafeAreaView edges={["bottom"]} style={styles.bottomHint} pointerEvents="none">
-          <Text style={styles.bottomHintText}>
-            Point at a card — it'll scan automatically
-          </Text>
-        </SafeAreaView>
-      )}
-
-      {/* Paused indicator */}
-      {paused && (
-        <View style={styles.pausedBadge} pointerEvents="none">
-          <Ionicons name="pause-circle" size={18} color={COLORS.textMuted} />
-          <Text style={styles.pausedText}>Paused</Text>
+      <View style={[styles.topBar, { top: insets.top + space.sm }]} pointerEvents="box-none">
+        <CameraButton icon="close" label="Close scanner" onPress={close} />
+        <View style={styles.topRight}>
+          {device.hasTorch && <CameraButton icon={torch ? "flash" : "flash-outline"} label={torch ? "Turn light off" : "Turn light on"} on={torch} onPress={() => setTorch((t) => !t)} />}
+          <CameraButton icon={paused ? "play" : "pause"} label={paused ? "Resume scanning" : "Pause scanning"} on={paused} onPress={() => setPaused((p) => !p)} />
         </View>
-      )}
+      </View>
+
+      <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, space.md) }]} pointerEvents="box-none">
+        {result && <ResultCard key={result.key} scan={result} onWrongCard={() => setFixing(result.key)} />}
+        <SessionBar onReview={() => setReviewOpen(true)} onAdd={() => add(waiting)} adding={addState} />
+      </View>
+
+      <ReviewSheet
+        visible={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        adding={addState === "adding"}
+        onAdd={async () => {
+          if (await add(waiting)) setReviewOpen(false);
+        }}
+      />
+      <AlternativesSheet scan={fixingScan} onClose={() => setFixing(null)} />
     </View>
   );
 }
 
+function CameraButton({ icon, label, on, onPress }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; on?: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={({ pressed }) => [styles.camButton, on && styles.camButtonOn, pressed && { transform: [{ scale: 0.92 }] }]}
+    >
+      <Ionicons name={icon} size={20} color={on ? "#0E0F13" : "#FFFFFF"} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
+  root: { flex: 1, backgroundColor: "#000" },
   closeStandalone: { marginLeft: 16, marginTop: 8 },
-  topBarWrap: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  topBarRight: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(0,0,0,0.45)",
+  topBar: { position: "absolute", left: space.lg, right: space.lg, flexDirection: "row", justifyContent: "space-between" },
+  topRight: { flexDirection: "row", gap: space.sm },
+  camButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(14,15,21,0.7)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.16)",
   },
-  bottomHint: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    paddingBottom: 8,
-  },
-  bottomHintText: {
-    color: "rgba(255,255,255,0.35)",
-    fontSize: 12,
-  },
-  pausedBadge: {
-    position: "absolute",
-    bottom: 56,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  pausedText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  camButtonOn: { backgroundColor: "#FFFFFF" },
+  bottom: { position: "absolute", left: space.md, right: space.md, bottom: 0, gap: 10 },
+  focusRing: { position: "absolute", width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: "#FFFFFF" },
 });

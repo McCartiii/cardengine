@@ -6,123 +6,96 @@ import * as Haptics from "expo-haptics";
 import { scanIdentify } from "../lib/api";
 import { useScanStore } from "../store/scanStore";
 import { SCANNER } from "../lib/constants";
+import { extractCardName, extractPrintInfo } from "../lib/scanText";
 
-// ── OCR text → card name extraction ─────────────────────────────────────────
+// A card counts as gone (and can be scanned again) after this many frames without it.
+const FRAMES_TO_REARM = 4;
+// After a failed lookup, wait this long before asking about the same name again.
+const RETRY_AFTER_MS = 2500;
 
 /**
- * Given raw OCR output from a card frame, extract the most likely card name.
- *
- * MTG card names appear at the top of the card in large title-case text.
- * We take the first line that looks like a name (letters/spaces/apostrophes,
- * no digits, no mana-symbol-only strings, reasonable length).
+ * Reads cards from camera frames: waits for a name to hold steady, asks the
+ * server to identify it (with set and collector number when the small print
+ * is legible), and adds the match to the pending stack. A card left in frame
+ * is added once; it has to leave the frame before it can count again.
  */
-function extractCardName(rawText: string): string | null {
-  const lines = rawText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    // Must be within length bounds
-    if (line.length < SCANNER.MIN_NAME_LEN || line.length > SCANNER.MAX_NAME_LEN) continue;
-    // Must start with a letter
-    if (!/^[A-Za-z]/.test(line)) continue;
-    // Only letters, spaces, apostrophes, commas, hyphens
-    if (!/^[A-Za-z][A-Za-z ',\-]*$/.test(line)) continue;
-    // Skip obvious non-names: pure mana colors, "Instant", "Sorcery" alone, etc.
-    if (/^(Instant|Sorcery|Artifact|Enchantment|Land|Creature|Planeswalker|Battle)$/i.test(line)) continue;
-    // Skip power/toughness patterns like "2/2"
-    if (/^\d+\/\d+$/.test(line)) continue;
-
-    return line;
-  }
-
-  return null;
-}
-
-// ── Hook ─────────────────────────────────────────────────────────────────────
-
-export function useCardScanner() {
-  const { addPending, setDetectedName, setDetectedPrice } = useScanStore();
-
+export function useCardScanner({ enabled }: { enabled: boolean }) {
+  const { addPending, setPhase } = useScanStore();
   const { scanText } = useTextRecognition({ language: "latin" });
 
   // Shared with the camera thread, so it must be a worklets-core shared value
   const frameCount = useSharedValue(0);
 
   // Refs live on the JS thread and survive renders without causing them
-  const lastSeenText = useRef<{ text: string; since: number } | null>(null);
-  const recentlyScanned = useRef<Map<string, number>>(new Map()); // name → timestamp
-  const identifying = useRef(false); // prevent overlapping API calls
+  const steady = useRef<{ name: string; since: number } | null>(null);
+  const lastAdded = useRef<{ name: string; missing: number } | null>(null);
+  const identifying = useRef(false);
+  const failed = useRef<{ name: string; at: number } | null>(null);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
-  // Runs on JS thread — called from worklet via runOnJS
   const onOCRResult = useCallback(
     async (rawText: string) => {
+      if (!enabledRef.current || identifying.current) return;
       const cardName = extractCardName(rawText);
+      const key = cardName?.toLowerCase() ?? null;
 
-      if (!cardName) {
-        setDetectedName(null);
-        setDetectedPrice(null);
-        lastSeenText.current = null;
+      // Re-arm once the last card has been out of frame for a few reads.
+      if (lastAdded.current && key !== lastAdded.current.name) {
+        lastAdded.current.missing += 1;
+        if (lastAdded.current.missing >= FRAMES_TO_REARM) lastAdded.current = null;
+      } else if (lastAdded.current) {
+        lastAdded.current.missing = 0;
+        return; // Still the card we just added.
+      }
+
+      if (!cardName || !key) {
+        steady.current = null;
+        if (!lastAdded.current) setPhase("searching", null);
         return;
       }
 
+      // The same name must hold for STABILITY_MS before we spend a lookup on it.
       const now = Date.now();
-      const nameLower = cardName.toLowerCase();
-
-      // Dedup: skip if we scanned this card recently
-      const lastScan = recentlyScanned.current.get(nameLower);
-      if (lastScan && now - lastScan < SCANNER.DEDUP_WINDOW_MS) {
-        setDetectedName(cardName); // still show the name as feedback
+      if (failed.current?.name === key && now - failed.current.at < RETRY_AFTER_MS) return;
+      if (steady.current?.name !== key) {
+        steady.current = { name: key, since: now };
+        setPhase("reading", cardName);
         return;
       }
+      if (now - steady.current.since < SCANNER.STABILITY_MS) return;
 
-      // Stability: the same text must appear for STABILITY_MS before triggering
-      if (lastSeenText.current?.text !== cardName) {
-        lastSeenText.current = { text: cardName, since: now };
-        setDetectedName(cardName);
-        return;
-      }
-
-      if (now - lastSeenText.current.since < SCANNER.STABILITY_MS) {
-        setDetectedName(cardName);
-        return;
-      }
-
-      // Guard against concurrent calls
-      if (identifying.current) return;
       identifying.current = true;
-
-      // Reset stability tracker so the same card doesn't double-trigger
-      lastSeenText.current = null;
-      recentlyScanned.current.set(nameLower, now);
+      steady.current = null;
+      setPhase("identifying", cardName);
+      const print = extractPrintInfo(rawText);
 
       try {
-        const result = await scanIdentify({ name: cardName });
-        const best = result.candidates[0];
-
+        const result = await scanIdentify({
+          name: cardName,
+          setCode: print.setCode ?? undefined,
+          collectorNumber: print.collectorNumber ?? undefined,
+        });
+        const [best, ...others] = result.candidates;
         if (best && best.score >= SCANNER.MIN_CONFIDENCE_SCORE) {
-          addPending(best);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          const preferredKind = best.variantId.endsWith("-foil")
-            ? "foil"
-            : "market";
-          const usdPrice = best.prices.find(
-            (p) => p.currency === "USD" && p.kind === preferredKind
-          );
-          setDetectedPrice(usdPrice ? `$${usdPrice.amount.toFixed(2)}` : null);
+          const printings = (result.printings ?? []).filter((p) => p.variantId !== best.variantId);
+          addPending(best, { finish: print.foil ? "foil" : "nonfoil", alternatives: [...printings, ...others] });
+          lastAdded.current = { name: key, missing: 0 };
+          setPhase("matched", best.name);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         } else {
-          // Low confidence — clear dedup so it can try again sooner
-          recentlyScanned.current.delete(nameLower);
+          failed.current = { name: key, at: Date.now() };
+          setPhase("nomatch", cardName);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
         }
       } catch {
-        // Network error — clear dedup so it retries
-        recentlyScanned.current.delete(nameLower);
+        failed.current = { name: key, at: Date.now() };
+        setPhase("nomatch", cardName);
       } finally {
         identifying.current = false;
       }
     },
-    [addPending, setDetectedName, setDetectedPrice]
+    [addPending, setPhase]
   );
 
   // Frame processors run on worklets-core, so Reanimated's runOnJS can't bridge back
@@ -143,9 +116,7 @@ export function useCardScanner() {
       const text = Array.isArray(result)
         ? result.map((r: { resultText?: string }) => r.resultText ?? "").join("\n")
         : (result as { resultText?: string } | undefined)?.resultText;
-      if (text) {
-        onOCRResultJS(text);
-      }
+      onOCRResultJS(text ?? "");
     },
     [scanText, frameCount, onOCRResultJS]
   );

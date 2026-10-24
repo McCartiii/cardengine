@@ -104,7 +104,7 @@ export async function scanIdentify(params: {
   setCode?: string;
   collectorNumber?: string;
   manaCost?: string;
-}): Promise<{ candidates: ScanCandidate[] }> {
+}): Promise<{ candidates: ScanCandidate[]; printings?: ScanCandidate[] }> {
   return request("POST", "/v1/scan/identify", { ...params, limit: 5 });
 }
 
