@@ -1,31 +1,34 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { setStatusBarStyle } from "expo-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { binder, CARD_ASPECT, cardRadius, color, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
+import { CARD_ASPECT, cardRadius, color, hairline, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { getCollectionCards, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { CardArt, FlipBook, PageStack, PunchHoles, Text, Tilt, Touchable, tap } from "@/ui";
+import { CardArt, FlipBook, IconButton, PageStack, PunchHoles, SearchField, Text, Tilt, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
 const FETCH_SIZE = 90;
 // The binding edge of each page, where the holes are punched.
-const RING_COLUMN = 26;
-// Price line under each card.
-const PRICE_LINE = 21;
-const COVER = "#1D2350";
-const GAP = 10;
+const RING_COLUMN = 22;
+const PAGE_PAD = 10;
+const GAP = 8;
+// Punched holes show the desk under the page.
+const HOLE = "#E3E7EF";
 
 type Slot = OwnedCard | null;
 
 export default function BinderScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Matches the floating tab bar's height and bottom padding, plus a little air.
+  const tabBarSpace = 72 + Math.max(insets.bottom - 8, space.md) + space.sm;
   const session = useAuthStore((s) => s.session);
   const [cards, setCards] = useState<OwnedCard[]>([]);
   const [totals, setTotals] = useState({ cards: 0, value: 0 });
@@ -39,10 +42,10 @@ export default function BinderScreen() {
 
   const [areaHeight, setAreaHeight] = useState(0);
   const pageWidth = width - space.lg * 2;
-  // Fit three rows of sleeves in the measured space; page padding and footer take ~62.
-  const rowHeight = ((areaHeight || height * 0.55) - 62 - GAP * 2) / 3;
-  const byHeight = (rowHeight - PRICE_LINE) * CARD_ASPECT;
-  const byWidth = (pageWidth - RING_COLUMN - 14 - GAP * 2) / 3;
+  // Fit three rows of cards in the measured space; page padding and the stack edge take ~30.
+  const rowHeight = ((areaHeight || height * 0.55) - 30 - GAP * 2) / 3;
+  const byHeight = rowHeight * CARD_ASPECT;
+  const byWidth = (pageWidth - RING_COLUMN - PAGE_PAD - GAP * 2) / 3;
   const sleeveWidth = Math.floor(Math.max(64, Math.min(byWidth, byHeight)));
 
   const load = useCallback(async (p: number) => {
@@ -60,10 +63,8 @@ export default function BinderScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setStatusBarStyle("light");
       if (session) load(1);
       else setStatus("ready");
-      return () => setStatusBarStyle("dark");
     }, [session, load])
   );
 
@@ -99,48 +100,34 @@ export default function BinderScreen() {
 
   return (
     <View style={styles.root}>
+      <LinearGradient colors={["#DCE4EF", color.bg]} style={styles.sky} pointerEvents="none" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={styles.header}>
-          <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.title}>My Binder</Text>
-            <Text variant="bodyStrong" color={binder.coverMuted} style={{ fontSize: 14 }}>
+            <Text variant="callout" color={color.textSecondary}>
               {session
                 ? status === "ready"
                   ? `${formatUsd(totals.value)} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
                   : "Opening your binder…"
-                : "Sign in to start sleeving cards"}
+                : "Sign in to start collecting"}
             </Text>
           </View>
           {session && (
-            <Touchable
+            <IconButton
+              icon={searchOpen ? "close" : "search"}
+              label={searchOpen ? "Close search" : "Search binder"}
               onPress={() => {
-                tap();
                 setSearchOpen((o) => !o);
                 if (searchOpen) setQuery("");
               }}
-              accessibilityRole="button"
-              accessibilityLabel={searchOpen ? "Close search" : "Search binder"}
-              pressedScale={0.92}
-              style={styles.coverButton}
-            >
-              <Ionicons name={searchOpen ? "close" : "search"} size={20} color="#FFFFFF" />
-            </Touchable>
+            />
           )}
         </View>
 
         {searchOpen && (
           <Animated.View entering={FadeIn.duration(200)} style={styles.searchWrap}>
-            <Ionicons name="search" size={18} color={binder.coverMuted} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Find a card in your binder"
-              placeholderTextColor={binder.coverMuted}
-              style={styles.searchInput}
-              autoFocus
-              autoCorrect={false}
-              selectionColor="#FFD58A"
-            />
+            <SearchField value={query} onChangeText={setQuery} placeholder="Find a card in your binder" autoFocus />
           </Animated.View>
         )}
 
@@ -155,7 +142,7 @@ export default function BinderScreen() {
                 accessibilityState={{ selected: on }}
                 style={[styles.tab, on && styles.tabOn]}
               >
-                <Text style={[styles.tabText, { color: on ? binder.coverDeep : "#C6CDF0" }]}>{id === "all" ? "All" : id.toUpperCase()}</Text>
+                <Text style={[styles.tabText, { color: on ? "#FFFFFF" : color.ink }]}>{id === "all" ? "All" : id.toUpperCase()}</Text>
               </Pressable>
             );
           })}
@@ -163,7 +150,7 @@ export default function BinderScreen() {
 
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
         <View style={{ paddingHorizontal: space.lg }}>
-          <PageStack radius={22}>
+          <PageStack radius={24}>
           <FlipBook
             key={`${set}|${query}`}
             pageCount={pages.length}
@@ -174,9 +161,9 @@ export default function BinderScreen() {
             }}
             renderPage={(index) => (
               <View style={styles.page}>
-                <PunchHoles color={COVER} />
+                <PunchHoles color={HOLE} />
                 <View style={styles.rings} pointerEvents="none" />
-                <View style={{ flex: 1, paddingTop: 16, paddingRight: 14, paddingBottom: 12, paddingLeft: 4 }}>
+                <View style={{ flex: 1, paddingTop: PAGE_PAD + 2, paddingRight: PAGE_PAD, paddingBottom: 8 }}>
                   <View style={[styles.grid, { width: sleeveWidth * 3 + GAP * 2 }]}>
                     {pages[index].map((c, i) =>
                       c ? (
@@ -185,11 +172,6 @@ export default function BinderScreen() {
                         <EmptySleeve key={`empty-${index}-${i}`} width={sleeveWidth} onPress={session ? scan : () => router.push("/(auth)/sign-in")} />
                       )
                     )}
-                  </View>
-                  <View style={styles.pageFooter}>
-                    <Text variant="caption" color={color.textTertiary}>
-                      {status === "loading" ? "Loading…" : set === "all" ? "Most valuable first" : set.toUpperCase()}
-                    </Text>
                   </View>
                 </View>
               </View>
@@ -204,7 +186,7 @@ export default function BinderScreen() {
             <View key={i} style={[styles.dot, i === pageIndex && styles.dotOn]} />
           ))}
         </View>
-        <View style={{ height: TAB_BAR_CLEARANCE - 8 }} />
+        <View style={{ height: tabBarSpace }} />
       </SafeAreaView>
     </View>
   );
@@ -224,9 +206,15 @@ function Sleeve({ card, width, order, onPress }: { card: OwnedCard; width: numbe
             </View>
           )}
         </View>
-        <Text variant="number" color={color.ink} align="center" style={styles.price} numberOfLines={1}>
-          {formatUsd(card.priceUsd, { compact: true })}
-        </Text>
+        {card.priceUsd != null && (
+          <View style={styles.priceRow} pointerEvents="none">
+            <View style={styles.priceChip}>
+              <Text variant="number" color={color.ink} style={{ fontSize: 11 }}>
+                {formatUsd(card.priceUsd, { compact: true })}
+              </Text>
+            </View>
+          </View>
+        )}
       </Tilt>
     </Animated.View>
   );
@@ -241,60 +229,47 @@ function EmptySleeve({ width, onPress }: { width: number; onPress: () => void })
           Scan
         </Text>
       </View>
-      <View style={{ height: PRICE_LINE }} />
     </Touchable>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COVER },
-  header: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 24, paddingTop: space.md },
-  title: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: "#FFFFFF" },
-  coverButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    marginHorizontal: space.lg,
-    marginTop: space.md,
-    height: 46,
-    paddingHorizontal: space.lg,
-    borderRadius: 23,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-  },
-  searchInput: { flex: 1, color: "#FFFFFF", fontFamily: font.medium, fontSize: 15, height: "100%" },
+  root: { flex: 1, backgroundColor: color.bg },
+  sky: { position: "absolute", top: 0, left: 0, right: 0, height: 280 },
+  header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingTop: space.sm },
+  title: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.8, color: color.ink },
+  searchWrap: { marginHorizontal: space.lg, marginTop: space.md },
   tabs: { gap: 6, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: 14, alignItems: "center" },
-  tab: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center" },
-  tabOn: { backgroundColor: "#FFFFFF" },
-  tabText: { fontFamily: font.heavy, fontSize: 13 },
-  page: { flexDirection: "row", borderRadius: 22, backgroundColor: "#FFFFFF" },
-  pageRadius: { borderRadius: 22 },
+  tab: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.75)", justifyContent: "center", ...hairline },
+  tabOn: { backgroundColor: color.ink, borderColor: color.ink },
+  tabText: { fontFamily: font.bold, fontSize: 13 },
+  page: { flexDirection: "row", borderRadius: 24, backgroundColor: "#FFFFFF" },
+  pageRadius: { borderRadius: 24 },
   rings: { width: RING_COLUMN },
-
   grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP, alignSelf: "center" },
   card: {
-    shadowColor: "#0B0E26",
-    shadowOpacity: 0.18,
+    shadowColor: "#1B2240",
+    shadowOpacity: 0.16,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  qty: { position: "absolute", top: 6, left: 6, paddingHorizontal: 6, height: 18, borderRadius: 9, backgroundColor: "rgba(11,14,38,0.8)", justifyContent: "center" },
-  price: { height: 16, marginTop: 5, fontSize: 12, lineHeight: 16 },
-  empty: { backgroundColor: "#F1F2F6", alignItems: "center", justifyContent: "center", gap: 2 },
-  pageFooter: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginTop: 4 },
-  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: space.md },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)" },
-  dotOn: { width: 18, backgroundColor: "#FFFFFF" },
+  qty: { position: "absolute", top: 6, left: 6, paddingHorizontal: 6, height: 18, borderRadius: 9, backgroundColor: "rgba(11,14,38,0.78)", justifyContent: "center" },
+  priceRow: { position: "absolute", left: 0, right: 0, bottom: 6, alignItems: "center" },
+  priceChip: {
+    height: 20,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    shadowColor: "#1B2240",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  empty: { backgroundColor: "#F3F4F8", alignItems: "center", justifyContent: "center", gap: 2 },
+  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(18,20,43,0.16)" },
+  dotOn: { width: 18, backgroundColor: color.ink },
 });

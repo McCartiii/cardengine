@@ -59,12 +59,14 @@ interface BinderCoverProps {
 
 const POCKETS = 8;
 const COLUMNS = 4;
-const POCKET_GAP = 10;
-const PAGE_PAD = 12;
+const POCKET_GAP = 8;
+const ROW_GAP = 8;
+const PAGE_PAD = 10;
 // The binding edge of the page, where the holes are punched.
 const BINDING = 22;
-const PAGE_RADIUS = 18;
-const COVER = "#1D2350";
+const PAGE_RADIUS = 22;
+// Punched holes show the desk under the page.
+const HOLE = "#E3E7EF";
 
 /** Home's hero: an open binder whose pages you can turn, on its indigo cover. */
 export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onEmpty }: BinderCoverProps) {
@@ -82,7 +84,7 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
 
   const renderPage = (i: number) => (
     <View style={styles.page}>
-      <PunchHoles color={COVER} />
+      <PunchHoles color={HOLE} />
       <View style={styles.pockets}>
         {pages[i].map((c, j) =>
           c ? (
@@ -93,7 +95,6 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
                 <View style={[styles.emptyPocket, { height: pocketWidth / CARD_ASPECT, borderRadius: cardRadius(pocketWidth) + 2 }]}>
                   <Ionicons name="add" size={18} color={color.textTertiary} />
                 </View>
-                <View style={styles.pocketPrice} />
               </View>
             </Touchable>
           )
@@ -103,10 +104,10 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
   );
 
   return (
-    <View style={styles.cover}>
+    <View>
       <View style={styles.coverHead}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text variant="caption" color="rgba(255,255,255,0.6)">
+          <Text variant="callout" color={color.textSecondary}>
             {signedIn ? `My binder · ${count} cards` : "Your binder"}
           </Text>
           {signedIn ? (
@@ -116,10 +117,10 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
           )}
         </View>
         <Touchable onPress={onOpen} pressedScale={0.94} accessibilityRole="button" accessibilityLabel={signedIn ? "Open binder" : "Sign in"} style={styles.openButton}>
-          <Text variant="callout" color={color.ink}>
+          <Text variant="callout" color="#FFFFFF">
             {signedIn ? "Open" : "Sign in"}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={color.ink} />
+          <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
         </Touchable>
       </View>
 
@@ -148,9 +149,15 @@ function Pocket({ card, width, onPress }: { card: BinderCard; width: number; onP
       <View style={styles.pocketCard}>
         <CardArt uri={card.uri} name={card.name} />
       </View>
-      <Text variant="number" color={color.ink} align="center" style={styles.pocketPrice} numberOfLines={1}>
-        {card.price != null ? formatUsd(card.price, { compact: true }) : " "}
-      </Text>
+      {card.price != null && (
+        <View style={styles.priceRow} pointerEvents="none">
+          <View style={styles.priceChip}>
+            <Text variant="number" color={color.ink} style={{ fontSize: 10 }}>
+              {formatUsd(card.price, { compact: true })}
+            </Text>
+          </View>
+        </View>
+      )}
     </Touchable>
   );
 }
@@ -358,25 +365,36 @@ export function RankRow({ rank, card, onPress, style }: { rank: number; card: Ma
 const styles = StyleSheet.create({
   change: { flexDirection: "row", alignItems: "center", gap: 2 },
 
-  cover: { borderRadius: 28, backgroundColor: COVER, padding: 14, paddingTop: 18 },
-  coverHead: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 6, paddingBottom: 16 },
-  coverValue: { fontFamily: font.heavy, fontSize: 28, lineHeight: 34, letterSpacing: -0.9, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
-  openButton: { flexDirection: "row", alignItems: "center", gap: 2, height: 34, paddingLeft: 14, paddingRight: 10, borderRadius: radius.pill, backgroundColor: "#FFFFFF" },
+  coverHead: { flexDirection: "row", alignItems: "flex-end", gap: space.md, paddingHorizontal: 4, paddingBottom: 12 },
+  coverValue: { fontFamily: font.heavy, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: color.ink, fontVariant: ["tabular-nums"] },
+  openButton: { flexDirection: "row", alignItems: "center", gap: 2, height: 36, paddingLeft: 16, paddingRight: 12, borderRadius: radius.pill, backgroundColor: color.ink, marginBottom: 2 },
   pageRadius: { borderRadius: PAGE_RADIUS },
-  page: { borderRadius: PAGE_RADIUS, backgroundColor: "#FFFFFF", paddingTop: PAGE_PAD, paddingBottom: PAGE_PAD - 4, paddingLeft: BINDING, paddingRight: PAGE_PAD },
-  pockets: { flexDirection: "row", flexWrap: "wrap", columnGap: POCKET_GAP, rowGap: 8 },
+  page: { borderRadius: PAGE_RADIUS, backgroundColor: "#FFFFFF", paddingTop: PAGE_PAD + 2, paddingBottom: PAGE_PAD + 2, paddingLeft: BINDING, paddingRight: PAGE_PAD },
+  pockets: { flexDirection: "row", flexWrap: "wrap", columnGap: POCKET_GAP, rowGap: ROW_GAP },
   pocketCard: {
-    shadowColor: "#0B0E26",
-    shadowOpacity: 0.18,
+    shadowColor: "#1B2240",
+    shadowOpacity: 0.16,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
-  pocketPrice: { height: 16, marginTop: 5, fontSize: 11, lineHeight: 16 },
-  emptyPocket: { backgroundColor: "#F1F2F6", alignItems: "center", justifyContent: "center" },
+  priceRow: { position: "absolute", left: 0, right: 0, bottom: 5, alignItems: "center" },
+  priceChip: {
+    height: 18,
+    paddingHorizontal: 7,
+    borderRadius: 9,
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    shadowColor: "#1B2240",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  emptyPocket: { backgroundColor: "#F3F4F8", alignItems: "center", justifyContent: "center" },
   pageDots: { flexDirection: "row", justifyContent: "center", gap: 5, marginTop: 10 },
-  pageDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)" },
-  pageDotOn: { width: 16, backgroundColor: "#FFFFFF" },
+  pageDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(18,20,43,0.16)" },
+  pageDotOn: { width: 16, backgroundColor: color.ink },
 
   ticker: {
     flexDirection: "row",

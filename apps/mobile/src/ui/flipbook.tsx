@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
 });
 
 /** A page that sits on a narrower page beneath it, so the binder reads as a stack. */
-export function PageStack({ children, radius = 18, tint = "rgba(255,255,255,0.16)" }: { children: React.ReactNode; radius?: number; tint?: string }) {
+export function PageStack({ children, radius = 18, tint = "#E4E8F0" }: { children: React.ReactNode; radius?: number; tint?: string }) {
   return (
     <View style={{ paddingBottom: 8 }}>
       <View pointerEvents="none" style={[stackStyles.under, { borderRadius: radius, backgroundColor: tint }]} />
@@ -197,7 +197,7 @@ export function PunchHoles({ count = 3, color: holeColor }: { count?: number; co
 
 const stackStyles = StyleSheet.create({
   under: { position: "absolute", left: 18, right: 18, bottom: 0, top: 16 },
-  page: { shadowColor: "#05081E", shadowOpacity: 0.28, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 10 },
+  page: { shadowColor: "#1B2240", shadowOpacity: 0.12, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
   holes: { position: "absolute", left: 0, top: 0, bottom: 0, width: 22, alignItems: "center", justifyContent: "space-evenly" },
   hole: { width: 7, height: 7, borderRadius: 4 },
 });
