@@ -4,6 +4,7 @@ import { prisma } from "../db.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
 import { fetchEdhrecCommander } from "../services/edhrec.js";
 import { preferredPriceKind } from "../lib/pricing.js";
+import { detectUrlType, fetchDeckFromUrl } from "../services/urlImport.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -339,6 +340,100 @@ export function registerDeckRoutes(app: FastifyInstance) {
 
     const legality = checkLegality(cards, existing.format);
     return { ok: true, imported: cards.length, resolved: nameToVariantId.size, legality };
+  });
+
+  // Import a deck from Moxfield, Archidekt or MTGGoldfish: creates a new deck,
+  // or replaces the cards of an existing one when deckId is given.
+  app.post("/v1/decks/import-url", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user = getUser(req);
+    const body = z
+      .object({
+        url: z.string().url(),
+        deckId: z.string().optional(),
+      })
+      .parse(req.body);
+
+    if (!detectUrlType(body.url)) {
+      return reply.code(400).send({ error: "Paste a Moxfield, Archidekt or MTGGoldfish deck link." });
+    }
+    let existingFormat: string | null = null;
+    if (body.deckId) {
+      const existing = await prisma.deck.findUnique({ where: { id: body.deckId } });
+      if (!existing) return reply.code(404).send({ error: "Not found" });
+      if (existing.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
+      existingFormat = existing.format;
+    }
+
+    let imported: Awaited<ReturnType<typeof fetchDeckFromUrl>>;
+    try {
+      imported = await fetchDeckFromUrl(body.url);
+    } catch (err) {
+      return reply.code(422).send({ error: (err as Error).message });
+    }
+    if (imported.entries.length === 0) {
+      return reply.code(422).send({ error: "That deck is empty, or private." });
+    }
+
+    // Match each card to its exact printing when the source names one, else any printing.
+    const scryfallIds = imported.entries.flatMap((e) => (e.scryfallId ? [`scryfall:${e.scryfallId}`] : []));
+    const names = [...new Set(imported.entries.map((e) => e.name))];
+    const [byId, byName] = await Promise.all([
+      prisma.cardVariant.findMany({ where: { variantId: { in: scryfallIds } }, select: { variantId: true } }),
+      prisma.cardVariant.findMany({
+        where: { name: { in: names }, game: "mtg", NOT: { variantId: { endsWith: "-foil" } } },
+        select: { variantId: true, name: true, setId: true, collectorNumber: true },
+      }),
+    ]);
+    const knownIds = new Set(byId.map((v) => v.variantId));
+    const resolve = (e: (typeof imported.entries)[number]) => {
+      if (e.scryfallId && knownIds.has(`scryfall:${e.scryfallId}`)) return `scryfall:${e.scryfallId}`;
+      const printings = byName.filter((v) => v.name === e.name);
+      const exact = e.setCode
+        ? printings.find((v) => v.setId?.toLowerCase() === e.setCode!.toLowerCase() && v.collectorNumber === e.collectorNumber)
+        : undefined;
+      return (exact ?? printings[0])?.variantId;
+    };
+    const cards = imported.entries.map((e) => ({
+      cardName: e.name,
+      quantity: Math.min(99, e.quantity),
+      section: e.section,
+      variantId: resolve(e),
+    }));
+    const unresolved = cards.filter((c) => !c.variantId).map((c) => c.cardName);
+
+    const sourceLabel = { moxfield: "Moxfield", archidekt: "Archidekt", mtggoldfish: "MTGGoldfish" }[imported.source];
+    const format = (SUPPORTED_FORMATS as readonly string[]).includes(imported.format ?? "") ? imported.format! : "commander";
+    let deckId = body.deckId;
+    if (deckId) {
+      await prisma.$transaction([
+        prisma.deckCard.deleteMany({ where: { deckId } }),
+        prisma.deckCard.createMany({ data: cards.map((c) => ({ ...c, deckId: deckId! })) }),
+        prisma.deck.update({ where: { id: deckId }, data: { updatedAt: new Date() } }),
+      ]);
+    } else {
+      const deck = await prisma.deck.create({
+        data: {
+          userId: user.sub,
+          name: (imported.name ?? `${sourceLabel} deck`).slice(0, 100),
+          format,
+          commander: imported.commanders[0],
+          partner: imported.commanders[1],
+          description: `Imported from ${sourceLabel}: ${body.url}`.slice(0, 1000),
+          cards: { create: cards },
+        },
+      });
+      deckId = deck.id;
+    }
+
+    const deck = await prisma.deck.findUnique({ where: { id: deckId }, include: { _count: { select: { cards: true } } } });
+    return {
+      ok: true,
+      deck,
+      source: imported.source,
+      imported: cards.reduce((n, c) => n + c.quantity, 0),
+      unresolved: unresolved.slice(0, 25),
+      legality: checkLegality(cards, existingFormat ?? format),
+    };
   });
 
   // Delete a deck

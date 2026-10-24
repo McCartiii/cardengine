@@ -24,6 +24,8 @@ import {
   getDeckEdhrec,
   getAiAdvice,
   importDeckText,
+  importDeckFromUrl,
+  isDeckUrl,
   deleteDeck,
   updateDeckCards,
   toggleDeckVisibility,
@@ -118,7 +120,22 @@ export default function DeckDetailScreen() {
     if (!importText.trim()) return;
     setImporting(true);
     try {
-      const result = await importDeckText(id, importText.trim());
+      const text = importText.trim();
+      // A Moxfield / Archidekt / MTGGoldfish link refreshes the deck from that site.
+      if (isDeckUrl(text)) {
+        const r = await importDeckFromUrl({ url: text, deckId: id });
+        setShowImport(false);
+        setImportText("");
+        Alert.alert(
+          "Imported",
+          `${r.imported} cards imported.` +
+            (r.unresolved.length ? `\n${r.unresolved.length} not in our catalog yet: ${r.unresolved.slice(0, 3).join(", ")}` : "") +
+            (r.legality.issues.length > 0 ? `\n⚠️ ${r.legality.issues.slice(0, 3).join("\n")}` : "\n✓ Deck is legal")
+        );
+        loadDeck();
+        return;
+      }
+      const result = await importDeckText(id, text);
       setShowImport(false);
       setImportText("");
       Alert.alert(
@@ -380,7 +397,7 @@ export default function DeckDetailScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modal}>
               <Text style={styles.modalTitle}>Import Decklist</Text>
-              <Text style={styles.modalHint}>Paste in MTGO, Moxfield, or plain text format</Text>
+              <Text style={styles.modalHint}>Paste a Moxfield, Archidekt or MTGGoldfish link, or a decklist</Text>
               <TextInput
                 style={styles.importInput}
                 value={importText}

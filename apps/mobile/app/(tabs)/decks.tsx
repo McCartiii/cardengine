@@ -3,7 +3,7 @@ import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, TextInput, Vie
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { color, elevation, radius, space, TAB_BAR_CLEARANCE, type BubbleColor } from "@/design/tokens";
-import { createDeck, deleteDeck, listDecks, type Deck } from "@/lib/api";
+import { createDeck, deleteDeck, importDeckFromUrl, isDeckUrl, listDecks, type Deck } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import {
   Button,
@@ -14,6 +14,7 @@ import {
   IconButton,
   PageHeader,
   Screen,
+  Segmented,
   Sheet,
   SkeletonBlock,
   Text,
@@ -194,15 +195,18 @@ function DeckRow({ deck, onPress, onLongPress }: { deck: Deck; onPress: () => vo
 }
 
 function CreateDeckSheet({ visible, onClose, onCreated }: { visible: boolean; onClose: () => void; onCreated: (deck: Deck) => void }) {
+  const [mode, setMode] = useState<"new" | "import">("new");
   const [name, setName] = useState("");
   const [format, setFormat] = useState<Format>("commander");
   const [commander, setCommander] = useState("");
+  const [link, setLink] = useState("");
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
     setName("");
     setCommander("");
     setFormat("commander");
+    setLink("");
   };
 
   const submit = async () => {
@@ -223,39 +227,97 @@ function CreateDeckSheet({ visible, onClose, onCreated }: { visible: boolean; on
     }
   };
 
+  const importLink = async () => {
+    if (!isDeckUrl(link)) return;
+    setSaving(true);
+    try {
+      const r = await importDeckFromUrl({ url: link.trim() });
+      reset();
+      setMode("new");
+      onCreated(r.deck);
+      if (r.unresolved.length) {
+        Alert.alert(
+          `Imported ${r.imported} cards`,
+          `${r.unresolved.length} ${r.unresolved.length === 1 ? "card isn't" : "cards aren't"} in our catalog yet: ${r.unresolved.slice(0, 4).join(", ")}${r.unresolved.length > 4 ? "…" : ""}`
+        );
+      }
+    } catch (e: unknown) {
+      Alert.alert("Couldn't import that deck", (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const linkTyped = link.trim().length > 0;
   return (
-    <Sheet visible={visible} onClose={onClose} title="New deck">
-      <FieldLabel>Name</FieldLabel>
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        placeholder="e.g. Atraxa Superfriends"
-        placeholderTextColor={color.textTertiary}
-        selectionColor={color.accent}
-        autoFocus
-        returnKeyType="done"
+    <Sheet visible={visible} onClose={onClose} title={mode === "new" ? "New deck" : "Import a deck"}>
+      <Segmented
+        options={[
+          { value: "new", label: "Create", icon: "add" },
+          { value: "import", label: "Import link", icon: "link" },
+        ]}
+        value={mode}
+        onChange={setMode}
       />
-      <FieldLabel>Format</FieldLabel>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
-        {FORMATS.map((f) => (
-          <Chip key={f} label={capitalize(f)} active={format === f} onPress={() => setFormat(f)} />
-        ))}
-      </ScrollView>
-      {format === "commander" && (
+      {mode === "import" ? (
         <>
-          <FieldLabel>Commander (optional)</FieldLabel>
+          <FieldLabel>Deck link</FieldLabel>
           <TextInput
             style={styles.input}
-            value={commander}
-            onChangeText={setCommander}
-            placeholder="e.g. Atraxa, Praetors' Voice"
+            value={link}
+            onChangeText={setLink}
+            placeholder="https://moxfield.com/decks/…"
             placeholderTextColor={color.textTertiary}
             selectionColor={color.accent}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            returnKeyType="go"
+            onSubmitEditing={importLink}
+            autoFocus
           />
+          <Text variant="caption" color={linkTyped && !isDeckUrl(link) ? color.negative : color.textSecondary}>
+            {linkTyped && !isDeckUrl(link)
+              ? "That isn't a Moxfield, Archidekt or MTGGoldfish deck link."
+              : "Works with public decks on Moxfield, Archidekt and MTGGoldfish. The name, format, commander and exact printings come across."}
+          </Text>
+          <Button label="Import deck" size="lg" onPress={importLink} loading={saving} disabled={!isDeckUrl(link)} style={{ marginTop: space.sm }} />
+        </>
+      ) : (
+        <>
+          <FieldLabel>Name</FieldLabel>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Atraxa Superfriends"
+            placeholderTextColor={color.textTertiary}
+            selectionColor={color.accent}
+            autoFocus
+            returnKeyType="done"
+          />
+          <FieldLabel>Format</FieldLabel>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+            {FORMATS.map((f) => (
+              <Chip key={f} label={capitalize(f)} active={format === f} onPress={() => setFormat(f)} />
+            ))}
+          </ScrollView>
+          {format === "commander" && (
+            <>
+              <FieldLabel>Commander (optional)</FieldLabel>
+              <TextInput
+                style={styles.input}
+                value={commander}
+                onChangeText={setCommander}
+                placeholder="e.g. Atraxa, Praetors' Voice"
+                placeholderTextColor={color.textTertiary}
+                selectionColor={color.accent}
+              />
+            </>
+          )}
+          <Button label="Create deck" size="lg" onPress={submit} loading={saving} disabled={!name.trim()} style={{ marginTop: space.sm }} />
         </>
       )}
-      <Button label="Create deck" size="lg" onPress={submit} loading={saving} disabled={!name.trim()} style={{ marginTop: space.sm }} />
     </Sheet>
   );
 }

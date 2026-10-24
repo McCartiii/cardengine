@@ -274,6 +274,23 @@ export async function importDeckText(
   return request("POST", `/v1/decks/${id}/import`, { text, replace });
 }
 
+/** Pull a deck from Moxfield, Archidekt or MTGGoldfish: a new deck, or the cards of deckId replaced. */
+export async function importDeckFromUrl(params: { url: string; deckId?: string }): Promise<{
+  ok: boolean;
+  deck: Deck;
+  source: "moxfield" | "archidekt" | "mtggoldfish";
+  imported: number;
+  unresolved: string[];
+  legality: { valid: boolean; issues: string[] };
+}> {
+  return request("POST", "/v1/decks/import-url", params);
+}
+
+/** True for links the deck importer understands. */
+export function isDeckUrl(text: string): boolean {
+  return /^https?:\/\/(www\.)?(moxfield\.com\/decks\/|archidekt\.com\/decks\/|mtggoldfish\.com\/deck\/)/i.test(text.trim());
+}
+
 export async function updateDeckCards(
   id: string,
   cards: Array<{ cardName: string; variantId?: string; quantity: number; section: string }>
