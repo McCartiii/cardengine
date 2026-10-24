@@ -52,7 +52,11 @@ interface PocketProps {
 export function Pocket({ width, name, uri, price, foil, quantity, change, showChange, order = 0, onPress }: PocketProps) {
   const inner = cardWidthIn(width);
   const t = trend(change);
-  const label = showChange ? (change != null ? formatDeltaPct(change) : "—") : price != null ? formatUsd(price, { compact: true }) : null;
+  // Small pockets drop the cents so the price and its move both fit.
+  const tight = width < 96;
+  const priceText = price != null ? (tight && price >= 10 ? `$${Math.round(price).toLocaleString("en-US")}` : formatUsd(price, { compact: true })) : null;
+  const pct = change != null && Number.isFinite(change) ? `${Math.abs(change).toFixed(Math.abs(change) >= 10 ? 0 : 1)}%` : null;
+  const dollars = dollarChange(price, change);
   return (
     <Animated.View entering={FadeIn.delay(order * 35).duration(260)}>
       <Tilt
@@ -79,13 +83,32 @@ export function Pocket({ width, name, uri, price, foil, quantity, change, showCh
               </Text>
             </View>
           )}
-          {label != null && (
+          {(priceText != null || (showChange && pct != null)) && (
             <View style={styles.priceRow} pointerEvents="none">
               <View style={[styles.price, t && { borderColor: t.edge }]}>
-                {t && <Ionicons name={t.icon} size={9} color={t.color} />}
-                <Text variant="number" color={t?.color ?? "#FFFFFF"} style={{ fontSize: 10, lineHeight: 13 }}>
-                  {label}
-                </Text>
+                {showChange ? (
+                  // Sorting by change: lead with how much it moved, in dollars and percent.
+                  <>
+                    {t && <Ionicons name={t.icon} size={9} color={t.color} />}
+                    <Text variant="number" color={t?.color ?? "#FFFFFF"} style={styles.chipText}>
+                      {dollars != null && !tight ? `${formatSignedUsd(dollars)} · ${pct}` : (pct ?? "—")}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text variant="number" color="#FFFFFF" style={styles.chipText}>
+                      {priceText}
+                    </Text>
+                    {t && pct != null && (
+                      <>
+                        <Ionicons name={t.icon} size={9} color={t.color} style={{ marginLeft: 2 }} />
+                        <Text variant="number" color={t.color} style={styles.chipText}>
+                          {pct}
+                        </Text>
+                      </>
+                    )}
+                  </>
+                )}
               </View>
             </View>
           )}
@@ -93,6 +116,17 @@ export function Pocket({ width, name, uri, price, foil, quantity, change, showCh
       </Tilt>
     </Animated.View>
   );
+}
+
+/** How many dollars a price moved, given today's price and its percent change. */
+export function dollarChange(price: number | null | undefined, change: number | null | undefined): number | null {
+  if (price == null || change == null || !Number.isFinite(change) || change <= -100) return null;
+  return price - price / (1 + change / 100);
+}
+
+function formatSignedUsd(n: number) {
+  const sign = n > 0.004 ? "+" : n < -0.004 ? "−" : "";
+  return `${sign}${formatUsd(Math.abs(n))}`;
 }
 
 // Moves smaller than this read as holding steady.
@@ -148,4 +182,5 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.18)",
   },
+  chipText: { fontSize: 10, lineHeight: 13 },
 });
