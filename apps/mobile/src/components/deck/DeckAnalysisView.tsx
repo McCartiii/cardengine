@@ -1,7 +1,7 @@
 // The Analysis tab: the deck's curve, types, colors, roles and land odds,
 // with plain suggestions and the way into the opening-hand tester.
 import React, { useMemo } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { color, elevation, hairline, mana, radius, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
@@ -27,7 +27,7 @@ export function DeckAnalysisView({ cards, format, onTestHand }: { cards: Analysi
   const maxBar = Math.max(1, ...a.curve.map((b) => b.creatures + b.spells));
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <View style={styles.page}>
       <View style={[styles.card, styles.handCard]}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="headline">Opening hand</Text>
@@ -115,7 +115,7 @@ export function DeckAnalysisView({ cards, format, onTestHand }: { cards: Analysi
       <Text variant="caption" color={color.textTertiary} align="center" style={{ marginTop: space.sm }}>
         Roles are read from each card's rules text, so a few cards may be miscounted.
       </Text>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -224,7 +224,7 @@ function Bar({ value, tint, faded, label }: { value: number; tint: string; faded
 }
 
 const styles = StyleSheet.create({
-  page: { padding: space.lg, gap: space.md, paddingBottom: 48 },
+  page: { paddingHorizontal: space.lg, gap: space.md },
   card: { backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg, ...hairline, ...elevation.card },
   handCard: { flexDirection: "row", alignItems: "center", gap: space.md },
   stats: { flexDirection: "row", gap: space.sm },

@@ -1,153 +1,194 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  SectionList,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Alert,
+  ActionSheetIOS,
   ActivityIndicator,
-  StyleSheet,
-  Image,
-  FlatList,
+  Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
   Share,
+  StyleSheet,
+  TextInput,
+  View,
+  useWindowDimensions,
 } from "react-native";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { setStatusBarStyle } from "expo-status-bar";
+import { useFocusEffect } from "@react-navigation/native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../src/lib/constants";
-import { DeckAnalysisView } from "../../src/components/deck/DeckAnalysisView";
-import { OpeningHand } from "../../src/components/deck/OpeningHand";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { CARD_ASPECT, color, elevation, hairline, radius, space } from "@/design/tokens";
+import { font } from "@/design/fonts";
+import { formatUsd } from "@/design/format";
+import { primaryType } from "@/lib/deckAnalysis";
 import {
+  deleteDeck,
+  getAiAdvice,
   getDeck,
   getDeckEdhrec,
-  getAiAdvice,
-  importDeckText,
   importDeckFromUrl,
+  importDeckText,
   isDeckUrl,
-  deleteDeck,
-  updateDeckCards,
   toggleDeckVisibility,
   type DeckCard,
-} from "../../src/lib/api";
+} from "@/lib/api";
+import { DeckAnalysisView } from "@/components/deck/DeckAnalysisView";
+import { OpeningHand } from "@/components/deck/OpeningHand";
+import { Button, CardArt, CardTile, Chip, Segmented, Sheet, Text, Touchable, padToColumns, tap } from "@/ui";
 
 type Tab = "cards" | "analysis" | "edhrec" | "ai";
+type Layout = "grid" | "list";
 
-const SECTION_ORDER = ["commander", "mainboard", "sideboard", "companion"];
-const SECTION_LABEL: Record<string, string> = {
-  commander: "Commander",
-  mainboard: "Mainboard",
-  sideboard: "Sideboard",
-  companion: "Companion",
-};
-const RARITY_COLOR: Record<string, string> = {
-  common: "#AAA", uncommon: "#C0C0C0", rare: "#FFD700", mythic: "#FF6B35",
+const TABS: ReadonlyArray<{ value: Tab; label: string }> = [
+  { value: "cards", label: "Cards" },
+  { value: "analysis", label: "Analysis" },
+  { value: "edhrec", label: "EDHREC" },
+  { value: "ai", label: "AI" },
+];
+
+// The main deck is grouped by type, in the order a decklist reads.
+const GROUP_ORDER = ["Commander", "Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land", "Other", "Companion", "Sideboard"];
+const GROUP_LABEL: Record<string, string> = {
+  Commander: "Commander",
+  Creature: "Creatures",
+  Planeswalker: "Planeswalkers",
+  Battle: "Battles",
+  Instant: "Instants",
+  Sorcery: "Sorceries",
+  Artifact: "Artifacts",
+  Enchantment: "Enchantments",
+  Land: "Lands",
+  Other: "Other",
+  Companion: "Companion",
+  Sideboard: "Sideboard",
 };
 
-function formatUsd(n: number | null | undefined) {
-  if (n == null) return "—";
-  return `$${n.toFixed(2)}`;
+const AI_PROMPTS = [
+  "What are the main weaknesses and top 5 improvements?",
+  "Suggest budget upgrades under $5 each.",
+  "Which 10 cards should I cut?",
+  "What combos or synergies am I missing?",
+];
+
+function groupOf(c: DeckCard): string {
+  if (c.section === "commander") return "Commander";
+  if (c.section === "sideboard") return "Sideboard";
+  if (c.section === "companion") return "Companion";
+  return primaryType(c.variant?.typeLine);
 }
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function DeckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [tab, setTab] = useState<Tab>("cards");
+  const [layout, setLayout] = useState<Layout>("grid");
   const [showHand, setShowHand] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [deck, setDeck] = useState<Awaited<ReturnType<typeof getDeck>> | null>(null);
 
-  // EDHRec
-  const [edhrecData, setEdhrecData] = useState<Awaited<ReturnType<typeof getDeckEdhrec>> | null>(null);
-  const [edhrecLoading, setEdhrecLoading] = useState(false);
+  const [edhrec, setEdhrec] = useState<Awaited<ReturnType<typeof getDeckEdhrec>> | null>(null);
+  const [edhrecState, setEdhrecState] = useState<"idle" | "loading" | "done">("idle");
 
-  // AI
+  const [aiQuestion, setAiQuestion] = useState(AI_PROMPTS[0]);
   const [aiAdvice, setAiAdvice] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiQuestion, setAiQuestion] = useState("What are the main weaknesses and top 5 improvements for this deck?");
 
-  // Import modal
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
 
   const loadDeck = useCallback(async () => {
-    setLoading(true);
     try {
-      const data = await getDeck(id);
-      setDeck(data);
+      setDeck(await getDeck(id));
     } catch (e: unknown) {
-      Alert.alert("Error", (e as Error).message);
+      Alert.alert("Couldn't open deck", (e as Error).message);
       router.back();
-    } finally {
-      setLoading(false);
     }
-  }, [id]);
-
-  useEffect(() => { loadDeck(); }, [loadDeck]);
-
-  const loadEdhrec = useCallback(async () => {
-    if (edhrecData || edhrecLoading) return;
-    setEdhrecLoading(true);
-    try {
-      const data = await getDeckEdhrec(id);
-      setEdhrecData(data);
-    } catch {
-      // No commander or not found — handled in UI
-    } finally {
-      setEdhrecLoading(false);
-    }
-  }, [id, edhrecData, edhrecLoading]);
+  }, [id, router]);
 
   useEffect(() => {
-    if (tab === "edhrec") loadEdhrec();
-  }, [tab, loadEdhrec]);
+    loadDeck();
+  }, [loadDeck]);
 
-  const handleAiAdvice = async () => {
+  // The hero is dark, so the status bar goes light while this screen is up.
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle("light");
+      return () => setStatusBarStyle("dark");
+    }, [])
+  );
+
+  useEffect(() => {
+    if (tab !== "edhrec" || edhrecState !== "idle") return;
+    setEdhrecState("loading");
+    getDeckEdhrec(id)
+      .then(setEdhrec)
+      .catch(() => setEdhrec(null))
+      .finally(() => setEdhrecState("done"));
+  }, [tab, edhrecState, id]);
+
+  const groups = useMemo(() => {
+    if (!deck) return [];
+    const map = new Map<string, DeckCard[]>();
+    for (const c of deck.deck.cards) {
+      const g = groupOf(c);
+      map.set(g, [...(map.get(g) ?? []), c]);
+    }
+    return GROUP_ORDER.filter((g) => map.has(g)).map((g) => {
+      const cards = [...map.get(g)!].sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+      return {
+        key: g,
+        label: GROUP_LABEL[g],
+        cards,
+        count: cards.reduce((n, c) => n + c.quantity, 0),
+        value: cards.reduce((n, c) => n + (c.price ?? 0) * c.quantity, 0),
+      };
+    });
+  }, [deck]);
+
+  const askAi = async (question = aiQuestion) => {
+    setAiQuestion(question);
     setAiLoading(true);
     setAiAdvice("");
     try {
-      const { advice } = await getAiAdvice({ deckId: id, question: aiQuestion });
+      const { advice } = await getAiAdvice({ deckId: id, question });
       setAiAdvice(advice);
     } catch (e: unknown) {
-      setAiAdvice(`Error: ${(e as Error).message}`);
+      setAiAdvice(`Couldn't get advice: ${(e as Error).message}`);
     } finally {
       setAiLoading(false);
     }
   };
 
-  const handleImport = async () => {
-    if (!importText.trim()) return;
+  const runImport = async () => {
+    const text = importText.trim();
+    if (!text) return;
     setImporting(true);
     try {
-      const text = importText.trim();
-      // A Moxfield / Archidekt / MTGGoldfish link refreshes the deck from that site.
+      let message: string;
+      let issues: string[];
       if (isDeckUrl(text)) {
+        // A Moxfield / Archidekt / MTGGoldfish link refreshes the deck from that site.
         const r = await importDeckFromUrl({ url: text, deckId: id });
-        setShowImport(false);
-        setImportText("");
-        Alert.alert(
-          "Imported",
+        message =
           `${r.imported} cards imported.` +
-            (r.unresolved.length ? `\n${r.unresolved.length} not in our catalog yet: ${r.unresolved.slice(0, 3).join(", ")}` : "") +
-            (r.legality.issues.length > 0 ? `\n⚠️ ${r.legality.issues.slice(0, 3).join("\n")}` : "\n✓ Deck is legal")
-        );
-        loadDeck();
-        return;
+          (r.unresolved.length ? `\n${r.unresolved.length} not in our catalog yet: ${r.unresolved.slice(0, 3).join(", ")}` : "");
+        issues = r.legality.issues;
+      } else {
+        const r = await importDeckText(id, text);
+        message = `${r.imported} cards imported (${r.resolved} matched).`;
+        issues = r.legality.issues;
       }
-      const result = await importDeckText(id, text);
       setShowImport(false);
       setImportText("");
-      Alert.alert(
-        "Imported",
-        `${result.imported} cards imported (${result.resolved} resolved).\n` +
-        (result.legality.issues.length > 0
-          ? `⚠️ ${result.legality.issues.slice(0, 3).join("\n")}`
-          : "✓ Deck is legal")
-      );
+      Alert.alert("Imported", message + (issues.length ? `\n\n${issues.slice(0, 3).join("\n")}` : "\n\nDeck is legal."));
       loadDeck();
     } catch (e: unknown) {
       Alert.alert("Import failed", (e as Error).message);
@@ -156,8 +197,26 @@ export default function DeckDetailScreen() {
     }
   };
 
-  const handleDeleteDeck = () => {
-    Alert.alert("Delete deck", `Delete "${deck?.deck.name}"? This cannot be undone.`, [
+  const share = async () => {
+    if (!deck) return;
+    const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? "https://cardengine.app";
+    try {
+      if (!deck.deck.isPublic) {
+        await toggleDeckVisibility(id, true);
+        loadDeck();
+      }
+      await Share.share({
+        title: deck.deck.name,
+        message: `Check out my ${deck.deck.format} deck "${deck.deck.name}" on CardEngine!\n${WEB_BASE}/decks/${id}/share`,
+        url: `${WEB_BASE}/decks/${id}/share`,
+      });
+    } catch {
+      // dismissed
+    }
+  };
+
+  const confirmDelete = () =>
+    Alert.alert("Delete deck", `Delete "${deck?.deck.name}"? This can't be undone.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -168,380 +227,479 @@ export default function DeckDetailScreen() {
         },
       },
     ]);
+
+  const more = () => {
+    if (!deck) return;
+    const toggleLabel = deck.deck.isPublic ? "Make private" : "Make public";
+    const toggle = async () => {
+      await toggleDeckVisibility(id, !deck.deck.isPublic);
+      loadDeck();
+    };
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ["Import or refresh cards", toggleLabel, "Delete deck", "Cancel"], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
+        (i) => (i === 0 ? setShowImport(true) : i === 1 ? toggle() : i === 2 ? confirmDelete() : undefined)
+      );
+    } else {
+      Alert.alert(deck.deck.name, undefined, [
+        { text: "Import or refresh cards", onPress: () => setShowImport(true) },
+        { text: toggleLabel, onPress: toggle },
+        { text: "Delete deck", style: "destructive", onPress: confirmDelete },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
   };
 
-  if (loading || !deck) {
+  const openCard = (c: DeckCard) => {
+    if (c.variantId) router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
+  };
+
+  if (!deck) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={COLORS.accent} size="large" />
+      <View style={[styles.root, styles.center]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator color={color.textSecondary} />
       </View>
     );
   }
 
   const { deck: d, totalValue, legality } = deck;
-
-  // Group cards by section
-  const sections = SECTION_ORDER
-    .map((section) => ({
-      title: SECTION_LABEL[section],
-      section,
-      data: d.cards.filter((c) => c.section === section),
-    }))
-    .filter((s) => s.data.length > 0);
+  const commander = d.cards.find((c) => c.section === "commander");
+  const heroArt = commander?.variant?.imageUri ?? [...d.cards].sort((a, b) => (b.price ?? 0) - (a.price ?? 0))[0]?.variant?.imageUri ?? null;
+  const total = d.cards.filter((c) => c.section !== "sideboard").reduce((n, c) => n + c.quantity, 0);
+  const lands = d.cards.filter((c) => c.section === "mainboard" && primaryType(c.variant?.typeLine) === "Land").reduce((n, c) => n + c.quantity, 0);
+  const columns = 3;
+  const tileWidth = (width - space.lg * 2 - space.md * (columns - 1)) / columns;
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: d.name,
-          headerStyle: { backgroundColor: COLORS.surface },
-          headerTintColor: COLORS.text,
-          headerRight: () => (
-            <View style={{ flexDirection: "row", gap: 16, marginRight: 4 }}>
-              <TouchableOpacity
-                onPress={async () => {
-                  const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? "https://cardengine.app";
-                  try {
-                    if (!d.isPublic) {
-                      await toggleDeckVisibility(id, true);
-                      loadDeck();
-                    }
-                    await Share.share({
-                      title: d.name,
-                      message: `Check out my ${d.format} deck "${d.name}" on CardEngine!\n${WEB_BASE}/decks/${id}/share`,
-                      url: `${WEB_BASE}/decks/${id}/share`,
-                    });
-                  } catch {
-                    // dismissed
-                  }
-                }}
-              >
-                <Ionicons name="share-outline" size={22} color={COLORS.accent} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowImport(true)}>
-                <Ionicons name="download-outline" size={22} color={COLORS.accent} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDeleteDeck}>
-                <Ionicons name="trash-outline" size={22} color="#E74C3C" />
-              </TouchableOpacity>
+    <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+          {/* Hero: the commander's art behind the deck's name and numbers. */}
+          <View style={[styles.hero, { paddingTop: insets.top + space.sm }]}>
+            {heroArt && <Image source={{ uri: heroArt }} blurRadius={30} contentFit="cover" style={styles.heroBlur} />}
+            <LinearGradient colors={["rgba(10,11,18,0.55)", "rgba(10,11,18,0.82)", "#0E0F13"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+
+            <View style={styles.heroBar}>
+              <HeroButton icon="chevron-back" label="Back" onPress={() => router.back()} />
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                <HeroButton icon="share-outline" label="Share" onPress={share} />
+                <HeroButton icon="ellipsis-horizontal" label="More" onPress={more} />
+              </View>
             </View>
-          ),
-        }}
-      />
 
-      {/* Header stats */}
-      <View style={styles.header}>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{d.cards.reduce((s, c) => s + c.quantity, 0)}</Text>
-          <Text style={styles.statLabel}>Cards</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>${totalValue.toFixed(2)}</Text>
-          <Text style={styles.statLabel}>Value</Text>
-        </View>
-        <View style={styles.stat}>
-          <View style={[styles.legalityBadge, { backgroundColor: legality.valid ? "#27AE60" : "#E74C3C" }]}>
-            <Text style={styles.legalityText}>{legality.valid ? "Legal" : "Issues"}</Text>
+            <View style={styles.heroBody}>
+              <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                <View style={styles.heroChips}>
+                  <View style={styles.chip}>
+                    <Text style={styles.chipText}>{capitalize(d.format)}</Text>
+                  </View>
+                  <View style={[styles.chip, { backgroundColor: legality.valid ? "rgba(92,224,160,0.16)" : "rgba(255,181,71,0.16)" }]}>
+                    <Ionicons name={legality.valid ? "checkmark-circle" : "alert-circle"} size={12} color={legality.valid ? "#5CE0A0" : "#FFB547"} />
+                    <Text style={[styles.chipText, { color: legality.valid ? "#5CE0A0" : "#FFB547" }]}>
+                      {legality.valid ? "Legal" : `${legality.issues.length} issue${legality.issues.length === 1 ? "" : "s"}`}
+                    </Text>
+                  </View>
+                  {d.isPublic && (
+                    <View style={styles.chip}>
+                      <Ionicons name="globe-outline" size={12} color="rgba(255,255,255,0.8)" />
+                      <Text style={styles.chipText}>Public</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.deckName} numberOfLines={2}>
+                  {d.name}
+                </Text>
+                {d.commander && (
+                  <Text variant="callout" color="rgba(255,255,255,0.65)" numberOfLines={1}>
+                    {d.commander}
+                  </Text>
+                )}
+              </View>
+              {commander?.variant?.imageUri && (
+                <View style={styles.heroCard}>
+                  <CardArt uri={commander.variant.imageUri} name={commander.cardName} />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.heroStats}>
+              <HeroStat label="Cards" value={String(total)} />
+              <View style={styles.statDivider} />
+              <HeroStat label="Value" value={formatUsd(totalValue)} />
+              <View style={styles.statDivider} />
+              <HeroStat label="Lands" value={String(lands)} />
+            </View>
+
+            <View style={styles.heroActions}>
+              <Touchable
+                onPress={() => setShowHand(true)}
+                disabled={total < 8}
+                accessibilityRole="button"
+                pressedScale={0.96}
+                style={[styles.heroAction, styles.heroActionPrimary, total < 8 && { opacity: 0.4 }]}
+              >
+                <Ionicons name="hand-left-outline" size={17} color="#0E0F13" />
+                <Text style={[styles.heroActionText, { color: "#0E0F13" }]}>Test hand</Text>
+              </Touchable>
+              <Touchable onPress={() => setShowImport(true)} accessibilityRole="button" pressedScale={0.96} style={styles.heroAction}>
+                <Ionicons name="download-outline" size={17} color="#FFFFFF" />
+                <Text style={styles.heroActionText}>Import</Text>
+              </Touchable>
+            </View>
           </View>
-          <Text style={styles.statLabel}>{d.format}</Text>
-        </View>
-      </View>
 
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {(["cards", "analysis", "edhrec", "ai"] as Tab[]).map((t) => (
-          <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]} onPress={() => setTab(t)}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === "cards" ? "Cards" : t === "analysis" ? "Analysis" : t === "edhrec" ? "EDHRec" : "AI"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+          <View style={styles.tabs}>
+            <Segmented options={TABS} value={tab} onChange={setTab} />
+          </View>
 
-      {/* Cards tab */}
-      {tab === "cards" && (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          renderSectionHeader={({ section }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              <Text style={styles.sectionCount}>
-                {section.data.reduce((s, c) => s + c.quantity, 0)}
+          {legality.issues.length > 0 && tab === "cards" && (
+            <View style={styles.issues}>
+              <Ionicons name="alert-circle" size={16} color="#B26A00" style={{ marginTop: 1 }} />
+              <Text variant="callout" color="#7A4A00" style={{ flex: 1 }}>
+                {legality.issues.slice(0, 3).join("\n")}
               </Text>
             </View>
           )}
-          renderItem={({ item }: { item: DeckCard }) => (
-            <View style={styles.cardRow}>
-              {item.variant?.imageUri ? (
-                <Image source={{ uri: item.variant.imageUri }} style={styles.cardThumb} />
-              ) : (
-                <View style={[styles.cardThumb, styles.cardThumbPlaceholder]}>
-                  <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>?</Text>
-                </View>
-              )}
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardName}>{item.cardName}</Text>
-                {item.variant?.typeLine && (
-                  <Text style={styles.cardType} numberOfLines={1}>{item.variant.typeLine}</Text>
-                )}
-              </View>
-              <View style={styles.cardRight}>
-                {item.variant?.rarity && (
-                  <View style={[styles.rarityDot, { backgroundColor: RARITY_COLOR[item.variant.rarity] ?? "#666" }]} />
-                )}
-                <Text style={styles.cardPrice}>{formatUsd(item.price)}</Text>
-                <Text style={styles.cardQty}>×{item.quantity}</Text>
-              </View>
-            </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>No cards yet. Import a decklist to get started.</Text>
-            </View>
-          }
-        />
-      )}
 
-      {/* Analysis tab */}
-      {tab === "analysis" && <DeckAnalysisView cards={d.cards} format={d.format} onTestHand={() => setShowHand(true)} />}
-      <OpeningHand visible={showHand} cards={d.cards} deckName={d.name} format={d.format} onClose={() => setShowHand(false)} />
-
-      {/* EDHRec tab */}
-      {tab === "edhrec" && (
-        <ScrollView contentContainerStyle={styles.listContent}>
-          {edhrecLoading ? (
-            <ActivityIndicator color={COLORS.accent} style={{ marginTop: 40 }} />
-          ) : !edhrecData ? (
-            <View style={styles.center}>
-              <Ionicons name="information-circle-outline" size={40} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>No commander set, or commander not found on EDHRec.</Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.edhrecHeader}>
-                <Text style={styles.edhrecCommander}>{edhrecData.commander}</Text>
-                <Text style={styles.edhrecMeta}>
-                  {edhrecData.num_decks.toLocaleString()} decks · avg ${edhrecData.avg_price.toFixed(0)}
-                </Text>
-              </View>
-              {edhrecData.themes.length > 0 && (
-                <View style={styles.themeRow}>
-                  {edhrecData.themes.slice(0, 6).map((t) => (
-                    <View key={t} style={styles.themeChip}>
-                      <Text style={styles.themeText}>{t}</Text>
-                    </View>
+          {tab === "cards" &&
+            (d.cards.length === 0 ? (
+              <Empty icon="albums-outline" text="No cards yet. Import a Moxfield or Archidekt link, or paste a decklist." action="Import cards" onAction={() => setShowImport(true)} />
+            ) : (
+              <>
+                <View style={styles.viewToggle}>
+                  {(["grid", "list"] as const).map((v) => (
+                    <Pressable
+                      key={v}
+                      onPress={() => {
+                        tap();
+                        setLayout(v);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: layout === v }}
+                      accessibilityLabel={v === "grid" ? "Show as grid" : "Show as list"}
+                      style={[styles.toggleBtn, layout === v && styles.toggleOn]}
+                    >
+                      <Ionicons name={v === "grid" ? "grid-outline" : "list-outline"} size={16} color={layout === v ? color.ink : color.textTertiary} />
+                    </Pressable>
                   ))}
                 </View>
-              )}
-              <Text style={styles.sectionTitle2}>Recommended Cards</Text>
-              {edhrecData.recommendations
-                .filter((r) => !r.alreadyInDeck)
-                .slice(0, 40)
-                .map((r) => (
-                  <View key={r.name} style={styles.recRow}>
-                    {r.image ? (
-                      <Image source={{ uri: r.image }} style={styles.recThumb} />
+                {groups.map((g) => (
+                  <Animated.View key={g.key} entering={FadeIn.duration(200)} style={styles.group}>
+                    <View style={styles.groupHeader}>
+                      <Text variant="headline">{g.label}</Text>
+                      <Text variant="number" color={color.textTertiary}>
+                        {g.count}
+                      </Text>
+                      <View style={{ flex: 1 }} />
+                      <Text variant="callout" color={color.textSecondary}>
+                        {formatUsd(g.value)}
+                      </Text>
+                    </View>
+                    {layout === "grid" ? (
+                      <View style={styles.grid}>
+                        {padToColumns(g.cards, columns).map((c, i) =>
+                          c ? (
+                            <CardTile
+                              key={c.id}
+                              style={{ width: tileWidth }}
+                              name={c.cardName}
+                              imageUri={c.variant?.imageUri}
+                              price={c.price}
+                              quantity={c.quantity}
+                              onPress={() => openCard(c)}
+                            />
+                          ) : (
+                            <View key={`pad-${i}`} style={{ width: tileWidth }} />
+                          )
+                        )}
+                      </View>
                     ) : (
-                      <View style={[styles.recThumb, styles.cardThumbPlaceholder]} />
+                      <View style={styles.listCard}>
+                        {g.cards.map((c, i) => (
+                          <Touchable key={c.id} onPress={() => openCard(c)} accessibilityRole="button" pressedScale={0.99} style={[styles.row, i > 0 && styles.rowDivider]}>
+                            <Text variant="number" color={color.textTertiary} style={{ width: 22 }}>
+                              {c.quantity}
+                            </Text>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text variant="bodyStrong" numberOfLines={1}>
+                                {c.cardName}
+                              </Text>
+                              {!c.variantId && (
+                                <Text variant="caption" color={color.textTertiary}>
+                                  Not in our catalog yet
+                                </Text>
+                              )}
+                            </View>
+                            <ManaCost cost={c.variant?.manaCost} />
+                            <Text variant="price" style={{ width: 64, textAlign: "right" }}>
+                              {c.price != null ? formatUsd(c.price) : "—"}
+                            </Text>
+                          </Touchable>
+                        ))}
+                      </View>
                     )}
-                    <View style={styles.recInfo}>
-                      <Text style={styles.recName}>{r.name}</Text>
-                      <Text style={styles.recType}>{r.primary_type}</Text>
-                    </View>
-                    <View style={styles.recRight}>
-                      <Text style={styles.recSynergy}>+{r.synergy}%</Text>
-                      <Text style={styles.recInclusion}>{r.inclusion}%</Text>
-                      <Text style={styles.recPrice}>{r.price_usd != null ? `$${r.price_usd.toFixed(2)}` : "—"}</Text>
-                    </View>
-                  </View>
+                  </Animated.View>
                 ))}
-            </>
+              </>
+            ))}
+
+          {tab === "analysis" && (
+            <View style={{ paddingTop: space.sm }}>
+              <DeckAnalysisView cards={d.cards} format={d.format} onTestHand={() => setShowHand(true)} />
+            </View>
+          )}
+
+          {tab === "edhrec" &&
+            (edhrecState !== "done" ? (
+              <ActivityIndicator color={color.textSecondary} style={{ marginTop: 48 }} />
+            ) : !edhrec ? (
+              <Empty icon="people-outline" text={d.commander ? `EDHREC doesn't have data for ${d.commander} yet.` : "Set a commander to see what other players run with it."} />
+            ) : (
+              <View style={styles.section}>
+                <View style={styles.panel}>
+                  <Text variant="headline">{edhrec.commander}</Text>
+                  <Text variant="caption" color={color.textSecondary}>
+                    {edhrec.num_decks.toLocaleString()} decks on EDHREC · average deck ${edhrec.avg_price.toFixed(0)}
+                  </Text>
+                  {edhrec.themes.length > 0 && (
+                    <View style={styles.themes}>
+                      {edhrec.themes.slice(0, 8).map((t) => (
+                        <Chip key={t} label={t} />
+                      ))}
+                    </View>
+                  )}
+                </View>
+                <Text variant="headline" style={styles.subhead}>
+                  Popular cards you don't run
+                </Text>
+                <View style={styles.listCard}>
+                  {edhrec.recommendations
+                    .filter((r) => !r.alreadyInDeck)
+                    .slice(0, 40)
+                    .map((r, i) => (
+                      <View key={r.name} style={[styles.recRow, i > 0 && styles.rowDivider]}>
+                        <View style={styles.recArt}>
+                          <CardArt uri={r.image} name={r.name} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                          <Text variant="bodyStrong" numberOfLines={1}>
+                            {r.name}
+                          </Text>
+                          <Text variant="caption" color={color.textSecondary}>
+                            {r.primary_type} · in {r.inclusion}% of decks
+                          </Text>
+                          <View style={styles.synergyTrack}>
+                            <View style={[styles.synergyFill, { width: `${Math.max(4, Math.min(100, r.synergy * 2))}%` }]} />
+                          </View>
+                        </View>
+                        <View style={{ alignItems: "flex-end", gap: 2 }}>
+                          <Text variant="number" color={r.synergy >= 0 ? color.positive : color.textSecondary}>
+                            {r.synergy >= 0 ? "+" : ""}
+                            {r.synergy}% synergy
+                          </Text>
+                          <Text variant="price">{r.price_usd != null ? formatUsd(r.price_usd) : "—"}</Text>
+                        </View>
+                      </View>
+                    ))}
+                </View>
+              </View>
+            ))}
+
+          {tab === "ai" && (
+            <View style={styles.section}>
+              <View style={styles.panel}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+                  <View style={styles.aiIcon}>
+                    <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+                  </View>
+                  <Text variant="headline">Ask about this deck</Text>
+                </View>
+                <View style={styles.prompts}>
+                  {AI_PROMPTS.map((p) => (
+                    <Pressable key={p} onPress={() => askAi(p)} disabled={aiLoading} style={[styles.prompt, aiQuestion === p && styles.promptOn]}>
+                      <Text variant="callout" color={aiQuestion === p ? "#FFFFFF" : color.ink}>
+                        {p}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={aiQuestion}
+                  onChangeText={setAiQuestion}
+                  multiline
+                  placeholder="Or ask your own question…"
+                  placeholderTextColor={color.textTertiary}
+                  selectionColor={color.accent}
+                />
+                <Button label={aiLoading ? "Thinking…" : "Ask"} icon="sparkles" onPress={() => askAi()} loading={aiLoading} disabled={!aiQuestion.trim()} />
+              </View>
+              {aiAdvice !== "" && (
+                <Animated.View entering={FadeIn.duration(250)} style={[styles.panel, { marginTop: space.md }]}>
+                  <Text variant="body">{aiAdvice}</Text>
+                </Animated.View>
+              )}
+            </View>
           )}
         </ScrollView>
-      )}
+      </KeyboardAvoidingView>
 
-      {/* AI Advice tab */}
-      {tab === "ai" && (
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.listContent}>
-            <Text style={styles.label}>Question</Text>
-            <TextInput
-              style={styles.aiInput}
-              value={aiQuestion}
-              onChangeText={setAiQuestion}
-              multiline
-              numberOfLines={3}
-              placeholderTextColor={COLORS.textMuted}
-            />
-            <TouchableOpacity
-              style={[styles.aiBtn, aiLoading && { opacity: 0.6 }]}
-              onPress={handleAiAdvice}
-              disabled={aiLoading}
-            >
-              {aiLoading ? (
-                <ActivityIndicator color={COLORS.onAccent} size="small" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color={COLORS.onAccent} />
-                  <Text style={styles.aiBtnText}>Get AI Advice</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            {aiAdvice !== "" && (
-              <View style={styles.aiResponse}>
-                <Text style={styles.aiResponseText}>{aiAdvice}</Text>
-              </View>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      )}
+      <Sheet visible={showImport} onClose={() => setShowImport(false)} title="Import cards" subtitle="Replaces the cards in this deck">
+        <TextInput
+          style={[styles.input, { minHeight: 140 }]}
+          value={importText}
+          onChangeText={setImportText}
+          multiline
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder={"Paste a Moxfield, Archidekt or MTGGoldfish link\n\nor a decklist:\n1 Sol Ring\n1 Arcane Signet"}
+          placeholderTextColor={color.textTertiary}
+          selectionColor={color.accent}
+        />
+        <Button label={isDeckUrl(importText) ? "Import from link" : "Import list"} size="lg" onPress={runImport} loading={importing} disabled={!importText.trim()} />
+      </Sheet>
 
-      {/* Import modal */}
-      <Modal visible={showImport} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modal}>
-              <Text style={styles.modalTitle}>Import Decklist</Text>
-              <Text style={styles.modalHint}>Paste a Moxfield, Archidekt or MTGGoldfish link, or a decklist</Text>
-              <TextInput
-                style={styles.importInput}
-                value={importText}
-                onChangeText={setImportText}
-                multiline
-                placeholder={"1 Sol Ring\n1 Command Tower\n4 Lightning Bolt\n\nSideboard\n2 Counterspell"}
-                placeholderTextColor={COLORS.textMuted}
-                autoFocus
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowImport(false); setImportText(""); }}>
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.createBtn, (!importText.trim() || importing) && { opacity: 0.5 }]}
-                  onPress={handleImport}
-                  disabled={!importText.trim() || importing}
-                >
-                  {importing ? <ActivityIndicator color={COLORS.onAccent} size="small" /> : <Text style={styles.createText}>Import</Text>}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <OpeningHand visible={showHand} cards={d.cards} deckName={d.name} format={d.format} onClose={() => setShowHand(false)} />
     </View>
   );
 }
 
+function HeroButton({ icon, label, onPress }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.heroButton, pressed && { opacity: 0.7 }]}>
+      <Ionicons name={icon} size={20} color="#FFFFFF" />
+    </Pressable>
+  );
+}
+
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text variant="caption" color="rgba(255,255,255,0.6)">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+const PIP: Record<string, string> = { W: "#F4EBC8", U: "#4A90D9", B: "#5E556E", R: "#E5533D", G: "#3FA45B", C: "#B8B3AE" };
+
+/** A mana cost as small colored pips, with generic costs as numbers. */
+function ManaCost({ cost }: { cost: string | null | undefined }) {
+  const symbols = (cost ?? "").match(/\{[^}]+\}/g)?.map((s) => s.slice(1, -1)) ?? [];
+  if (!symbols.length) return null;
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {symbols.slice(0, 7).map((s, i) => {
+        const generic = /^\d+$|^X$/.test(s);
+        const tint = generic ? undefined : PIP[s[0]];
+        return (
+          <View key={i} style={[styles.pip, { backgroundColor: tint ?? color.surface3 }]}>
+            {!tint && <Text style={styles.pipText}>{s}</Text>}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function Empty({ icon, text, action, onAction }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string; action?: string; onAction?: () => void }) {
+  return (
+    <View style={styles.empty}>
+      <Ionicons name={icon} size={34} color={color.textTertiary} />
+      <Text variant="body" color={color.textSecondary} align="center">
+        {text}
+      </Text>
+      {action && <Button label={action} onPress={onAction} />}
+    </View>
+  );
+}
+
+const HERO_CARD = 96;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  header: {
-    flexDirection: "row",
-    backgroundColor: COLORS.surface,
-    padding: 16,
-    gap: 0,
+  root: { flex: 1, backgroundColor: color.bg },
+  center: { alignItems: "center", justifyContent: "center" },
+  hero: { backgroundColor: "#0E0F13", paddingBottom: space.lg, overflow: "hidden" },
+  heroBlur: { position: "absolute", top: -60, left: -60, right: -60, bottom: -60, opacity: 0.85 },
+  heroBar: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: space.lg },
+  heroButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
+  heroBody: { flexDirection: "row", alignItems: "flex-end", gap: space.lg, paddingHorizontal: space.lg, marginTop: space.lg },
+  heroChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 4, height: 24, paddingHorizontal: 10, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.12)" },
+  chipText: { fontFamily: font.semibold, fontSize: 12, color: "rgba(255,255,255,0.85)" },
+  deckName: { fontFamily: font.heavy, fontSize: 28, lineHeight: 33, letterSpacing: -0.8, color: "#FFFFFF" },
+  heroCard: {
+    width: HERO_CARD,
+    height: HERO_CARD / CARD_ASPECT,
+    transform: [{ rotate: "4deg" }],
+    shadowColor: "#000",
+    shadowOpacity: 0.55,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
-  stat: { flex: 1, alignItems: "center", gap: 4 },
-  statValue: { color: COLORS.text, fontSize: 20, fontWeight: "800" },
-  statLabel: { color: COLORS.textMuted, fontSize: 12 },
-  legalityBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6 },
-  legalityText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  tabBar: { flexDirection: "row", backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border ?? "#222" },
-  tabBtn: { flex: 1, paddingVertical: 12, alignItems: "center" },
-  tabBtnActive: { borderBottomWidth: 2, borderBottomColor: COLORS.accent },
-  tabText: { color: COLORS.textMuted, fontSize: 13, fontWeight: "600" },
-  tabTextActive: { color: COLORS.accent },
-  listContent: { padding: 16, gap: 8, paddingBottom: 32 },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    marginTop: 8,
-  },
-  sectionTitle: { color: COLORS.textMuted, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
-  sectionCount: { color: COLORS.textMuted, fontSize: 12 },
-  cardRow: {
+  heroStats: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 10,
-    gap: 10,
+    marginHorizontal: space.lg,
+    marginTop: space.lg,
+    paddingVertical: space.md,
+    borderRadius: radius.lg,
+    backgroundColor: "rgba(255,255,255,0.07)",
   },
-  cardThumb: { width: 36, height: 50, borderRadius: 4 },
-  cardThumbPlaceholder: { backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
-  cardInfo: { flex: 1 },
-  cardName: { color: COLORS.text, fontSize: 14, fontWeight: "600" },
-  cardType: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  cardRight: { alignItems: "flex-end", gap: 4 },
-  rarityDot: { width: 7, height: 7, borderRadius: 4 },
-  cardPrice: { color: COLORS.textMuted, fontSize: 12 },
-  cardQty: { color: COLORS.accent, fontSize: 13, fontWeight: "700" },
-  emptyText: { color: COLORS.textMuted, fontSize: 14, textAlign: "center", marginTop: 16 },
-  // EDHRec
-  edhrecHeader: { marginBottom: 12 },
-  edhrecCommander: { color: COLORS.text, fontSize: 20, fontWeight: "800" },
-  edhrecMeta: { color: COLORS.textMuted, fontSize: 13, marginTop: 4 },
-  themeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
-  themeChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, backgroundColor: COLORS.surface },
-  themeText: { color: COLORS.accent, fontSize: 12 },
-  sectionTitle2: { color: COLORS.textMuted, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 },
-  recRow: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.surface, borderRadius: 10, padding: 10, gap: 10, marginBottom: 8 },
-  recThumb: { width: 36, height: 50, borderRadius: 4 },
-  recInfo: { flex: 1 },
-  recName: { color: COLORS.text, fontSize: 14, fontWeight: "600" },
-  recType: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  recRight: { alignItems: "flex-end", gap: 3 },
-  recSynergy: { color: "#27AE60", fontSize: 12, fontWeight: "700" },
-  recInclusion: { color: COLORS.textMuted, fontSize: 11 },
-  recPrice: { color: COLORS.textMuted, fontSize: 11 },
-  // AI
-  label: { color: COLORS.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
-  aiInput: {
-    backgroundColor: COLORS.surface,
-    color: COLORS.text,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    minHeight: 80,
-    textAlignVertical: "top",
-    marginBottom: 12,
-  },
-  aiBtn: {
+  statDivider: { width: StyleSheet.hairlineWidth, height: 28, backgroundColor: "rgba(255,255,255,0.18)" },
+  statValue: { fontFamily: font.heavy, fontSize: 18, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
+  heroActions: { flexDirection: "row", gap: space.sm, paddingHorizontal: space.lg, marginTop: space.md },
+  heroAction: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    gap: 6,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
-  aiBtnText: { color: COLORS.onAccent, fontWeight: "700", fontSize: 15 },
-  aiResponse: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 16 },
-  aiResponseText: { color: COLORS.text, fontSize: 14, lineHeight: 22 },
-  // Modals
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
-  modal: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12 },
-  modalTitle: { color: COLORS.text, fontSize: 20, fontWeight: "800" },
-  modalHint: { color: COLORS.textMuted, fontSize: 13 },
-  importInput: {
-    backgroundColor: COLORS.background,
-    color: COLORS.text,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 180,
+  heroActionPrimary: { backgroundColor: "#FFFFFF" },
+  heroActionText: { fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" },
+  tabs: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
+  issues: { flexDirection: "row", gap: space.sm, marginHorizontal: space.lg, marginTop: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: "#FFF3DC" },
+  viewToggle: { flexDirection: "row", alignSelf: "flex-end", gap: 2, marginRight: space.lg, marginTop: space.sm, padding: 2, borderRadius: 10, backgroundColor: color.surface3 },
+  toggleBtn: { width: 34, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  toggleOn: { backgroundColor: color.surface, ...elevation.card },
+  group: { paddingHorizontal: space.lg, marginTop: space.md },
+  groupHeader: { flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: space.md },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.md },
+  listCard: { backgroundColor: color.surface, borderRadius: radius.lg, paddingHorizontal: space.lg, ...hairline, ...elevation.card },
+  row: { flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: 48, paddingVertical: 8 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.borderStrong },
+  pip: { minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  pipText: { fontFamily: font.bold, fontSize: 10, color: color.ink },
+  section: { paddingHorizontal: space.lg, paddingTop: space.sm },
+  panel: { backgroundColor: color.surface, borderRadius: radius.lg, padding: space.lg, gap: space.sm, ...hairline, ...elevation.card },
+  subhead: { marginTop: space.xl, marginBottom: space.md },
+  themes: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.xs },
+  recRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 10 },
+  recArt: { width: 42 },
+  synergyTrack: { height: 4, borderRadius: 2, backgroundColor: color.surface2, overflow: "hidden", marginTop: 2 },
+  synergyFill: { height: "100%", borderRadius: 2, backgroundColor: color.positive },
+  aiIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: color.accent },
+  prompts: { gap: space.sm, marginTop: space.xs },
+  prompt: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, backgroundColor: color.surface2 },
+  promptOn: { backgroundColor: color.ink },
+  input: {
+    minHeight: 72,
+    borderRadius: radius.md,
+    padding: space.md,
+    backgroundColor: color.surface2,
+    color: color.ink,
+    fontFamily: font.medium,
+    fontSize: 15,
     textAlignVertical: "top",
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
-  modalActions: { flexDirection: "row", gap: 10 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.background, alignItems: "center" },
-  cancelText: { color: COLORS.textMuted, fontWeight: "700" },
-  createBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: COLORS.accent, alignItems: "center" },
-  createText: { color: COLORS.onAccent, fontWeight: "700" },
+  empty: { alignItems: "center", gap: space.md, padding: space.xxl, paddingTop: 48 },
 });
