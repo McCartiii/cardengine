@@ -1,185 +1,201 @@
 import React, { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Switch,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
-import { useFocusEffect } from "expo-router";
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Switch, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "@/lib/constants";
-import {
-  getWatchlist,
-  deleteWatchlistEntry,
-  toggleWatchlistEntry,
-  type WatchlistEntry,
-} from "@/lib/api";
+import { color, radius, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
+import { formatUsd } from "@/design/format";
+import { deleteWatchlistEntry, getWatchlist, toggleWatchlistEntry, type WatchlistEntry } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { Card, CardArt, EmptyState, PageHeader, Screen, SkeletonBlock, Text, Touchable } from "@/ui";
 
-function priceStatus(entry: WatchlistEntry): { triggered: boolean; label: string; color: string } {
+function priceStatus(entry: WatchlistEntry): { triggered: boolean; label: string } {
   const { currentPrice, thresholdAmount, direction } = entry;
-  if (currentPrice == null) return { triggered: false, label: "No price data", color: COLORS.textMuted };
-  const triggered =
-    direction === "above" ? currentPrice >= thresholdAmount : currentPrice <= thresholdAmount;
-  const diff = Math.abs(currentPrice - thresholdAmount);
-  const label = triggered
-    ? `Alert triggered · $${diff.toFixed(2)} ${direction === "above" ? "above" : "below"}`
-    : `$${diff.toFixed(2)} ${direction === "above" ? "below" : "above"} target`;
-  return { triggered, label, color: triggered ? (direction === "above" ? "#27AE60" : "#E74C3C") : COLORS.textMuted };
+  if (currentPrice == null) return { triggered: false, label: "No price yet" };
+  const triggered = direction === "above" ? currentPrice >= thresholdAmount : currentPrice <= thresholdAmount;
+  const diff = formatUsd(Math.abs(currentPrice - thresholdAmount));
+  if (triggered) return { triggered, label: `Hit · ${diff} ${direction}` };
+  return { triggered, label: `${diff} to go` };
 }
 
-export default function WatchlistScreen() {
+export default function AlertsScreen() {
+  const router = useRouter();
+  const session = useAuthStore((s) => s.session);
   const [entries, setEntries] = useState<WatchlistEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!session) {
+      setStatus("ready");
+      return;
+    }
     try {
-      const { entries: e } = await getWatchlist();
-      setEntries(e);
+      const res = await getWatchlist();
+      setEntries(res?.entries ?? []);
+      setStatus("ready");
     } catch {
-      // not authed
+      setStatus((s) => (s === "loading" ? "error" : s));
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [session]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
-  const handleToggle = async (entry: WatchlistEntry, enabled: boolean) => {
-    setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, enabled } : e));
+  const toggle = async (entry: WatchlistEntry, enabled: boolean) => {
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, enabled } : e)));
     try {
       await toggleWatchlistEntry(entry.id, enabled);
     } catch {
-      setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, enabled: !enabled } : e));
+      setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, enabled: !enabled } : e)));
     }
   };
 
-  const handleDelete = (entry: WatchlistEntry) => {
-    Alert.alert("Remove alert", `Remove price alert for ${entry.cardName}?`, [
+  const remove = (entry: WatchlistEntry) => {
+    Alert.alert("Remove alert?", `Stop watching ${entry.cardName}.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
         onPress: async () => {
           setEntries((prev) => prev.filter((e) => e.id !== entry.id));
-          await deleteWatchlistEntry(entry.id);
+          try {
+            await deleteWatchlistEntry(entry.id);
+          } catch {
+            load();
+          }
         },
       },
     ]);
   };
 
+  const triggered = entries.filter((e) => e.enabled && priceStatus(e).triggered).length;
+  const subtitle = entries.length
+    ? `${entries.length} watching${triggered ? ` · ${triggered} hit` : ""}`
+    : undefined;
+
   const renderEntry = ({ item }: { item: WatchlistEntry }) => {
-    const status = priceStatus(item);
+    const s = priceStatus(item);
+    const hit = s.triggered && item.enabled;
+    const up = item.direction === "above";
     return (
-      <View style={[styles.card, status.triggered && item.enabled && styles.cardTriggered]}>
-        <View style={styles.cardLeft}>
-          {item.imageUri ? (
-            <Image source={{ uri: item.imageUri }} style={styles.thumb} />
-          ) : (
-            <View style={[styles.thumb, styles.thumbPlaceholder]}>
-              <Ionicons name="image-outline" size={18} color={COLORS.textMuted} />
+      <Touchable
+        onPress={() => router.push({ pathname: "/card/[id]", params: { id: item.variantId } })}
+        pressedScale={0.99}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.cardName}, alert when ${item.direction} ${formatUsd(item.thresholdAmount)}`}
+        style={{ marginHorizontal: space.lg }}
+      >
+        <Card style={[styles.row, hit && styles.rowHit, !item.enabled && { opacity: 0.6 }]}>
+          <View style={styles.thumb}>
+            <CardArt uri={item.imageUri} name={item.cardName} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="headline" numberOfLines={1}>
+              {item.cardName}
+            </Text>
+            <View style={styles.target}>
+              <Ionicons name={up ? "trending-up" : "trending-down"} size={14} color={up ? color.positive : color.negative} />
+              <Text variant="callout" color={color.textSecondary}>
+                {up ? "Above" : "Below"} {formatUsd(item.thresholdAmount)}
+              </Text>
             </View>
-          )}
-        </View>
-
-        <View style={styles.cardBody}>
-          <Text style={styles.cardName} numberOfLines={1}>{item.cardName}</Text>
-
-          <View style={styles.targetRow}>
-            <Ionicons
-              name={item.direction === "above" ? "arrow-up-circle" : "arrow-down-circle"}
-              size={14}
-              color={item.direction === "above" ? "#27AE60" : "#E74C3C"}
+            <View style={styles.priceRow}>
+              <Text variant="price">{item.currentPrice != null ? formatUsd(item.currentPrice) : "—"}</Text>
+              <View style={[styles.statusPill, { backgroundColor: hit ? color.accentSoft : color.surface2 }]}>
+                {hit && <Ionicons name="notifications" size={11} color={color.accent} />}
+                <Text variant="caption" color={hit ? color.accent : color.textSecondary}>
+                  {s.label}
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.actions}>
+            <Switch
+              value={item.enabled}
+              onValueChange={(v) => toggle(item, v)}
+              trackColor={{ false: color.surface3, true: color.accent }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={color.surface3}
+              accessibilityLabel={item.enabled ? "Pause alert" : "Turn alert on"}
             />
-            <Text style={styles.targetText}>
-              Alert when {item.direction} ${item.thresholdAmount.toFixed(2)}
-            </Text>
+            <Pressable onPress={() => remove(item)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Remove alert">
+              <Ionicons name="trash-outline" size={18} color={color.textTertiary} />
+            </Pressable>
           </View>
-
-          <View style={styles.priceRow}>
-            <Text style={styles.currentPrice}>
-              Now: {item.currentPrice != null ? `$${item.currentPrice.toFixed(2)}` : "—"}
-            </Text>
-            <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
-          </View>
-
-          <Text style={styles.market}>{item.market} · {item.kind} · {item.currency}</Text>
-        </View>
-
-        <View style={styles.cardActions}>
-          <Switch
-            value={item.enabled}
-            onValueChange={(v) => handleToggle(item, v)}
-            trackColor={{ false: COLORS.border, true: COLORS.accent }}
-            thumbColor="#fff"
-          />
-          <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
-            <Ionicons name="trash-outline" size={18} color="#E74C3C" />
-          </TouchableOpacity>
-        </View>
-      </View>
+        </Card>
+      </Touchable>
     );
   };
 
+  const header = <PageHeader title="Price alerts" subtitle={subtitle} back />;
+
+  if (status === "loading") {
+    return (
+      <Screen>
+        {header}
+        <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+          <SkeletonBlock height={104} />
+          <SkeletonBlock height={104} />
+          <SkeletonBlock height={104} />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      {loading ? (
-        <ActivityIndicator color={COLORS.accent} style={{ flex: 1 }} />
-      ) : (
-        <FlatList
-          data={entries}
-          keyExtractor={(e) => e.id}
-          renderItem={renderEntry}
-          contentContainerStyle={entries.length === 0 ? styles.emptyContainer : styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.accent} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="notifications-outline" size={56} color={COLORS.textMuted} />
-              <Text style={styles.emptyTitle}>No price alerts</Text>
-              <Text style={styles.emptyHint}>View a card and set a price target to get notified when it hits</Text>
-            </View>
-          }
-        />
-      )}
-    </View>
+    <Screen>
+      <FlatList
+        data={entries}
+        keyExtractor={(e) => e.id}
+        renderItem={renderEntry}
+        ListHeaderComponent={header}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE }}
+        ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
+        style={{ flex: 1 }}
+        refreshControl={
+          session ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load();
+              }}
+              tintColor={color.textSecondary}
+            />
+          ) : undefined
+        }
+        ListEmptyComponent={
+          status === "error" ? (
+            <EmptyState icon="cloud-offline-outline" tint="orange" title="Couldn't load your alerts" body="Check your connection and try again." action="Retry" onAction={load} />
+          ) : !session ? (
+            <EmptyState icon="notifications" tint="orange" title="Sign in for price alerts" body="We'll watch prices and tell you when a card hits your target." action="Sign in" onAction={() => router.push("/(auth)/sign-in")} />
+          ) : (
+            <EmptyState
+              icon="notifications"
+              tint="orange"
+              title="No alerts yet"
+              body="Open any card and tap the bell to set a price target."
+              action="Find a card"
+              onAction={() => router.push("/(tabs)/search")}
+            />
+          )
+        }
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  list: { padding: 16, gap: 10 },
-  emptyContainer: { flex: 1 },
-  card: {
-    flexDirection: "row",
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 12,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  cardTriggered: { borderColor: COLORS.accent },
-  cardLeft: {},
-  thumb: { width: 44, height: 62, borderRadius: 4 },
-  thumbPlaceholder: { backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
-  cardBody: { flex: 1, gap: 4 },
-  cardName: { color: COLORS.text, fontSize: 15, fontWeight: "700" },
-  targetRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  targetText: { color: COLORS.textMuted, fontSize: 12 },
-  priceRow: { gap: 2 },
-  currentPrice: { color: COLORS.text, fontSize: 14, fontWeight: "600" },
-  statusLabel: { fontSize: 12 },
-  market: { color: COLORS.textMuted, fontSize: 11, textTransform: "capitalize" },
-  cardActions: { alignItems: "center", gap: 12 },
-  deleteBtn: { padding: 4 },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
-  emptyTitle: { color: COLORS.text, fontSize: 20, fontWeight: "700" },
-  emptyHint: { color: COLORS.textMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md },
+  rowHit: { borderColor: color.accent, borderWidth: 1.5 },
+  thumb: { width: 52, borderRadius: 4, overflow: "hidden" },
+  target: { flexDirection: "row", alignItems: "center", gap: 4 },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 4 },
+  statusPill: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  actions: { alignItems: "center", gap: space.md },
 });

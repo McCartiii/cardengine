@@ -1,191 +1,203 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Linking,
-  ActivityIndicator,
-  RefreshControl,
-  Platform,
-} from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FlatList, Linking, Platform, RefreshControl, StyleSheet, View } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "@/lib/constants";
+import { color, radius, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
 import { getNearbyShops, type Shop } from "@/lib/api";
+import { Card, EmptyState, IconBubble, PageHeader, Screen, SearchField, SkeletonBlock, Text, Touchable } from "@/ui";
 
-function formatDistance(mi: number | null): string {
-  if (mi == null) return "";
+const LOCATION_TIMEOUT_MS = 8000;
+
+function formatDistance(mi: number | null | undefined): string | null {
+  if (mi == null) return null;
   if (mi < 0.1) return "< 0.1 mi";
   if (mi < 10) return `${mi.toFixed(1)} mi`;
   return `${Math.round(mi)} mi`;
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+}
+
+/** The phone's position, or null if it's off, denied or too slow. Never hangs. */
+async function currentPosition(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const { status } = await withTimeout(Location.requestForegroundPermissionsAsync(), LOCATION_TIMEOUT_MS) ?? { status: "timeout" };
+    if (status !== "granted") return null;
+    const pos =
+      (await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), LOCATION_TIMEOUT_MS)) ??
+      (await Location.getLastKnownPositionAsync().catch(() => null));
+    return pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : null;
+  } catch {
+    return null;
+  }
+}
+
+function openMaps(shop: Shop) {
+  const addr = [shop.address, shop.city, shop.state, shop.zip].filter(Boolean).join(", ");
+  const query = encodeURIComponent(addr || shop.name);
+  const url = Platform.OS === "ios" ? `maps:?q=${query}` : Platform.OS === "android" ? `geo:0,0?q=${query}` : `https://maps.google.com/?q=${query}`;
+  Linking.openURL(url).catch(() => Linking.openURL(`https://maps.google.com/?q=${query}`));
+}
+
+function Action({ icon, label, onPress }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void }) {
+  return (
+    <Touchable onPress={onPress} style={styles.action} accessibilityRole="button">
+      <Ionicons name={icon} size={15} color={color.ink} />
+      <Text variant="callout">{label}</Text>
+    </Touchable>
+  );
+}
+
 export default function ShopsScreen() {
   const [shops, setShops] = useState<Shop[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  const [located, setLocated] = useState<boolean | null>(null);
+  const [city, setCity] = useState("");
+  const seq = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (cityQuery?: string) => {
+    const n = ++seq.current;
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setLocationError("Location permission denied. Showing all shops.");
-        const { shops: s } = await getNearbyShops({});
-        setShops(s);
-        return;
+      let params: Parameters<typeof getNearbyShops>[0] = {};
+      if (cityQuery) {
+        params = { city: cityQuery };
+      } else {
+        const pos = await currentPosition();
+        if (n !== seq.current) return;
+        setLocated(!!pos);
+        if (pos) params = { ...pos, radius: 50 };
       }
-      setLocationError(null);
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { shops: s } = await getNearbyShops({
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
-        radius: 50,
-      });
-      setShops(s);
+      const res = await getNearbyShops(params);
+      if (n !== seq.current) return;
+      setShops(res?.shops ?? []);
+      setStatus("ready");
     } catch {
-      setLocationError("Could not load shops. Check your connection.");
+      if (n === seq.current) setStatus("error");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (n === seq.current) setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const openMaps = (shop: Shop) => {
-    const addr = [shop.address, shop.city, shop.state, shop.zip].filter(Boolean).join(", ");
-    const query = encodeURIComponent(addr || shop.name);
-    const url = Platform.OS === "ios"
-      ? `maps:?q=${query}`
-      : `geo:0,0?q=${query}`;
-    Linking.openURL(url).catch(() => Linking.openURL(`https://maps.google.com/?q=${query}`));
-  };
+  // Searching by city replaces the nearby list; clearing it goes back to nearby.
+  useEffect(() => {
+    const q = city.trim();
+    if (status === "loading") return;
+    const t = setTimeout(() => load(q.length >= 2 ? q : undefined), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city]);
 
-  const renderShop = ({ item }: { item: Shop }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="storefront-outline" size={22} color={COLORS.accent} />
-        </View>
-        <View style={styles.cardInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.shopName}>{item.name}</Text>
-            {item.verified && (
-              <Ionicons name="checkmark-circle" size={14} color={COLORS.accent} style={{ marginLeft: 4, marginTop: 2 }} />
+  const subtitle = city.trim().length >= 2 ? `In “${city.trim()}”` : located ? "Near you" : located === false ? "Location off · showing all shops" : undefined;
+
+  const renderShop = ({ item }: { item: Shop }) => {
+    const distance = formatDistance(item.distance);
+    const where = [item.address, item.city, item.state].filter(Boolean).join(", ");
+    return (
+      <Card style={styles.card}>
+        <View style={styles.cardHeader}>
+          <IconBubble icon="storefront" tint="green" size={44} />
+          <View style={{ flex: 1 }}>
+            <View style={styles.nameRow}>
+              <Text variant="headline" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {item.name}
+              </Text>
+              {item.verified && <Ionicons name="checkmark-circle" size={15} color={color.accent} />}
+            </View>
+            {!!where && (
+              <Text variant="callout" color={color.textSecondary} numberOfLines={2}>
+                {where}
+              </Text>
             )}
           </View>
-          {item.address && (
-            <Text style={styles.address}>{[item.address, item.city, item.state].filter(Boolean).join(", ")}</Text>
-          )}
-          {item.distance != null && (
-            <Text style={styles.distance}>{formatDistance(item.distance)}</Text>
+          {distance && (
+            <View style={styles.distance}>
+              <Text variant="number" color={color.accent}>
+                {distance}
+              </Text>
+            </View>
           )}
         </View>
-      </View>
-
-      {item.hours && (
-        <View style={styles.hoursRow}>
-          <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
-          <Text style={styles.hours}>{item.hours}</Text>
+        {!!item.hours && (
+          <View style={styles.hours}>
+            <Ionicons name="time-outline" size={14} color={color.textTertiary} />
+            <Text variant="caption" color={color.textSecondary} style={{ flex: 1 }}>
+              {item.hours}
+            </Text>
+          </View>
+        )}
+        <View style={styles.actions}>
+          {(item.address || item.city) && <Action icon="navigate" label="Directions" onPress={() => openMaps(item)} />}
+          {item.website && <Action icon="globe-outline" label="Website" onPress={() => Linking.openURL(item.website!)} />}
+          {item.phone && <Action icon="call" label="Call" onPress={() => Linking.openURL(`tel:${item.phone}`)} />}
         </View>
-      )}
+      </Card>
+    );
+  };
 
-      <View style={styles.actions}>
-        {item.address && (
-          <TouchableOpacity style={styles.actionBtn} onPress={() => openMaps(item)}>
-            <Ionicons name="navigate-outline" size={16} color={COLORS.accent} />
-            <Text style={styles.actionText}>Directions</Text>
-          </TouchableOpacity>
-        )}
-        {item.website && (
-          <TouchableOpacity style={styles.actionBtn} onPress={() => Linking.openURL(item.website!)}>
-            <Ionicons name="globe-outline" size={16} color={COLORS.accent} />
-            <Text style={styles.actionText}>Website</Text>
-          </TouchableOpacity>
-        )}
-        {item.phone && (
-          <TouchableOpacity style={styles.actionBtn} onPress={() => Linking.openURL(`tel:${item.phone}`)}>
-            <Ionicons name="call-outline" size={16} color={COLORS.accent} />
-            <Text style={styles.actionText}>Call</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+  const header = (
+    <View>
+      <PageHeader title="Local shops" subtitle={subtitle} back />
+      <SearchField value={city} onChangeText={setCity} placeholder="Search a city" style={{ marginHorizontal: space.lg, marginBottom: space.lg }} />
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      {locationError && (
-        <View style={styles.banner}>
-          <Ionicons name="location-outline" size={16} color={COLORS.textMuted} />
-          <Text style={styles.bannerText}>{locationError}</Text>
-        </View>
-      )}
-
-      {loading ? (
-        <ActivityIndicator color={COLORS.accent} style={{ flex: 1 }} />
+    <Screen>
+      {status === "loading" ? (
+        <>
+          {header}
+          <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+            <Text variant="callout" color={color.textSecondary}>
+              Finding shops near you…
+            </Text>
+            <SkeletonBlock height={132} />
+            <SkeletonBlock height={132} />
+          </View>
+        </>
       ) : (
         <FlatList
           data={shops}
           keyExtractor={(s) => s.id}
           renderItem={renderShop}
-          contentContainerStyle={shops.length === 0 ? styles.emptyContainer : styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.accent} />}
+          ListHeaderComponent={header}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE }}
+          ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load(city.trim().length >= 2 ? city.trim() : undefined);
+              }}
+              tintColor={color.textSecondary}
+            />
+          }
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="storefront-outline" size={56} color={COLORS.textMuted} />
-              <Text style={styles.emptyTitle}>No shops nearby</Text>
-              <Text style={styles.emptyHint}>Try expanding your search radius</Text>
-            </View>
+            status === "error" ? (
+              <EmptyState icon="cloud-offline-outline" tint="green" title="Couldn't load shops" body="Check your connection and try again." action="Retry" onAction={() => load()} />
+            ) : (
+              <EmptyState icon="storefront" tint="green" title="No shops found" body="Try searching a nearby city." />
+            )
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  banner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    padding: 10,
-    paddingHorizontal: 16,
-  },
-  bannerText: { color: COLORS.textMuted, fontSize: 13, flex: 1 },
-  list: { padding: 16, gap: 12 },
-  emptyContainer: { flex: 1 },
-  card: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 14, gap: 10 },
-  cardHeader: { flexDirection: "row", gap: 12 },
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 10,
-    backgroundColor: COLORS.background,
-    alignItems: "center", justifyContent: "center",
-  },
-  cardInfo: { flex: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center" },
-  shopName: { color: COLORS.text, fontSize: 16, fontWeight: "700", flex: 1 },
-  address: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
-  distance: { color: COLORS.accent, fontSize: 12, fontWeight: "600", marginTop: 2 },
-  hoursRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  hours: { color: COLORS.textMuted, fontSize: 13, flex: 1 },
-  actions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: COLORS.background,
-  },
-  actionText: { color: COLORS.accent, fontSize: 13, fontWeight: "600" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, marginTop: 100 },
-  emptyTitle: { color: COLORS.text, fontSize: 20, fontWeight: "700" },
-  emptyHint: { color: COLORS.textMuted, fontSize: 14 },
+  card: { marginHorizontal: space.lg, padding: space.lg, gap: space.md },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: space.md },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  distance: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: color.accentSoft },
+  hours: { flexDirection: "row", alignItems: "center", gap: 6 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  action: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: color.surface2 },
 });

@@ -59,7 +59,7 @@ export function PageHeader({ title, subtitle, back, right }: PageHeaderProps) {
   const router = useRouter();
   return (
     <View style={styles.pageHeader}>
-      {back && <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} style={{ marginBottom: space.lg }} />}
+      {back && <IconButton icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} style={{ marginBottom: space.lg }} />}
       <View style={styles.pageHeaderRow}>
         <View style={{ flex: 1 }}>
           <Text variant="title">{title}</Text>

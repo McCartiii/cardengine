@@ -4,9 +4,9 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeOutDown, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { bubble, color, elevation, radius, rarity as rarityColor, space, type BubbleColor } from "@/design/tokens";
+import { CARD_ASPECT, bubble, color, elevation, radius, rarity as rarityColor, space, type BubbleColor } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd, setLabel } from "@/design/format";
 import {
@@ -82,6 +82,13 @@ export default function CardDetailScreen() {
   const [deckSheet, setDeckSheet] = useState(false);
   const [alertSheet, setAlertSheet] = useState(false);
   const [toast, setToast] = useState<{ message: string; ok: boolean } | null>(null);
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+  // Fade in as the card's name scrolls up under the back button.
+  const nameAt = Math.min(width * 0.52, 230) / CARD_ASPECT;
+  const topBarStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [nameAt - 30, nameAt + 30], [0, 1], "clamp") }));
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [history, setHistory] = useState<Array<{ kind: string; amount: number }>>([]);
 
@@ -150,7 +157,7 @@ export default function CardDetailScreen() {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <HoloBackdrop />
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} style={styles.backStandalone} />
+        <IconButton icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} style={styles.backStandalone} />
         {status === "loading" ? (
           <ActivityIndicator color={color.textSecondary} style={{ marginTop: space.xxxl * 3 }} />
         ) : (
@@ -174,7 +181,7 @@ export default function CardDetailScreen() {
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
       <HoloBackdrop height={480} />
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         {/* Hero: the card held up to the light */}
         <View style={[styles.hero, { paddingTop: insets.top + 64 }]}>
           <Floaty>
@@ -259,10 +266,17 @@ export default function CardDetailScreen() {
             </>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
+      {/* Once the art scrolls away, a frosted bar fades in behind the back button so it never sits on top of content. */}
+      <Animated.View style={[styles.topBar, { height: insets.top + 60 }, topBarStyle]} pointerEvents="none">
+        <GlassFill strong />
+        <Text variant="headline" numberOfLines={1} style={[styles.topBarTitle, { top: insets.top + 19 }]}>
+          {card.name}
+        </Text>
+      </Animated.View>
       <View style={[styles.floatingBar, { top: insets.top + space.sm }]} pointerEvents="box-none">
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} />
+        <IconButton icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
       </View>
 
       <View style={[styles.actionBar, { bottom: Math.max(insets.bottom, space.lg) }]}>
@@ -579,6 +593,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface2,
   },
   amountInput: { flex: 1, color: color.text, fontSize: 17, fontFamily: font.bold, fontVariant: ["tabular-nums"] },
+  topBar: { position: "absolute", top: 0, left: 0, right: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.borderStrong },
+  topBarTitle: { position: "absolute", left: 72, right: 72, textAlign: "center" },
   floatingBar: { position: "absolute", left: space.lg, right: space.lg, flexDirection: "row", justifyContent: "space-between" },
   actionBar: {
     position: "absolute",
