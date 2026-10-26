@@ -5,6 +5,9 @@ import { Pool } from "pg";
 import { PGlite } from "@electric-sql/pglite";
 import { PrismaPGlite } from "pglite-prisma-adapter";
 
+// The first migration added after PGlite started tracking which have run.
+const PGLITE_TRACKING_STARTED = "20261026000000_add_binders";
+
 let prismaInstance: PrismaClient;
 
 async function createPrismaClient(): Promise<PrismaClient> {
@@ -31,26 +34,39 @@ async function createPrismaClient(): Promise<PrismaClient> {
   const pglite = new PGlite("./pglite-data");
   await pglite.ready;
 
-  // Apply schema migrations if tables don't exist yet
-  const tableCheck = await pglite.query(
-    `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'User' LIMIT 1`
+  // Apply migrations that haven't run yet. Databases made before migrations
+  // were tracked here had everything up to the binders migration.
+  const { readFileSync, readdirSync } = await import("fs");
+  const { fileURLToPath } = await import("url");
+  const { dirname, join } = await import("path");
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const migrationsDir = join(__dirname, "../prisma/migrations");
+  const migrationFolders = readdirSync(migrationsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  const tracked = await pglite.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '_pglite_migrations' LIMIT 1`
   );
-  if ((tableCheck.rows as unknown[]).length === 0) {
-    const { readFileSync, readdirSync } = await import("fs");
-    const { fileURLToPath } = await import("url");
-    const { dirname, join } = await import("path");
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const migrationsDir = join(__dirname, "../prisma/migrations");
-    const migrationFolders = readdirSync(migrationsDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort();
-    for (const folder of migrationFolders) {
-      const sqlPath = join(migrationsDir, folder, "migration.sql");
-      const sql = readFileSync(sqlPath, "utf-8");
-      await pglite.exec(sql);
-      console.log(`[db] Applied migration: ${folder}`);
+  if ((tracked.rows as unknown[]).length === 0) {
+    const hasTables = await pglite.query(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'User' LIMIT 1`
+    );
+    await pglite.exec(`CREATE TABLE "_pglite_migrations" ("name" TEXT PRIMARY KEY)`);
+    if ((hasTables.rows as unknown[]).length > 0) {
+      for (const folder of migrationFolders.filter((f) => f < PGLITE_TRACKING_STARTED)) {
+        await pglite.query(`INSERT INTO "_pglite_migrations" ("name") VALUES ($1)`, [folder]);
+      }
     }
+  }
+  const applied = new Set(
+    ((await pglite.query(`SELECT "name" FROM "_pglite_migrations"`)).rows as Array<{ name: string }>).map((r) => r.name)
+  );
+  for (const folder of migrationFolders) {
+    if (applied.has(folder)) continue;
+    await pglite.exec(readFileSync(join(migrationsDir, folder, "migration.sql"), "utf-8"));
+    await pglite.query(`INSERT INTO "_pglite_migrations" ("name") VALUES ($1)`, [folder]);
+    console.log(`[db] Applied migration: ${folder}`);
   }
 
   const adapter = new PrismaPGlite(pglite);

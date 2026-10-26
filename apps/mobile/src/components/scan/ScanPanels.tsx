@@ -9,6 +9,7 @@ import { color, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd, setLabel } from "@/design/format";
 import { addCollectionEvents, type ScanCandidate } from "@/lib/api";
+import { useSettings } from "@/store/settingsStore";
 import { candidatePrice, useScanStore, type Finish, type PendingScan } from "@/store/scanStore";
 import { Button, CardArt, Sheet, Text, Touchable, tap } from "@/ui";
 
@@ -34,6 +35,7 @@ export function useStack() {
 /** Adds every waiting card to the binder, one collection event per card. */
 export function useAddToBinder() {
   const { markAdded, clearAdded } = useScanStore();
+  const binderId = useSettings((s) => s.activeBinder);
   const [state, setState] = useState<"idle" | "adding" | "done" | "error">("idle");
 
   const add = useCallback(
@@ -46,7 +48,8 @@ export function useAddToBinder() {
         at,
         type: "add" as const,
         variantId: p.candidate.variantId,
-        payload: { quantity: p.quantity, finish: p.finish },
+        // Into the binder that's open on the Binder tab.
+        payload: { quantity: p.quantity, finish: p.finish, ...(binderId !== "main" ? { binderId } : {}) },
       }));
       try {
         await addCollectionEvents(events);
@@ -64,7 +67,7 @@ export function useAddToBinder() {
         return false;
       }
     },
-    [state, markAdded, clearAdded]
+    [state, markAdded, clearAdded, binderId]
   );
 
   return { add, state };
@@ -176,6 +179,7 @@ function Stepper({ value, onMinus, onPlus, light }: { value: number; onMinus: ()
 // ── The running stack ────────────────────────────────────────────────────────
 
 export function SessionBar({ onReview, onAdd, adding }: { onReview: () => void; onAdd: () => void; adding: "idle" | "adding" | "done" | "error" }) {
+  const binderName = useSettings((st) => st.activeBinderName);
   const { waiting, count, value } = useStack();
   if (count === 0 && adding !== "done") {
     return (
@@ -198,7 +202,7 @@ export function SessionBar({ onReview, onAdd, adding }: { onReview: () => void; 
           ))}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.sessionCount}>{adding === "done" ? "Added to binder" : `${count} ${count === 1 ? "card" : "cards"}`}</Text>
+          <Text style={styles.sessionCount}>{adding === "done" ? `Added to ${binderName}` : `${count} ${count === 1 ? "card" : "cards"}`}</Text>
           <Text variant="caption" color={MUTED} numberOfLines={1}>
             {adding === "done" ? "Nice haul" : adding === "error" ? "Couldn't add. Tap Add to retry" : `${formatUsd(value)} · Review`}
           </Text>
@@ -215,6 +219,7 @@ export function SessionBar({ onReview, onAdd, adding }: { onReview: () => void; 
 // ── Sheets ───────────────────────────────────────────────────────────────────
 
 export function ReviewSheet({ visible, onClose, onAdd, adding }: { visible: boolean; onClose: () => void; onAdd: () => void; adding: boolean }) {
+  const binderName = useSettings((st) => st.activeBinderName);
   const { incrementQty, decrementQty } = useScanStore();
   const { waiting, count, value } = useStack();
   return (
@@ -242,7 +247,7 @@ export function ReviewSheet({ visible, onClose, onAdd, adding }: { visible: bool
           );
         })}
       </ScrollView>
-      <Button label={adding ? "Adding…" : `Add ${count} to binder`} size="lg" onPress={onAdd} disabled={count === 0} loading={adding} />
+      <Button label={adding ? "Adding…" : `Add ${count} to ${binderName}`} size="lg" onPress={onAdd} disabled={count === 0} loading={adding} />
     </Sheet>
   );
 }

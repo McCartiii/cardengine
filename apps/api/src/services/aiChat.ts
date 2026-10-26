@@ -6,7 +6,8 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { scryfallNamed, scryfallSearch } from "./scryfallSearch.js";
 import { edhrecForAgent } from "./deckAgentTools.js";
-import { loadCollectionHoldings, type CollectionHolding } from "./collectionHoldings.js";
+import { type CollectionHolding } from "./collectionHoldings.js";
+import { loadOwnedHoldings } from "./binders.js";
 import { collectionOverview, searchCollection } from "./collectionInsights.js";
 import { suggestDecks } from "./deckAdvisor.js";
 import { lookupCardFacts, normalizeCardName } from "./cardFacts.js";
@@ -122,7 +123,7 @@ function sseJson(obj: unknown): string {
 
 function buildExecutor(userId: string, deckId?: string) {
   let holdings: Promise<CollectionHolding[]> | null = null;
-  const owned = () => (holdings ??= loadCollectionHoldings(userId, { market: "tcgplayer", kind: "auto", currency: "USD" }));
+  const owned = () => (holdings ??= loadOwnedHoldings(userId));
 
   return async (name: string, rawInput: unknown): Promise<unknown> => {
     const schema = TOOL_INPUTS[name as ToolName];

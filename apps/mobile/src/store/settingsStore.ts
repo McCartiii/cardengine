@@ -1,6 +1,6 @@
 // Preferences kept on the phone: display currency (with the last exchange
 // rates, so prices convert offline), haptics, price-alert notifications and
-// recent searches.
+// recent searches, and the binder that's open (where scans go).
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,7 +21,11 @@ interface SettingsState {
   /** The push token this phone registered, so sign-out can remove it. */
   pushToken: string | null;
   recentSearches: string[];
+  activeBinder: string;
+  /** Its name, for "Add 3 to Trade binder" on the scanner. */
+  activeBinderName: string;
 
+  setActiveBinder: (id: string, name?: string) => void;
   setCurrency: (c: DisplayCurrency) => void;
   refreshRates: () => Promise<void>;
   setHaptics: (on: boolean) => void;
@@ -45,6 +49,12 @@ export const useSettings = create<SettingsState>()(
       pushAlerts: null,
       pushToken: null,
       recentSearches: [],
+      activeBinder: "main",
+      activeBinderName: "Collection",
+
+      setActiveBinder(activeBinder, name) {
+        set({ activeBinder, activeBinderName: activeBinder === "main" ? "Collection" : (name ?? get().activeBinderName) });
+      },
 
       setCurrency(currency) {
         set({ currency });

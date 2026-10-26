@@ -123,6 +123,8 @@ export async function addCollectionEvents(
     payload: {
       quantity: number;
       finish?: "nonfoil" | "foil" | "etched";
+      /** Left out for the main collection. */
+      binderId?: string;
     };
   }>
 ): Promise<{ ok: boolean; inserted: number }> {
@@ -138,6 +140,7 @@ export async function getCollection(userId: string): Promise<{
 
 export interface OwnedCard {
   holdingId: string;
+  binderId: string;
   variantId: string;
   finish: "nonfoil" | "foil" | "etched";
   name: string;
@@ -159,6 +162,7 @@ export type CollectionSort = "value" | "price" | "change" | "type" | "rarity" | 
 
 export async function getCollectionCards(params?: {
   q?: string;
+  binder?: string;
   sort?: CollectionSort;
   dir?: "asc" | "desc";
   page?: number;
@@ -246,6 +250,76 @@ export async function unregisterPushToken(token: string): Promise<{ ok: boolean 
 /** Sends a test notification to this account's phones. */
 export async function sendTestPush(): Promise<{ ok: boolean; sent: number }> {
   return request("POST", "/v1/push-test");
+}
+
+// ── Binders ───────────────────────────────────────────────────────────────────
+
+export type BinderKind = "collection" | "trade" | "wishlist" | "custom";
+
+export interface Binder {
+  id: string;
+  name: string;
+  kind: BinderKind;
+  cards?: number;
+  copies?: number;
+  value?: number;
+}
+
+export const MAIN_BINDER = "main";
+
+export async function listBinders(opts: { stats?: boolean } = {}): Promise<{ binders: Binder[] }> {
+  return request("GET", `/v1/binders${opts.stats === false ? "?stats=false" : ""}`);
+}
+
+export async function createBinder(name: string, kind: Exclude<BinderKind, "collection">): Promise<{ binder: Binder }> {
+  return request("POST", "/v1/binders", { name, kind });
+}
+
+export async function renameBinder(id: string, name: string): Promise<{ ok: boolean }> {
+  return request("PATCH", `/v1/binders/${id}`, { name });
+}
+
+/** Deletes a binder, moving its cards to the main collection or deleting them. */
+export async function deleteBinder(id: string, cards: "move" | "delete"): Promise<{ ok: boolean }> {
+  return request("DELETE", `/v1/binders/${id}?cards=${cards}`);
+}
+
+type Finish = "nonfoil" | "foil" | "etched";
+
+export async function moveCards(p: { variantId: string; finish: Finish; from: string; to: string; quantity: number }): Promise<{ ok: boolean; moved: number }> {
+  return request("POST", "/v1/collection/move", p);
+}
+
+export async function removeCards(p: { variantId: string; finish: Finish; binderId: string; quantity: number }): Promise<{ ok: boolean; removed: number; left: number }> {
+  return request("POST", "/v1/collection/remove", p);
+}
+
+export interface ImportSummary {
+  format: string;
+  rows: number;
+  matchedCards: number;
+  matchedCopies: number;
+  unmatchedCount: number;
+  unmatched: Array<{ line: number; name: string; setCode: string | null; quantity: number }>;
+  sample: Array<{ name: string; imageUri: string | null; quantity: number; finish: Finish }>;
+  imported: boolean;
+}
+
+/** Imports a CSV export or card list; dryRun only reports what it would do. */
+export async function importCollection(p: { text: string; binderId: string; mode: "add" | "replace"; dryRun: boolean }): Promise<ImportSummary> {
+  return request("POST", "/v1/collection/import", p);
+}
+
+/** The collection (or one binder) as CSV text. */
+export async function exportCollectionCsv(binder: string): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/v1/collection/export?binder=${encodeURIComponent(binder)}`, {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Export failed");
+  }
+  return res.text();
 }
 
 // ── Decks ────────────────────────────────────────────────────────────────────

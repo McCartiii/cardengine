@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,8 +8,25 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { color, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
-import { getCollectionCards, type CollectionSort, type OwnedCard } from "@/lib/api";
+import {
+  MAIN_BINDER,
+  createBinder,
+  deleteBinder,
+  exportCollectionCsv,
+  getCollectionCards,
+  listBinders,
+  moveCards,
+  removeCards,
+  renameBinder,
+  type Binder,
+  type CollectionSort,
+  type OwnedCard,
+} from "@/lib/api";
+import { exportFilename, shareTextFile } from "@/lib/shareFile";
 import { useAuthStore } from "@/store/authStore";
+import { useSettings } from "@/store/settingsStore";
+import { BinderSheet } from "@/components/binder/BinderSheet";
+import { HoldingSheet } from "@/components/binder/HoldingSheet";
 import { binderPage, EmptyPocket, FlipBook, Pocket, pocketWidthForHeight, SearchField, Segmented, Sheet, Text, Touchable, tap } from "@/ui";
 
 const PER_PAGE = 9;
@@ -52,6 +69,13 @@ export default function BinderScreen() {
   const [sort, setSort] = useState<CollectionSort>("value");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [sortOpen, setSortOpen] = useState(false);
+  const [binders, setBinders] = useState<Binder[]>([{ id: MAIN_BINDER, name: "Collection", kind: "collection" }]);
+  const [bindersOpen, setBindersOpen] = useState(false);
+  const [holding, setHolding] = useState<OwnedCard | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const activeId = useSettings((s) => s.activeBinder);
+  const setActiveId = useSettings((s) => s.setActiveBinder);
+  const binder = binders.find((b) => b.id === activeId) ?? binders[0];
 
   // Three rows of pockets fill the page: as wide as the screen allows, unless the height runs out first.
   const [areaHeight, setAreaHeight] = useState(0);
@@ -61,7 +85,7 @@ export default function BinderScreen() {
 
   const load = useCallback(async (p: number) => {
     try {
-      const res = await getCollectionCards({ sort, dir, page: p, limit: FETCH_SIZE });
+      const res = await getCollectionCards({ binder: activeId, sort, dir, page: p, limit: FETCH_SIZE });
       setCards((prev) => (p > 1 ? [...prev, ...res.cards] : res.cards));
       setTotals({ cards: res.totalCards, value: res.totalValue });
       setHasMore(res.hasMore);
@@ -70,16 +94,51 @@ export default function BinderScreen() {
     } catch {
       if (p === 1) setStatus("error");
     }
-  }, [sort, dir]);
+  }, [sort, dir, activeId]);
+
+  const loadBinders = useCallback(async () => {
+    try {
+      const { binders: list } = await listBinders();
+      setBinders(list);
+      // Keep the open binder's name current; it may have been renamed or deleted (maybe on another phone).
+      const open = list.find((b) => b.id === useSettings.getState().activeBinder);
+      setActiveId(open?.id ?? MAIN_BINDER, open?.name);
+    } catch {
+      // keep what we have
+    }
+  }, [setActiveId]);
 
   useFocusEffect(
     useCallback(() => {
       setStatusBarStyle("light");
-      if (session) load(1);
-      else setStatus("ready");
+      if (session) {
+        load(1);
+        loadBinders();
+      } else setStatus("ready");
       return () => setStatusBarStyle("dark");
-    }, [session, load])
+    }, [session, load, loadBinders])
   );
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const refresh = () => {
+    load(1);
+    loadBinders();
+  };
+
+  const switchTo = (b: Binder) => {
+    setBindersOpen(false);
+    if (b.id === activeId) return;
+    setActiveId(b.id, b.name);
+    setStatus("loading");
+    setCards([]);
+    setSet("all");
+    setPageIndex(0);
+  };
 
   // Tabs for the sets you own the most of.
   const setTabs = useMemo(() => {
@@ -117,18 +176,45 @@ export default function BinderScreen() {
 
   const sortOption = SORTS.find((o) => o.value === sort) ?? SORTS[0];
   const openCard = (c: OwnedCard) => router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
-  const scan = () => router.navigate("/(tabs)/scan");
+  const wishlist = binder.kind === "wishlist";
+  // Wishlist pockets fill from search; the others from the scanner.
+  const fillPocket = () => (wishlist ? router.navigate("/(tabs)/search") : router.navigate("/(tabs)/scan"));
+  const finishOf = (c: OwnedCard) => (c.finish ?? "nonfoil") as "nonfoil" | "foil" | "etched";
+
+  const exportBinder = async () => {
+    const csv = await exportCollectionCsv(binder.id);
+    await shareTextFile(exportFilename(binder.name), csv);
+  };
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={styles.header}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.title}>Binder</Text>
+            <Pressable
+              onPress={() => {
+                if (!session) return;
+                tap();
+                setBindersOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${binder.name}. Switch binder`}
+              hitSlop={6}
+              style={styles.titleRow}
+            >
+              <Text style={styles.title} numberOfLines={1}>
+                {session ? binder.name : "Binder"}
+              </Text>
+              {session && (
+                <View style={styles.titleChevron}>
+                  <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
+                </View>
+              )}
+            </Pressable>
             <Text variant="caption" color={binderPage.muted} numberOfLines={1}>
               {session
                 ? status === "ready"
-                  ? `${formatUsd(totals.value)} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
+                  ? `${formatUsd(totals.value)}${wishlist ? " to buy" : ""} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
                   : "Opening your binder…"
                 : "Sign in to start collecting"}
             </Text>
@@ -181,7 +267,7 @@ export default function BinderScreen() {
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
           {areaHeight > 0 && (
             <FlipBook
-              key={`${set}|${query}|${sort}|${dir}`}
+              key={`${activeId}|${set}|${query}|${sort}|${dir}`}
               pageCount={pages.length}
               backColor="#17181D"
               onIndexChange={(i) => {
@@ -205,9 +291,13 @@ export default function BinderScreen() {
                           showChange={sort === "change"}
                           order={i}
                           onPress={() => openCard(c)}
+                          onLongPress={() => {
+                            tap();
+                            setHolding(c);
+                          }}
                         />
                       ) : (
-                        <EmptyPocket key={`empty-${index}-${i}`} width={pocketWidth} label="Scan" onPress={session ? scan : () => router.push("/(auth)/sign-in")} />
+                        <EmptyPocket key={`empty-${index}-${i}`} width={pocketWidth} label={wishlist ? "Add" : "Scan"} onPress={session ? fillPocket : () => router.push("/(auth)/sign-in")} />
                       )
                     )}
                   </View>
@@ -224,6 +314,76 @@ export default function BinderScreen() {
         </View>
         <View style={{ height: tabBarSpace }} />
       </SafeAreaView>
+
+      {toast && (
+        <Animated.View entering={FadeIn.duration(180)} style={[styles.toast, { bottom: tabBarSpace + space.sm }]} pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={18} color={color.positive} />
+          <Text variant="callout">{toast}</Text>
+        </Animated.View>
+      )}
+
+      <BinderSheet
+        visible={bindersOpen}
+        binders={binders}
+        activeId={binder.id}
+        onPick={switchTo}
+        onCreate={async (name, kind) => {
+          const { binder: b } = await createBinder(name, kind);
+          await loadBinders();
+          switchTo({ ...b, copies: 0 });
+          setToast(`Made ${b.name}`);
+        }}
+        onRename={async (b, name) => {
+          await renameBinder(b.id, name);
+          await loadBinders();
+        }}
+        onDelete={async (b, cards) => {
+          await deleteBinder(b.id, cards);
+          if (b.id === activeId) switchTo(binders[0]);
+          await loadBinders();
+          if (b.id !== activeId) load(1);
+          setToast(`Deleted ${b.name}`);
+        }}
+        onImport={() => {
+          setBindersOpen(false);
+          router.push({ pathname: "/import", params: { binderId: binder.id } });
+        }}
+        onExport={exportBinder}
+        onClose={() => setBindersOpen(false)}
+      />
+
+      <HoldingSheet
+        card={holding}
+        binders={binders}
+        onClose={() => setHolding(null)}
+        onOpen={() => {
+          const c = holding;
+          setHolding(null);
+          if (c) openCard(c);
+        }}
+        onMove={async (to, quantity) => {
+          if (!holding) return;
+          try {
+            await moveCards({ variantId: holding.variantId, finish: finishOf(holding), from: holding.binderId, to: to.id, quantity });
+            setHolding(null);
+            setToast(`Moved ${quantity > 1 ? `${quantity} × ` : ""}${holding.name} to ${to.name}`);
+            refresh();
+          } catch (e) {
+            Alert.alert("Couldn't move it", (e as Error).message);
+          }
+        }}
+        onRemove={async (quantity) => {
+          if (!holding) return;
+          try {
+            await removeCards({ variantId: holding.variantId, finish: finishOf(holding), binderId: holding.binderId, quantity });
+            setHolding(null);
+            setToast(`Removed ${quantity > 1 ? `${quantity} × ` : ""}${holding.name}`);
+            refresh();
+          } catch (e) {
+            Alert.alert("Couldn't remove it", (e as Error).message);
+          }
+        }}
+      />
 
       <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort binder">
         <View style={styles.sortList}>
@@ -284,7 +444,20 @@ const styles = StyleSheet.create({
   // The whole screen is a matte black binder page.
   root: { flex: 1, backgroundColor: binderPage.page },
   header: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingTop: space.xs },
-  title: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: binderPage.text },
+  title: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: binderPage.text, flexShrink: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", maxWidth: "100%" },
+  titleChevron: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.14)" },
+  toast: {
+    position: "absolute",
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+  },
   actions: { flexDirection: "row", gap: space.sm },
   headerButton: {
     width: 38,

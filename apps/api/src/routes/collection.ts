@@ -6,11 +6,11 @@ import {
   normalizeCurrency,
   normalizeMarket,
   normalizeRetailPriceKind,
-  finishForPriceKind,
   preferredPriceKind,
 } from "../lib/pricing.js";
 import { COLLECTION_SORTS, sortCollection } from "../lib/collectionSort.js";
-import { holdingFromEvent, loadCollectionHoldings } from "../services/collectionHoldings.js";
+import { MAIN_BINDER, loadCollectionHoldings } from "../services/collectionHoldings.js";
+import { listBinders, selectBinders } from "../services/binders.js";
 
 const retailKindParam = z
   .enum(["auto", "normal", "nonfoil", "non-foil", "market", "foil", "etched"])
@@ -33,6 +33,14 @@ export function registerCollectionRoutes(app: FastifyInstance) {
         ),
       })
       .parse(req.body);
+
+    // An event for a binder that's gone (deleted while the phone was offline)
+    // lands in the main collection rather than nowhere.
+    const binderIds = new Set((await listBinders(user.sub)).map((b) => b.id));
+    for (const e of body.events) {
+      const b = e.payload.binderId;
+      if (b !== undefined && (typeof b !== "string" || !binderIds.has(b) || b === MAIN_BINDER)) delete e.payload.binderId;
+    }
 
     const created = await prisma.collectionEvent.createMany({
       data: body.events.map((e) => ({
@@ -82,11 +90,12 @@ export function registerCollectionRoutes(app: FastifyInstance) {
   });
 
   // ── Collection cards (enriched) ──
-  app.get("/v1/collection/cards", { preHandler: [requireAuth] }, async (req) => {
+  app.get("/v1/collection/cards", { preHandler: [requireAuth] }, async (req, reply) => {
     const user = (req as FastifyRequest & { user: AuthUser }).user;
     const query = z
       .object({
         q: z.string().optional(),
+        binder: z.string().default(MAIN_BINDER),
         market: z.string().default("tcgplayer").transform(normalizeMarket),
         kind: retailKindParam.default("auto"),
         currency: z.string().default("USD").transform(normalizeCurrency),
@@ -97,7 +106,9 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       })
       .parse(req.query);
 
-    const cards = await loadCollectionHoldings(user.sub, query);
+    const binders = selectBinders(await listBinders(user.sub), query.binder);
+    if (!binders) return reply.code(404).send({ error: "Binder not found" });
+    const cards = await loadCollectionHoldings(user.sub, query, binders);
     if (cards.length === 0) {
       return { cards: [], totalCards: 0, totalValue: 0, page: query.page, hasMore: false };
     }
@@ -118,97 +129,34 @@ export function registerCollectionRoutes(app: FastifyInstance) {
   });
 
   // ── Collection portfolio value ──
-  app.get("/v1/collection/value", { preHandler: [requireAuth] }, async (req) => {
+  app.get("/v1/collection/value", { preHandler: [requireAuth] }, async (req, reply) => {
     const user = (req as FastifyRequest & { user: AuthUser }).user;
     const query = z
       .object({
+        // What you own: every binder but wishlists.
+        binder: z.string().default("owned"),
         market: z.string().default("tcgplayer").transform(normalizeMarket),
         kind: retailKindParam.default("auto"),
         currency: z.string().default("USD").transform(normalizeCurrency),
       })
       .parse(req.query);
 
-    const events = await prisma.collectionEvent.findMany({
-      where: { userId: user.sub },
-      select: { variantId: true, payload: true, type: true },
-    });
-
-    const qtys = new Map<string, number>();
-    const holdings = new Map<
-      string,
-      { id: string; variantId: string; priceKind: "market" | "foil" | "etched" }
-    >();
-    for (const e of events) {
-      const payload = e.payload as {
-        qty?: number;
-        quantity?: number;
-        finish?: unknown;
-        kind?: unknown;
-      };
-      const holding = holdingFromEvent(e.variantId, payload);
-      const eventQuantity = payload.qty ?? payload.quantity ?? 1;
-      const delta = e.type === "add" ? eventQuantity : -eventQuantity;
-      holdings.set(holding.id, holding);
-      qtys.set(holding.id, (qtys.get(holding.id) ?? 0) + delta);
-    }
-
-    const owned = [...qtys.entries()].filter(([, q]) => q > 0);
-    const variantIds = [
-      ...new Set(
-        owned.flatMap(([id]) => {
-          const variantId = holdings.get(id)?.variantId;
-          return variantId ? [variantId] : [];
-        })
-      ),
-    ];
-
-    const prices =
-      variantIds.length > 0
-        ? await prisma.priceCache.findMany({
-            where: {
-              variantId: { in: variantIds },
-              market: query.market,
-              currency: query.currency,
-              ...(query.kind === "auto"
-                ? { kind: { in: ["market", "foil", "etched"] } }
-                : { kind: query.kind }),
-            },
-          })
-        : [];
-    const pricesByVariant = new Map<string, typeof prices>();
-    for (const price of prices) {
-      const entries = pricesByVariant.get(price.variantId) ?? [];
-      entries.push(price);
-      pricesByVariant.set(price.variantId, entries);
-    }
+    const binders = selectBinders(await listBinders(user.sub), query.binder);
+    if (!binders) return reply.code(404).send({ error: "Binder not found" });
+    const holdings = await loadCollectionHoldings(user.sub, query, binders);
 
     let totalValue = 0;
-    const breakdown = owned.flatMap(([holdingId, qty]) => {
-      const holding = holdings.get(holdingId);
-      if (!holding) return [];
-      const preferredKind =
-        query.kind === "auto" ? holding.priceKind : query.kind;
-      const price =
-        pricesByVariant
-          .get(holding.variantId)
-          ?.find((entry) => entry.kind === preferredKind)?.amount ?? 0;
-      totalValue += price * qty;
-      return [{
-        holdingId,
-        variantId: holding.variantId,
-        finish: finishForPriceKind(holding.priceKind),
-        qty,
-        price,
-        lineValue: price * qty,
-      }];
+    const breakdown = holdings.map((h) => {
+      const price = h.priceUsd ?? 0;
+      totalValue += price * h.quantity;
+      return { holdingId: h.holdingId, variantId: h.variantId, finish: h.finish, qty: h.quantity, price, lineValue: price * h.quantity };
     });
-
     breakdown.sort((a, b) => b.lineValue - a.lineValue);
 
     return {
       totalValue: Math.round(totalValue * 100) / 100,
       currency: query.currency,
-      cardCount: owned.length,
+      cardCount: holdings.length,
       breakdown: breakdown.slice(0, 100),
     };
   });

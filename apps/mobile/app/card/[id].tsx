@@ -17,11 +17,15 @@ import {
   getPriceHistory,
   listDecks,
   updateDeckCards,
+  listBinders,
+  MAIN_BINDER,
+  type Binder,
   type CardDetail,
   type Deck,
 } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { offerPushForAlerts } from "@/lib/push";
+import { BINDER_LOOK } from "@/components/binder/BinderSheet";
 import {
   Button,
   CardArt,
@@ -130,9 +134,23 @@ export default function CardDetailScreen() {
     else router.push("/(auth)/sign-in");
   };
 
-  const addToCollection = async () => {
+  // With more than one binder, adding asks which one.
+  const [binders, setBinders] = useState<Binder[]>([]);
+  const [binderSheet, setBinderSheet] = useState(false);
+  useEffect(() => {
+    if (!session) return;
+    listBinders({ stats: false })
+      .then(({ binders: list }) => setBinders(list))
+      .catch(() => {});
+  }, [session]);
+
+  const onAdd = () => (binders.length > 1 ? setBinderSheet(true) : addToCollection(MAIN_BINDER));
+
+  const addToCollection = async (binderId: string) => {
     if (!card) return;
+    setBinderSheet(false);
     setAdding(true);
+    const where = binders.find((b) => b.id === binderId);
     try {
       await addCollectionEvents([
         {
@@ -140,10 +158,14 @@ export default function CardDetailScreen() {
           at: new Date().toISOString(),
           type: "add",
           variantId: card.variantId,
-          payload: { quantity: 1, finish },
+          payload: { quantity: 1, finish, ...(binderId !== MAIN_BINDER ? { binderId } : {}) },
         },
       ]);
-      showToast(`Added ${FINISH_NAME[finish].toLowerCase()} copy to collection`);
+      showToast(
+        where?.kind === "wishlist"
+          ? `Added to ${where.name}`
+          : `Added ${FINISH_NAME[finish].toLowerCase()} copy to ${where && binderId !== MAIN_BINDER ? where.name : "collection"}`
+      );
     } catch (e: unknown) {
       showToast((e as Error).message || "Couldn't add the card", false);
     } finally {
@@ -284,7 +306,7 @@ export default function CardDetailScreen() {
         <View style={[StyleSheet.absoluteFill, { borderRadius: 36, overflow: "hidden" }]}>
           <GlassFill strong />
         </View>
-        <Button label="Add to collection" icon="add" size="lg" onPress={() => requireAccount(addToCollection)} loading={adding} style={{ flex: 1 }} />
+        <Button label="Add to collection" icon="add" size="lg" onPress={() => requireAccount(onAdd)} loading={adding} style={{ flex: 1 }} />
         <Touchable onPress={() => requireAccount(() => setDeckSheet(true))} accessibilityRole="button" accessibilityLabel="Add to a deck" pressedScale={0.94}>
           <HoloRing radius={29} thickness={2}>
             <View style={styles.deckButton}>
@@ -296,6 +318,15 @@ export default function CardDetailScreen() {
           </HoloRing>
         </Touchable>
       </View>
+
+      <Sheet visible={binderSheet} onClose={() => setBinderSheet(false)} title="Add to…" subtitle={`${FINISH_NAME[finish]} ${card.name}`}>
+        <ListGroup>
+          {binders.map((b) => {
+            const look = BINDER_LOOK[b.kind] ?? BINDER_LOOK.custom;
+            return <ListRow key={b.id} icon={look.icon} tint={look.tint} title={b.name} onPress={() => addToCollection(b.id)} />;
+          })}
+        </ListGroup>
+      </Sheet>
 
       {toast && (
         <Animated.View entering={FadeInDown} exiting={FadeOutDown} style={[styles.toast, { bottom: insets.bottom + 110 }]}>

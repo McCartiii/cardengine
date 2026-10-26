@@ -5,7 +5,8 @@ import Constants from "expo-constants";
 import { color, elevation, hairline, radius, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { CURRENCIES, formatUsd } from "@/design/format";
-import { deleteAccount, getProfile, sendTestPush, updateProfile } from "@/lib/api";
+import { deleteAccount, exportCollectionCsv, getProfile, sendTestPush, updateProfile } from "@/lib/api";
+import { exportFilename, shareTextFile } from "@/lib/shareFile";
 import { disablePush, enablePush, pushPermission, showDenied } from "@/lib/push";
 import { useAuthStore } from "@/store/authStore";
 import { useSettings } from "@/store/settingsStore";
@@ -25,6 +26,18 @@ export default function SettingsScreen() {
   const [draft, setDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      await shareTextFile(exportFilename("collection"), await exportCollectionCsv("all"));
+    } catch (e) {
+      Alert.alert("Couldn't export", (e as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const checkPermission = useCallback(() => {
     pushPermission()
@@ -174,6 +187,24 @@ export default function SettingsScreen() {
             <ListRow icon="list" tint="teal" title="Your price alerts" onPress={() => router.push("/alerts")} />
           </ListGroup>
         </View>
+
+        {session && (
+          <>
+            <GroupLabel>Your data</GroupLabel>
+            <View style={styles.section}>
+              <ListGroup>
+                <ListRow icon="download" tint="violet" title="Import cards" subtitle="From Moxfield, ManaBox, TCGplayer and more" onPress={() => router.push("/import")} />
+                <ListRow
+                  icon="share"
+                  tint="green"
+                  title={exporting ? "Exporting…" : "Export collection"}
+                  subtitle="Every binder as a CSV file"
+                  onPress={exporting ? undefined : exportAll}
+                />
+              </ListGroup>
+            </View>
+          </>
+        )}
 
         <GroupLabel>Feel</GroupLabel>
         <View style={styles.section}>

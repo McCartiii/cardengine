@@ -91,6 +91,7 @@ export default function RootLayout() {
             <Stack.Screen name="card/[id]" />
             <Stack.Screen name="profile" />
             <Stack.Screen name="settings" />
+            <Stack.Screen name="import" />
             <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="shops" />
             <Stack.Screen name="alerts" />

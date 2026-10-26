@@ -7,6 +7,7 @@ vi.mock("../db.js", () => ({
     pricePoint: { findMany: vi.fn() },
     metaSnapshot: { findUnique: vi.fn() },
     collectionEvent: { findMany: vi.fn() },
+    binder: { findMany: vi.fn(async () => []) },
   },
 }));
 

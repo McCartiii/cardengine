@@ -24,6 +24,7 @@ model User {
   decks            Deck[]
   pushTokens       PushToken[]
   agentSessions    AgentSession[]
+  binders          Binder[]
 }
 
 model CardVariant {
@@ -75,6 +76,21 @@ model CollectionEvent {
 
   @@index([userId, at])
   @@index([variantId, at])
+}
+
+/// Extra binders beyond the main collection (trade binder, wishlist, …).
+/// Collection events name their binder in payload.binderId; no binderId is
+/// the main collection.
+model Binder {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  kind      String   // "trade" | "wishlist" | "custom"; wishlists don't count toward collection value
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model PricePoint {

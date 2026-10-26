@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { fetchEdhrecCommander } from "./edhrec.js";
 import { lookupCardFacts, normalizeCardName } from "./cardFacts.js";
-import { loadCollectionHoldings } from "./collectionHoldings.js";
+import { loadOwnedHoldings } from "./binders.js";
 import { scryfallSearch } from "./scryfallSearch.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export function buildGetCardDetails(format = "commander") {
 /** The signed-in user's cards, one row per name. Never takes a user id from the model. */
 export function buildGetCollection() {
   return async function getCollection(userId: string): Promise<OwnedCard[]> {
-    const holdings = await loadCollectionHoldings(userId, { market: "tcgplayer", kind: "auto", currency: "USD" });
+    const holdings = await loadOwnedHoldings(userId);
     const byName = new Map<string, OwnedCard>();
     for (const h of holdings) {
       const entry = byName.get(h.name) ?? { name: h.name, quantity: 0 };

@@ -46,10 +46,12 @@ interface PocketProps {
   /** Stagger for the fade-in. */
   order?: number;
   onPress: () => void;
+  /** Press and hold, e.g. to move or remove the card. */
+  onLongPress?: () => void;
 }
 
 /** A sleeved card in its pocket, with the plastic catching a little light. */
-export function Pocket({ width, name, uri, price, foil, quantity, change, showChange, order = 0, onPress }: PocketProps) {
+export function Pocket({ width, name, uri, price, foil, quantity, change, showChange, order = 0, onPress, onLongPress }: PocketProps) {
   const inner = cardWidthIn(width);
   const t = trend(change);
   // Small pockets drop the cents so the price and its move both fit.
@@ -61,7 +63,10 @@ export function Pocket({ width, name, uri, price, foil, quantity, change, showCh
     <Animated.View entering={FadeIn.delay(order * 35).duration(260)}>
       <Tilt
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={350}
         accessibilityRole="button"
+        accessibilityHint={onLongPress ? "Press and hold to move or remove" : undefined}
         accessibilityLabel={[name, price != null ? formatUsd(price) : null, t ? t.spoken : null].filter(Boolean).join(", ")}
       >
         <View style={[styles.pocket, { width, height: pocketHeight(width), borderRadius: cardRadius(inner) + POCKET_INSET }]}>

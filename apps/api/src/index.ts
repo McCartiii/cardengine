@@ -26,6 +26,8 @@ import { registerTelemetryRoutes } from "./routes/telemetry.js";
 import { registerDeckRoutes } from "./routes/decks.js";
 import { registerDeckAgentRoutes } from "./routes/deckAgent.js";
 import { registerAiChatRoutes } from "./routes/aiChat.js";
+import { registerBinderRoutes } from "./routes/binders.js";
+import { registerCollectionFileRoutes } from "./routes/collectionFiles.js";
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
@@ -140,6 +142,8 @@ registerTelemetryRoutes(app);
 registerDeckRoutes(app);
 registerDeckAgentRoutes(app);
 registerAiChatRoutes(app);
+registerBinderRoutes(app);
+registerCollectionFileRoutes(app);
 
 // ── Pricing refresh job ──
 // MTGJSON publishes a daily multi-provider snapshot. Refresh on boot as well

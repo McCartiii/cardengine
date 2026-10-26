@@ -5,18 +5,27 @@ import { changeFromPoints } from "../lib/collectionSort.js";
 // How far back the collection price change looks.
 export const CHANGE_WINDOW_DAYS = 7;
 
+/** The main collection; events without a binderId belong to it. */
+export const MAIN_BINDER = "main";
+
+export function binderOfEvent(payload: { binderId?: unknown }): string {
+  return typeof payload.binderId === "string" && payload.binderId ? payload.binderId : MAIN_BINDER;
+}
+
 export function holdingFromEvent(
   variantId: string,
-  payload: { finish?: unknown; kind?: unknown }
+  payload: { finish?: unknown; kind?: unknown; binderId?: unknown }
 ) {
   const priceKind = priceKindForHolding(
     variantId,
     payload.finish ?? payload.kind
   );
+  const binderId = binderOfEvent(payload);
   return {
-    id: `${variantId}:${priceKind}`,
+    id: `${binderId}:${variantId}:${priceKind}`,
     variantId,
     priceKind,
+    binderId,
   };
 }
 
@@ -30,10 +39,11 @@ export interface HoldingQuery {
 export type CollectionHolding = Awaited<ReturnType<typeof loadCollectionHoldings>>[number];
 
 /**
- * Everything a user owns, one row per printing and finish, with the current
- * price and the change over the last week. Unsorted.
+ * Everything a user owns, one row per binder, printing and finish, with the
+ * current price and the change over the last week. Unsorted. `binders` limits
+ * it to those binders (all of them when left out).
  */
-export async function loadCollectionHoldings(userId: string, query: HoldingQuery) {
+export async function loadCollectionHoldings(userId: string, query: HoldingQuery, binders?: ReadonlySet<string>) {
   const events = await prisma.collectionEvent.findMany({
     where: { userId },
     select: { variantId: true, payload: true, type: true, at: true },
@@ -41,10 +51,7 @@ export async function loadCollectionHoldings(userId: string, query: HoldingQuery
   });
 
   const qtys = new Map<string, number>();
-  const holdings = new Map<
-    string,
-    { id: string; variantId: string; priceKind: "market" | "foil" | "etched" }
-  >();
+  const holdings = new Map<string, ReturnType<typeof holdingFromEvent>>();
   const firstAdded = new Map<string, Date>();
   for (const e of events) {
     const payload = e.payload as {
@@ -52,8 +59,10 @@ export async function loadCollectionHoldings(userId: string, query: HoldingQuery
       quantity?: number;
       finish?: unknown;
       kind?: unknown;
+      binderId?: unknown;
     };
     const holding = holdingFromEvent(e.variantId, payload);
+    if (binders && !binders.has(holding.binderId)) continue;
     const delta =
       e.type === "add"
         ? (payload.qty ?? payload.quantity ?? 1)
@@ -125,6 +134,7 @@ export async function loadCollectionHoldings(userId: string, query: HoldingQuery
         ?.find((entry) => entry.kind === preferredKind)?.amount ?? null;
     return [{
       holdingId,
+      binderId: holding.binderId,
       variantId: v.variantId,
       finish: finishForPriceKind(holding.priceKind),
       name: v.name,
