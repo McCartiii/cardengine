@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
+import { pushToUser } from "../services/push.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
 import {
   defaultCurrencyForMarket,
@@ -126,9 +127,22 @@ export function registerWatchlistRoutes(app: FastifyInstance) {
   });
 
   app.delete("/v1/push-token", { preHandler: [requireAuth] }, async (req) => {
+    const user = (req as FastifyRequest & { user: AuthUser }).user;
     const { token } = z.object({ token: z.string() }).parse(req.body);
-    await prisma.pushToken.deleteMany({ where: { token } });
+    await prisma.pushToken.deleteMany({ where: { token, userId: user.sub } });
     return { ok: true };
+  });
+
+  // A test notification to every phone the user is signed in on, from Settings.
+  app.post("/v1/push-test", { preHandler: [requireAuth], config: { rateLimit: { max: 3, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const user = (req as FastifyRequest & { user: AuthUser }).user;
+    const { sent } = await pushToUser(user.sub, {
+      title: "🔔 Notifications are on",
+      body: "We'll tell you the moment a card hits your price.",
+      data: { screen: "alerts" },
+    });
+    if (!sent) return reply.code(409).send({ error: "No phone is set up for notifications yet" });
+    return { ok: true, sent };
   });
 
   // ── In-app notifications ──

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { hasCriteria, hasPriceBounds, inPriceRange, searchFilterSchema, searchWhere } from "../lib/searchFilters.js";
 import { prisma } from "../db.js";
 import { scryfallCache } from "../lib/scryfallCache.js";
 import { preferredPriceKind } from "../lib/pricing.js";
@@ -428,10 +429,11 @@ export function registerCardRoutes(app: FastifyInstance) {
   app.get(
     "/v1/search",
     { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
-    async (req) => {
+    async (req, reply) => {
+      const filters = searchFilterSchema.parse(req.query);
+      if (!hasCriteria(filters)) return reply.code(400).send({ error: "Search for a name or pick a filter" });
       const query = z
         .object({
-          q: z.string().min(1),
           game: z.string().default("mtg"),
           limit: z.coerce.number().int().min(1).max(100).default(50),
           offset: z.coerce.number().int().min(0).default(0),
@@ -453,13 +455,12 @@ export function registerCardRoutes(app: FastifyInstance) {
         isPriceSort || isPopularSort || query.sort === "rarity"
           ? Math.min(query.limit * 3, 300)
           : query.limit;
+      // Price bounds drop cards after prices load, so look through a wider pool.
+      const pool = hasPriceBounds(filters) ? 1000 : fetchLimit;
 
-      const cards = await prisma.cardVariant.findMany({
-        where: {
-          game: query.game,
-          name: { contains: query.q, mode: "insensitive" },
-        },
-        take: fetchLimit + query.offset,
+      let cards = await prisma.cardVariant.findMany({
+        where: searchWhere(filters, query.game),
+        take: pool + query.offset,
         skip: 0,
         orderBy,
       });
@@ -516,6 +517,10 @@ export function registerCardRoutes(app: FastifyInstance) {
         return 0;
       }
 
+      if (hasPriceBounds(filters)) {
+        cards = cards.filter((c) => inPriceRange(bestUsdPrice(c.variantId), filters));
+      }
+
       const rarityRank: Record<string, number> = {
         mythic: 0, rare: 1, uncommon: 2, common: 3, special: 4, bonus: 5,
       };
@@ -554,7 +559,7 @@ export function registerCardRoutes(app: FastifyInstance) {
       const paginated = sorted.slice(query.offset, query.offset + query.limit);
 
       return {
-        query: query.q,
+        query: filters.q,
         sort: query.sort,
         total: paginated.length,
         cards: paginated.map((c) => {

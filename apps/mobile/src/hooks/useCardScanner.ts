@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFrameProcessor } from "react-native-vision-camera";
 import { useTextRecognition } from "react-native-vision-camera-text-recognition";
 import { useSharedValue, Worklets } from "react-native-worklets-core";
-import * as Haptics from "expo-haptics";
+import { haptic } from "@/lib/haptics";
 import { scanIdentify, type ScanCandidate } from "../lib/api";
 import { useScanStore } from "../store/scanStore";
 import { SCANNER } from "../lib/constants";
@@ -74,7 +74,7 @@ export function useCardScanner({ enabled }: { enabled: boolean }) {
       lastAdded.current = { id, missing: 0 };
       steady.current = null;
       setPhase("matched", candidate.name);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      haptic.success();
       return key;
     },
     [addPending, setPhase]
@@ -152,7 +152,7 @@ export function useCardScanner({ enabled }: { enabled: boolean }) {
         } else {
           failed.current = { id, at: Date.now() };
           setPhase("nomatch", cardName);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          haptic.warning();
         }
       } catch {
         failed.current = { id, at: Date.now() };

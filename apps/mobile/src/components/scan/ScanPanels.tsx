@@ -4,7 +4,7 @@ import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeOutDown, LinearTransition } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { haptic } from "@/lib/haptics";
 import { color, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd, setLabel } from "@/design/format";
@@ -51,7 +51,7 @@ export function useAddToBinder() {
       try {
         await addCollectionEvents(events);
         markAdded(items.map((p) => p.key));
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        haptic.success();
         setState("done");
         setTimeout(() => {
           clearAdded();
@@ -60,7 +60,7 @@ export function useAddToBinder() {
         return true;
       } catch {
         setState("error");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        haptic.error();
         return false;
       }
     },

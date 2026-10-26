@@ -1,12 +1,16 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Switch, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, Switch, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { color, radius, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
 import { formatUsd } from "@/design/format";
 import { deleteWatchlistEntry, getWatchlist, toggleWatchlistEntry, type WatchlistEntry } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { useSettings } from "@/store/settingsStore";
+import { enablePush, showDenied } from "@/lib/push";
 import { Card, CardArt, EmptyState, PageHeader, Screen, SkeletonBlock, Text, Touchable } from "@/ui";
+
+const pushSupported = Platform.OS === "ios" || Platform.OS === "android";
 
 function priceStatus(entry: WatchlistEntry): { triggered: boolean; label: string } {
   const { currentPrice, thresholdAmount, direction } = entry;
@@ -20,6 +24,7 @@ function priceStatus(entry: WatchlistEntry): { triggered: boolean; label: string
 export default function AlertsScreen() {
   const router = useRouter();
   const session = useAuthStore((s) => s.session);
+  const pushAlerts = useSettings((s) => s.pushAlerts);
   const [entries, setEntries] = useState<WatchlistEntry[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
@@ -132,7 +137,37 @@ export default function AlertsScreen() {
     );
   };
 
-  const header = <PageHeader title="Price alerts" subtitle={subtitle} back />;
+  const showPushBanner = !!session && entries.length > 0 && pushAlerts !== true && pushSupported;
+  const header = (
+    <View>
+      <PageHeader title="Price alerts" subtitle={subtitle} back />
+      {showPushBanner && (
+        <Card style={styles.banner}>
+          <View style={styles.bannerIcon}>
+            <Ionicons name="notifications" size={20} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="bodyStrong">Get a notification when these hit</Text>
+            <Text variant="caption" color={color.textSecondary}>
+              Otherwise you'll only see it here.
+            </Text>
+          </View>
+          <Touchable
+            onPress={async () => {
+              const r = await enablePush();
+              if (!r.ok) r.reason === "denied" ? showDenied() : Alert.alert("Couldn't turn on notifications", r.message);
+            }}
+            style={styles.bannerBtn}
+            accessibilityRole="button"
+          >
+            <Text variant="callout" color="#FFFFFF">
+              Turn on
+            </Text>
+          </Touchable>
+        </Card>
+      )}
+    </View>
+  );
 
   if (status === "loading") {
     return (
@@ -198,4 +233,7 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 4 },
   statusPill: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   actions: { alignItems: "center", gap: space.md },
+  banner: { flexDirection: "row", alignItems: "center", gap: space.md, marginHorizontal: space.lg, marginBottom: space.lg, padding: space.md },
+  bannerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: color.accent },
+  bannerBtn: { height: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: color.ink },
 });

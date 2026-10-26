@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../db.js";
 import { preferredPriceKind } from "../lib/pricing.js";
+import { getFxRates } from "../services/fxRates.js";
 
 const SCRYFALL_SEARCH =
   "https://api.scryfall.com/cards/search?q=" +
@@ -338,6 +339,9 @@ async function buildHome(): Promise<HomePayload> {
 }
 
 export function registerMarketRoutes(app: FastifyInstance) {
+  // Rates for showing US prices in the user's currency.
+  app.get("/v1/fx", async () => getFxRates());
+
   app.get("/v1/prices/status", async () => {
     const [lease, mappedVariants, mtgjsonPrices, stagedPrices, latestPoint] =
       await Promise.all([

@@ -4,6 +4,8 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAuthStore } from "../src/store/authStore";
+// Loads saved preferences (currency, haptics) before the first price shows.
+import "../src/store/settingsStore";
 import { initOfflineDB, startSyncLoop } from "../src/lib/offlineQueue";
 import { loadCardMatcher } from "../src/lib/scanIndex";
 import { addCollectionEvents } from "../src/lib/api";
@@ -88,6 +90,7 @@ export default function RootLayout() {
             <Stack.Screen name="deck/[id]" options={pushedHeader} />
             <Stack.Screen name="card/[id]" />
             <Stack.Screen name="profile" />
+            <Stack.Screen name="settings" />
             <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="shops" />
             <Stack.Screen name="alerts" />

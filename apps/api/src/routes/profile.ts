@@ -67,6 +67,24 @@ export function registerProfileRoutes(app: FastifyInstance) {
     };
   });
 
+  // ── Delete account ──
+  // Removes everything the user owns (collection, decks, alerts, tokens cascade
+  // from the user row), unlinks their anonymous reports, then the login itself.
+  app.delete("/v1/me", { preHandler: [requireAuth], config: { rateLimit: { max: 3, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const user = (req as FastifyRequest & { user: AuthUser }).user;
+    await prisma.$transaction([
+      prisma.scannerMismatch.updateMany({ where: { userId: user.sub }, data: { userId: null } }),
+      prisma.rulesDisagreement.updateMany({ where: { userId: user.sub }, data: { userId: null } }),
+      prisma.user.deleteMany({ where: { id: user.sub } }),
+    ]);
+    const deleted = await deleteAuthUser(user.sub);
+    if (!deleted) {
+      req.log.error({ userId: user.sub }, "account data deleted but the auth user could not be removed");
+      return reply.code(502).send({ error: "Your data was deleted, but we couldn't close the login. Please contact support." });
+    }
+    return { ok: true };
+  });
+
   // ── Geocoding — free via Nominatim ──
   app.get(
     "/v1/geocode",
@@ -104,4 +122,20 @@ export function registerProfileRoutes(app: FastifyInstance) {
       }
     }
   );
+}
+
+/** Removes the Supabase login. True when it's gone (or never existed). */
+async function deleteAuthUser(id: string): Promise<boolean> {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return false;
+  try {
+    const res = await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    return res.ok || res.status === 404;
+  } catch {
+    return false;
+  }
 }

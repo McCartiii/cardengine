@@ -16,7 +16,7 @@ import {
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { haptic } from "../lib/haptics";
 import { bubble, color, elevation, glass, radius, space, type, type BubbleColor, type TypeVariant } from "../design/tokens";
 import { formatDeltaPct } from "../design/format";
 import { font } from "../design/fonts";
@@ -25,7 +25,7 @@ type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 /** Light haptic tick; a no-op where haptics aren't available. */
 export function tap() {
-  Haptics.selectionAsync().catch(() => {});
+  haptic.tick();
 }
 
 // ── Text ─────────────────────────────────────────────────────────────────────

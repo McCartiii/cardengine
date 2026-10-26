@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { haptic } from "@/lib/haptics";
 import { CARD_ASPECT, color, radius, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { useAuthStore } from "@/store/authStore";
@@ -47,7 +47,7 @@ export default function SignInScreen() {
     setError(null);
     try {
       await verifyOtp(normalizedEmail, code);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      haptic.success();
       router.replace("/(tabs)");
     } catch {
       setError("That code didn't work. Check it or request a new one.");

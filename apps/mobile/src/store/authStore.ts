@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { setAuthToken } from "../lib/api";
+import { forgetPushToken } from "../lib/push";
 
 interface AuthState {
   session: Session | null;
@@ -77,6 +78,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   async signOut() {
+    // This phone shouldn't get the old account's alerts.
+    await forgetPushToken();
     await supabase.auth.signOut();
     set({ session: null, user: null, guest: false });
     setAuthToken(null);

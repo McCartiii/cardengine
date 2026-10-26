@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeOutDown, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { haptic } from "@/lib/haptics";
 import { CARD_ASPECT, bubble, color, elevation, radius, rarity as rarityColor, space, type BubbleColor } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd, setLabel } from "@/design/format";
@@ -21,6 +21,7 @@ import {
   type Deck,
 } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { offerPushForAlerts } from "@/lib/push";
 import {
   Button,
   CardArt,
@@ -118,7 +119,7 @@ export default function CardDetailScreen() {
   }, [load]);
 
   const showToast = (message: string, ok = true) => {
-    Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error).catch(() => {});
+    (ok ? haptic.success : haptic.error)();
     setToast({ message, ok });
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2200);
@@ -320,6 +321,8 @@ export default function CardDetailScreen() {
         onSaved={() => {
           setAlertSheet(false);
           showToast("Price alert set");
+          // Let the sheet finish closing before the system prompt.
+          setTimeout(offerPushForAlerts, 600);
         }}
       />
     </View>

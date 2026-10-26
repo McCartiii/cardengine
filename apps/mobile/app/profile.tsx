@@ -9,7 +9,7 @@ import { pickProfilePhoto } from "@/lib/pictures";
 import { PicturePicker } from "@/components/PicturePicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
-import { ListGroup, ListRow, PageHeader, Screen, SkeletonBlock, Text, Touchable } from "@/ui";
+import { IconButton, ListGroup, ListRow, PageHeader, Screen, SkeletonBlock, Text, Touchable } from "@/ui";
 
 interface Profile {
   id: string;
@@ -68,7 +68,7 @@ export default function ProfileScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <PageHeader title="Profile" back />
+        <PageHeader title="Profile" back right={<IconButton icon="settings-outline" label="Settings" variant="surface" onPress={() => router.push("/settings")} />} />
 
         <View style={styles.identity}>
           <Touchable
@@ -140,6 +140,7 @@ export default function ProfileScreen() {
         </Text>
         <View style={styles.section}>
           <ListGroup>
+            <ListRow icon="settings" tint="violet" title="Settings" subtitle="Currency, notifications, haptics" onPress={() => router.push("/settings")} />
             {session ? (
               <ListRow icon="log-out-outline" title="Sign out" destructive onPress={confirmSignOut} />
             ) : (

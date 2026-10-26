@@ -54,7 +54,7 @@ export function Pocket({ width, name, uri, price, foil, quantity, change, showCh
   const t = trend(change);
   // Small pockets drop the cents so the price and its move both fit.
   const tight = width < 96;
-  const priceText = price != null ? (tight && price >= 10 ? `$${Math.round(price).toLocaleString("en-US")}` : formatUsd(price, { compact: true })) : null;
+  const priceText = price != null ? formatUsd(price, { compact: true, whole: tight && price >= 10 }) : null;
   const pct = change != null && Number.isFinite(change) ? `${Math.abs(change).toFixed(Math.abs(change) >= 10 ? 0 : 1)}%` : null;
   const dollars = dollarChange(price, change);
   return (

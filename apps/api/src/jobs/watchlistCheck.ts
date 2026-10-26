@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { sendPush, type PushMessage } from "../services/push.js";
 import {
   currencySymbol,
   normalizeCurrency,
@@ -6,39 +7,19 @@ import {
   normalizeRetailPriceKind,
 } from "../lib/pricing.js";
 
-interface ExpoPushMessage {
-  to: string | string[];
-  title?: string;
-  body: string;
-  data?: Record<string, unknown>;
-  sound?: "default" | null;
-  badge?: number;
+/** The notification for an alert that hit: "Sol Ring is up to $3.20". */
+export function alertCopy(opts: { cardName: string; direction: string; threshold: number; price: number; currency: string; market: string }) {
+  const symbol = currencySymbol(opts.currency);
+  const suffix = opts.currency === "TIX" ? " tix" : "";
+  const money = (n: number) => `${symbol}${n.toFixed(2)}${suffix}`;
+  const up = opts.direction === "above";
+  return {
+    title: up ? `📈 ${opts.cardName} is up to ${money(opts.price)}` : `📉 ${opts.cardName} dropped to ${money(opts.price)}`,
+    body: `Your alert for ${up ? "above" : "below"} ${money(opts.threshold)} just hit on ${MARKET_NAME[opts.market] ?? opts.market}. Tap to see prices.`,
+  };
 }
 
-async function sendExpoPushNotifications(messages: ExpoPushMessage[]) {
-  if (messages.length === 0) return;
-  // Expo push API accepts batches of up to 100
-  const BATCH = 100;
-  for (let i = 0; i < messages.length; i += BATCH) {
-    const batch = messages.slice(i, i + BATCH);
-    try {
-      const res = await fetch("https://exp.host/--/api/v2/push/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "Accept-Encoding": "gzip, deflate",
-        },
-        body: JSON.stringify(batch),
-      });
-      if (!res.ok) {
-        console.warn(`[expo-push] HTTP ${res.status}: ${await res.text()}`);
-      }
-    } catch (err) {
-      console.warn("[expo-push] Failed to send batch:", err);
-    }
-  }
-}
+const MARKET_NAME: Record<string, string> = { tcgplayer: "TCGplayer", cardmarket: "Cardmarket", cardkingdom: "Card Kingdom", mtgo: "MTGO" };
 
 export async function checkWatchlistAlerts() {
   try {
@@ -65,7 +46,7 @@ export async function checkWatchlistAlerts() {
         : [];
     const nameIndex = new Map(variants.map((v) => [v.variantId, v.name]));
 
-    const pushMessages: ExpoPushMessage[] = [];
+    const pushMessages: PushMessage[] = [];
 
     for (const entry of entries) {
       const market = normalizeMarket(entry.market);
@@ -84,11 +65,14 @@ export async function checkWatchlistAlerts() {
       if (!triggered) continue;
 
       const cardName = nameIndex.get(entry.variantId) ?? entry.variantId;
-      const dirLabel = entry.direction === "above" ? "⬆ Above" : "⬇ Below";
-      const symbol = currencySymbol(currency);
-      const suffix = currency === "TIX" ? " tix" : "";
-      const notifTitle = `${dirLabel} ${symbol}${entry.thresholdAmount}${suffix} — ${cardName}`;
-      const notifBody = `Now ${symbol}${cache.amount.toFixed(2)}${suffix} on ${cache.market} (${cache.kind})`;
+      const { title: notifTitle, body: notifBody } = alertCopy({
+        cardName,
+        direction: entry.direction,
+        threshold: entry.thresholdAmount,
+        price: cache.amount,
+        currency,
+        market: cache.market,
+      });
 
       await prisma.$transaction([
         prisma.notification.create({
@@ -114,25 +98,23 @@ export async function checkWatchlistAlerts() {
         }),
       ]);
 
-      // Collect Expo push tokens for this user
+      // Every phone this user is signed in on.
       const tokens = await prisma.pushToken.findMany({
         where: { userId: entry.userId },
         select: { token: true },
       });
       for (const { token } of tokens) {
-        if (token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken[")) {
-          pushMessages.push({
-            to: token,
-            title: notifTitle,
-            body: notifBody,
-            sound: "default",
-            data: { variantId: entry.variantId, screen: "card" },
-          });
-        }
+        pushMessages.push({
+          to: token,
+          title: notifTitle,
+          body: notifBody,
+          sound: "default",
+          data: { variantId: entry.variantId, screen: "card" },
+        });
       }
     }
 
-    await sendExpoPushNotifications(pushMessages);
+    await sendPush(pushMessages);
   } catch (err) {
     console.error("[watchlist-check] Error:", err);
   }

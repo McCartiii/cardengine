@@ -192,7 +192,17 @@ export async function updateProfile(data: { displayName?: string | null; avatarU
   return request("PUT", "/v1/profile", data);
 }
 
-export async function searchCards(q: string, limit = 30): Promise<{
+export interface SearchFilters {
+  /** Card colors, e.g. "WU", or "C" for colorless. */
+  colors?: string;
+  type?: string;
+  rarity?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: "name-asc" | "price-asc" | "price-desc" | "popular" | "rarity";
+}
+
+export async function searchCards(q: string, limit = 30, filters: SearchFilters = {}): Promise<{
   cards: Array<{
     variantId: string;
     name: string;
@@ -205,7 +215,37 @@ export async function searchCards(q: string, limit = 30): Promise<{
     manaCost: string | null;
   }>;
 }> {
-  return request("GET", `/v1/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  if (filters.colors) params.set("colors", filters.colors);
+  if (filters.type) params.set("type", filters.type);
+  if (filters.rarity?.length) params.set("rarity", filters.rarity.join(","));
+  if (filters.minPrice != null) params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice != null) params.set("maxPrice", String(filters.maxPrice));
+  if (filters.sort) params.set("sort", filters.sort);
+  return request("GET", `/v1/search?${params}`);
+}
+
+/** US dollar exchange rates for the display currency. */
+export async function getFxRates(): Promise<{ rates: Record<"USD" | "EUR" | "GBP" | "CAD" | "AUD", number>; asOf: string | null }> {
+  return request("GET", "/v1/fx");
+}
+
+/** Deletes the account and everything in it. */
+export async function deleteAccount(): Promise<{ ok: boolean }> {
+  return request("DELETE", "/v1/me");
+}
+
+export async function registerPushToken(token: string, platform: "ios" | "android"): Promise<{ ok: boolean }> {
+  return request("POST", "/v1/push-token", { token, platform });
+}
+
+export async function unregisterPushToken(token: string): Promise<{ ok: boolean }> {
+  return request("DELETE", "/v1/push-token", { token });
+}
+
+/** Sends a test notification to this account's phones. */
+export async function sendTestPush(): Promise<{ ok: boolean; sent: number }> {
+  return request("POST", "/v1/push-test");
 }
 
 // ── Decks ────────────────────────────────────────────────────────────────────

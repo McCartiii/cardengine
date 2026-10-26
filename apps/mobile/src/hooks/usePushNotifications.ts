@@ -1,100 +1,33 @@
-/**
- * Registers the device for Expo push notifications and syncs the token with
- * the CardEngine API. Also sets up a foreground notification listener.
- *
- * Requires: npx expo install expo-notifications expo-device
- *
- * Usage: call usePushNotifications() inside the authenticated tabs layout.
- */
-import { useEffect, useRef } from "react";
+// Keeps this phone's push registration fresh once signed in, and opens the
+// card (or alerts list) when a notification is tapped, including one that
+// launched the app.
+import { useEffect } from "react";
 import { Platform } from "react-native";
-
-// Lazy imports so the app doesn't crash if the package isn't installed yet
-let Notifications: typeof import("expo-notifications") | null = null;
-let Device: typeof import("expo-device") | null = null;
-
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  Notifications = require("expo-notifications");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  Device = require("expo-device");
-} catch {
-  // expo-notifications not installed — push won't work but app won't crash
-}
-
+import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { useAuthStore } from "../store/authStore";
+import { refreshPush, routeFor } from "../lib/push";
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
-
-async function registerToken(accessToken: string) {
-  if (!Notifications || !Device) return;
-
-  // Must be a physical device
-  if (!Device.isDevice) return;
-
-  // Ask for permission
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-  if (existing !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== "granted") return;
-
-  // Android notification channel
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#7C3AED",
-    });
-  }
-
-  const tokenData = await Notifications.getExpoPushTokenAsync();
-  const platform = Platform.OS === "ios" ? "ios" : "android";
-
-  await fetch(`${API_BASE}/v1/push-token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ token: tokenData.data, platform }),
-  });
-}
+// A launch notification is still "last" after the app is running; open it once.
+const opened = new Set<string>();
 
 export function usePushNotifications() {
-  const { session } = useAuthStore();
-  const registered = useRef(false);
-  const listenerRef = useRef<{ remove: () => void } | null>(null);
+  const signedIn = useAuthStore((s) => !!s.session);
 
   useEffect(() => {
-    if (!session?.access_token || registered.current) return;
-    registered.current = true;
+    if (signedIn) refreshPush();
+  }, [signedIn]);
 
-    registerToken(session.access_token).catch(console.warn);
-
-    // Show notification when app is foregrounded
-    if (Notifications) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-
-      listenerRef.current = Notifications.addNotificationReceivedListener((notification) => {
-        console.log("[push] Received:", notification.request.content.title);
-      });
-    }
-
-    return () => {
-      listenerRef.current?.remove();
-      registered.current = false;
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const open = (response: Notifications.NotificationResponse | null) => {
+      if (!response || opened.has(response.notification.request.identifier)) return;
+      opened.add(response.notification.request.identifier);
+      const to = routeFor(response?.notification.request.content.data as Record<string, unknown> | undefined);
+      if (to) router.push(to as never);
     };
-  }, [session?.access_token]);
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, []);
 }
