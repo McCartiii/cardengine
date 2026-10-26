@@ -7,7 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "dev:mobile": "npm run start --prefix apps/mobile",
     "build:api": "npm run build --workspace=apps/api",
     "build:web": "npm run build --workspace=apps/web",
     "build:engine": "npm run build --workspace=packages/engine",
