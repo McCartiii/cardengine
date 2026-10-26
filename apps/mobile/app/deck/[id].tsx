@@ -20,7 +20,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { CARD_ASPECT, color, elevation, hairline, radius, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
@@ -38,6 +38,10 @@ import {
 import { DeckAnalysisView } from "@/components/deck/DeckAnalysisView";
 import { OpeningHand } from "@/components/deck/OpeningHand";
 import { DeckAgentPanel } from "@/components/deck/DeckAgentPanel";
+import { CardEditSheet } from "@/components/deck/CardEditSheet";
+import { AddCardsSheet } from "@/components/deck/AddCardsSheet";
+import { localDeckCard, useDeckEditor } from "@/components/deck/useDeckEditor";
+import { addCard, countOf, moveCard, setCount } from "@/lib/deckEdits";
 import { Button, CardArt, CardTile, Chip, Segmented, Sheet, Text, Touchable, padToColumns, tap } from "@/ui";
 
 type Tab = "cards" | "analysis" | "edhrec" | "ai";
@@ -76,6 +80,10 @@ function groupOf(c: DeckCard): string {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+const SECTION_NAME: Record<string, string> = { mainboard: "the main deck", sideboard: "the sideboard", commander: "the command zone", companion: "companion" };
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
 export default function DeckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -92,6 +100,19 @@ export default function DeckDetailScreen() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
+
+  const [editing, setEditing] = useState<{ name: string; section: string } | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const editor = useDeckEditor(id, deck, setDeck);
+  const { edit, undo, dismissUndo } = editor;
+
+  // The undo offer stays a few seconds.
+  useEffect(() => {
+    if (!undo) return;
+    const t = setTimeout(dismissUndo, 4500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undo]);
 
   const loadDeck = useCallback(async () => {
     try {
@@ -225,7 +246,10 @@ export default function DeckDetailScreen() {
     }
   };
 
-  const openCard = (c: DeckCard) => {
+  const openCard = (c: DeckCard) => setEditing({ name: c.cardName, section: c.section });
+
+  const openDetails = (c: DeckCard) => {
+    setEditing(null);
     if (c.variantId) router.push({ pathname: "/card/[id]", params: { id: c.variantId } });
   };
 
@@ -243,6 +267,8 @@ export default function DeckDetailScreen() {
   const heroArt = commander?.variant?.imageUri ?? [...d.cards].sort((a, b) => (b.price ?? 0) - (a.price ?? 0))[0]?.variant?.imageUri ?? null;
   const total = d.cards.filter((c) => c.section !== "sideboard").reduce((n, c) => n + c.quantity, 0);
   const lands = d.cards.filter((c) => c.section === "mainboard" && primaryType(c.variant?.typeLine) === "Land").reduce((n, c) => n + c.quantity, 0);
+  const editingCard = editing ? d.cards.find((c) => c.section === editing.section && sameName(c.cardName, editing.name)) ?? null : null;
+  const inDeck = (name: string) => d.cards.some((c) => sameName(c.cardName, name));
   const columns = 3;
   const tileWidth = (width - space.lg * 2 - space.md * (columns - 1)) / columns;
 
@@ -308,19 +334,19 @@ export default function DeckDetailScreen() {
             </View>
 
             <View style={styles.heroActions}>
+              <Touchable onPress={() => setShowAdd(true)} accessibilityRole="button" pressedScale={0.96} style={[styles.heroAction, styles.heroActionPrimary]}>
+                <Ionicons name="add" size={19} color="#0E0F13" />
+                <Text style={[styles.heroActionText, { color: "#0E0F13" }]}>Add cards</Text>
+              </Touchable>
               <Touchable
                 onPress={() => setShowHand(true)}
                 disabled={total < 8}
                 accessibilityRole="button"
                 pressedScale={0.96}
-                style={[styles.heroAction, styles.heroActionPrimary, total < 8 && { opacity: 0.4 }]}
+                style={[styles.heroAction, total < 8 && { opacity: 0.4 }]}
               >
-                <Ionicons name="hand-left-outline" size={17} color="#0E0F13" />
-                <Text style={[styles.heroActionText, { color: "#0E0F13" }]}>Test hand</Text>
-              </Touchable>
-              <Touchable onPress={() => setShowImport(true)} accessibilityRole="button" pressedScale={0.96} style={styles.heroAction}>
-                <Ionicons name="download-outline" size={17} color="#FFFFFF" />
-                <Text style={styles.heroActionText}>Import</Text>
+                <Ionicons name="hand-left-outline" size={17} color="#FFFFFF" />
+                <Text style={styles.heroActionText}>Test hand</Text>
               </Touchable>
             </View>
           </View>
@@ -340,25 +366,37 @@ export default function DeckDetailScreen() {
 
           {tab === "cards" &&
             (d.cards.length === 0 ? (
-              <Empty icon="albums-outline" text="No cards yet. Import a Moxfield or Archidekt link, or paste a decklist." action="Import cards" onAction={() => setShowImport(true)} />
+              <Empty
+                icon="albums-outline"
+                text="No cards yet. Search for cards to add, or import a Moxfield or Archidekt link or a pasted list."
+                action="Add cards"
+                onAction={() => setShowAdd(true)}
+                secondary="Import a list"
+                onSecondary={() => setShowImport(true)}
+              />
             ) : (
               <>
-                <View style={styles.viewToggle}>
-                  {(["grid", "list"] as const).map((v) => (
-                    <Pressable
-                      key={v}
-                      onPress={() => {
-                        tap();
-                        setLayout(v);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: layout === v }}
-                      accessibilityLabel={v === "grid" ? "Show as grid" : "Show as list"}
-                      style={[styles.toggleBtn, layout === v && styles.toggleOn]}
-                    >
-                      <Ionicons name={v === "grid" ? "grid-outline" : "list-outline"} size={16} color={layout === v ? color.ink : color.textTertiary} />
-                    </Pressable>
-                  ))}
+                <View style={styles.cardsBar}>
+                  <Text variant="caption" color={color.textTertiary} style={{ flex: 1 }}>
+                    Tap a card to change it
+                  </Text>
+                  <View style={styles.viewToggle}>
+                    {(["grid", "list"] as const).map((v) => (
+                      <Pressable
+                        key={v}
+                        onPress={() => {
+                          tap();
+                          setLayout(v);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: layout === v }}
+                        accessibilityLabel={v === "grid" ? "Show as grid" : "Show as list"}
+                        style={[styles.toggleBtn, layout === v && styles.toggleOn]}
+                      >
+                        <Ionicons name={v === "grid" ? "grid-outline" : "list-outline"} size={16} color={layout === v ? color.ink : color.textTertiary} />
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
                 {groups.map((g) => (
                   <Animated.View key={g.key} entering={FadeIn.duration(200)} style={styles.group}>
@@ -451,7 +489,7 @@ export default function DeckDetailScreen() {
                 </Text>
                 <View style={styles.listCard}>
                   {edhrec.recommendations
-                    .filter((r) => !r.alreadyInDeck)
+                    .filter((r) => !r.alreadyInDeck || inDeck(r.name))
                     .slice(0, 40)
                     .map((r, i) => (
                       <View key={r.name} style={[styles.recRow, i > 0 && styles.rowDivider]}>
@@ -476,6 +514,27 @@ export default function DeckDetailScreen() {
                           </Text>
                           <Text variant="price">{r.price_usd != null ? formatUsd(r.price_usd) : "—"}</Text>
                         </View>
+                        {inDeck(r.name) ? (
+                          <View style={[styles.recAdd, styles.recAdded]} accessibilityLabel={`${r.name} is in the deck`}>
+                            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                          </View>
+                        ) : (
+                          <Pressable
+                            onPress={() => {
+                              tap();
+                              edit(
+                                (cards) => addCard(cards, localDeckCard({ name: r.name, imageUri: r.image, price: r.price_usd, typeLine: r.primary_type, cmc: r.cmc }, "mainboard")),
+                                `Added ${r.name}`
+                              );
+                            }}
+                            hitSlop={6}
+                            style={styles.recAdd}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Add ${r.name}`}
+                          >
+                            <Ionicons name="add" size={20} color={color.ink} />
+                          </Pressable>
+                        )}
                       </View>
                     ))}
                 </View>
@@ -508,6 +567,57 @@ export default function DeckDetailScreen() {
         />
         <Button label={isDeckUrl(importText) ? "Import from link" : "Import list"} size="lg" onPress={runImport} loading={importing} disabled={!importText.trim()} />
       </Sheet>
+
+      <CardEditSheet
+        card={editingCard}
+        format={d.format}
+        onClose={() => setEditing(null)}
+        onSetCount={(q) => editingCard && edit((cards) => setCount(cards, editingCard.cardName, editingCard.section, q), q === 0 ? `Removed ${editingCard.cardName}` : undefined)}
+        onMove={(to) => {
+          if (!editingCard) return;
+          edit((cards) => moveCard(cards, editingCard.cardName, editingCard.section, to), `Moved ${editingCard.cardName} to ${SECTION_NAME[to] ?? to}`);
+          setEditing({ name: editingCard.cardName, section: to });
+        }}
+        onRemove={() => {
+          if (!editingCard) return;
+          edit((cards) => setCount(cards, editingCard.cardName, editingCard.section, 0), `Removed ${editingCard.cardName}`);
+          setEditing(null);
+        }}
+        onOpen={() => editingCard && openDetails(editingCard)}
+      />
+
+      <AddCardsSheet
+        visible={showAdd}
+        cards={d.cards}
+        onClose={() => setShowAdd(false)}
+        onAdd={(c, section) =>
+          edit((cards) =>
+            addCard(
+              cards,
+              localDeckCard({ name: c.name, variantId: c.variantId, imageUri: c.imageUri, typeLine: c.typeLine, manaCost: c.manaCost, rarity: c.rarity, price: c.priceUsd }, section)
+            )
+          )
+        }
+        onRemoveOne={(name, section) => edit((cards) => setCount(cards, name, section, countOf(cards, name, section) - 1))}
+      />
+
+      {(undo || editor.saveState === "error") && !showAdd && !editingCard && (
+        <Animated.View entering={FadeInDown} exiting={FadeOutDown} style={[styles.toast, { bottom: insets.bottom + space.lg }]}>
+          <Ionicons
+            name={editor.saveState === "error" ? "cloud-offline-outline" : "checkmark-circle"}
+            size={18}
+            color={editor.saveState === "error" ? color.negative : color.positive}
+          />
+          <Text variant="callout" numberOfLines={1} style={{ flex: 1 }}>
+            {editor.saveState === "error" ? "Couldn't save your changes" : undo?.label}
+          </Text>
+          <Pressable onPress={editor.saveState === "error" ? editor.retry : editor.undoLast} hitSlop={8} accessibilityRole="button">
+            <Text variant="bodyStrong" color={color.accent}>
+              {editor.saveState === "error" ? "Retry" : "Undo"}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      )}
 
       <OpeningHand visible={showHand} cards={d.cards} deckName={d.name} format={d.format} onClose={() => setShowHand(false)} />
     </View>
@@ -554,14 +664,33 @@ function ManaCost({ cost }: { cost: string | null | undefined }) {
   );
 }
 
-function Empty({ icon, text, action, onAction }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string; action?: string; onAction?: () => void }) {
+function Empty({
+  icon,
+  text,
+  action,
+  onAction,
+  secondary,
+  onSecondary,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  text: string;
+  action?: string;
+  onAction?: () => void;
+  secondary?: string;
+  onSecondary?: () => void;
+}) {
   return (
     <View style={styles.empty}>
       <Ionicons name={icon} size={34} color={color.textTertiary} />
       <Text variant="body" color={color.textSecondary} align="center">
         {text}
       </Text>
-      {action && <Button label={action} onPress={onAction} />}
+      {(action || secondary) && (
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          {action && <Button label={action} icon="add" onPress={onAction} />}
+          {secondary && <Button label={secondary} variant="secondary" onPress={onSecondary} />}
+        </View>
+      )}
     </View>
   );
 }
@@ -616,7 +745,8 @@ const styles = StyleSheet.create({
   heroActionText: { fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" },
   tabs: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
   issues: { flexDirection: "row", gap: space.sm, marginHorizontal: space.lg, marginTop: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: "#FFF3DC" },
-  viewToggle: { flexDirection: "row", alignSelf: "flex-end", gap: 2, marginRight: space.lg, marginTop: space.sm, padding: 2, borderRadius: 10, backgroundColor: color.surface3 },
+  cardsBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, marginTop: space.sm },
+  viewToggle: { flexDirection: "row", gap: 2, padding: 2, borderRadius: 10, backgroundColor: color.surface3 },
   toggleBtn: { width: 34, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   toggleOn: { backgroundColor: color.surface, ...elevation.card },
   group: { paddingHorizontal: space.lg, marginTop: space.md },
@@ -633,6 +763,21 @@ const styles = StyleSheet.create({
   themes: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.xs },
   recRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 10 },
   recArt: { width: 42 },
+  recAdd: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: color.surface2, borderWidth: 1, borderColor: color.borderStrong },
+  recAdded: { backgroundColor: color.positive, borderColor: color.positive },
+  toast: {
+    position: "absolute",
+    left: space.lg,
+    right: space.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    height: 50,
+    borderRadius: radius.pill,
+    backgroundColor: color.surface,
+    ...elevation.floating,
+  },
   synergyTrack: { height: 4, borderRadius: 2, backgroundColor: color.surface2, overflow: "hidden", marginTop: 2 },
   synergyFill: { height: "100%", borderRadius: 2, backgroundColor: color.positive },
   input: {

@@ -216,6 +216,7 @@ export interface Deck {
   format: string;
   game: string;
   commander: string | null;
+  partner?: string | null;
   description: string | null;
   isPublic: boolean;
   createdAt: string;

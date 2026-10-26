@@ -282,10 +282,23 @@ export function registerDeckRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: "Not found" });
     if (existing.userId !== user.sub) return reply.code(403).send({ error: "Forbidden" });
 
+    // Cards added by name (from EDHREC or the AI) get a printing, so they show art and prices.
+    const unresolved = [...new Set(body.cards.filter((c) => !c.variantId).map((c) => c.cardName))];
+    const byName = new Map<string, string>();
+    if (unresolved.length) {
+      const variants = await prisma.cardVariant.findMany({
+        where: { name: { in: unresolved }, game: existing.game },
+        select: { variantId: true, name: true },
+      });
+      for (const v of variants) {
+        if (!byName.has(v.name) && !v.variantId.endsWith("-foil")) byName.set(v.name, v.variantId);
+      }
+    }
+
     await prisma.$transaction([
       prisma.deckCard.deleteMany({ where: { deckId: id } }),
       prisma.deckCard.createMany({
-        data: body.cards.map((c) => ({ ...c, deckId: id })),
+        data: body.cards.map((c) => ({ ...c, variantId: c.variantId ?? byName.get(c.cardName), deckId: id })),
       }),
       prisma.deck.update({ where: { id }, data: { updatedAt: new Date() } }),
     ]);

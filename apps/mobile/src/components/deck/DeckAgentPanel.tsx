@@ -9,7 +9,7 @@ import { font } from "@/design/fonts";
 import { formatUsd } from "@/design/format";
 import { updateDeckCards, type DeckCard } from "@/lib/api";
 import { cardInfo, initialAgentState, runDeckAgent, type AgentCard, type AgentState, type AgentSwap } from "@/lib/deckAgent";
-import { addCards, applyBuild, applySwaps } from "@/lib/deckEdits";
+import { addCards, applyBuild, applySwaps, hasCommandZone } from "@/lib/deckEdits";
 import { AI_THINKING, pick } from "@/lib/flavor";
 import { Button, CardArt, Text, Touchable, tap } from "@/ui";
 
@@ -21,7 +21,6 @@ interface PanelDeck {
   cards: DeckCard[];
 }
 
-const COMMANDER_FORMATS = new Set(["commander", "brawl", "oathbreaker"]);
 
 const BUDGETS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 0, label: "Any" },
@@ -49,7 +48,7 @@ function presetsFor(mainCount: number, targetSize: number): string[] {
 }
 
 export function DeckAgentPanel({ deck, onApplied, onAsk }: { deck: PanelDeck; onApplied: () => void; onAsk: () => void }) {
-  const commanderFormat = COMMANDER_FORMATS.has(deck.format);
+  const commanderFormat = hasCommandZone(deck.format);
   const mainCount = deck.cards.filter((c) => c.section === "mainboard").reduce((n, c) => n + c.quantity, 0);
   const presets = presetsFor(mainCount, commanderFormat ? 99 : 60);
 
