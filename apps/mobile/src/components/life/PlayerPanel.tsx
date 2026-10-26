@@ -17,13 +17,15 @@ import Animated, {
   withRepeat,
   withSequence,
   withSpring,
+  withDelay,
   withTiming,
 } from "react-native-reanimated";
 import { font } from "@/design/fonts";
 import { highestCommanderDamage, outReason, type LifeGame, type LifePlayer } from "@/lib/lifeGame";
 import { COUNTER_INFO, DANGER_LIFE, OUT_LABEL, PLAYER_COLORS, quipFor } from "@/lib/lifeConstants";
 import { useLifeStore } from "@/store/lifeStore";
-import { damageBurst, healBurst, useEffectsLayer } from "./effects";
+import { damageBurst, healBurst, starBurst, useEffectsLayer } from "./effects";
+import { Aurora, Halo, Sheen } from "./ambience";
 import { CountersBack } from "./CountersBack";
 import { feel } from "./feel";
 
@@ -80,6 +82,11 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
   const outP = useSharedValue(out ? 1 : 0);
   const highlight = useSharedValue(0);
   const deltaP = useSharedValue(0);
+  const bloom = useSharedValue(0);
+  const hurt = useSharedValue(0);
+  const banner = useSharedValue(0);
+  const stamp = useSharedValue(out ? 1 : 0);
+  const seat = Number(player.id.slice(1)) || 0;
 
   // ── Running delta ("-3") shown beside the total ──
   const [delta, setDelta] = useState(0);
@@ -110,12 +117,23 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
         withTiming(big ? -8 : -3, { duration: 50 }),
         withTiming(0, { duration: 60 })
       );
-      if (big) flash.value = withSequence(withTiming(1, { duration: 70 }), withTiming(0, { duration: 520 }));
-      addEffects(damageBurst(center.x, center.y, Math.min(6, Math.abs(d))));
+      if (big) flash.value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 560 }));
+      hurt.value = withSequence(withTiming(big ? 1 : 0.6, { duration: 70 }), withTiming(0, { duration: big ? 900 : 550 }));
+      addEffects([
+        ...damageBurst(center.x, center.y, Math.min(10, Math.abs(d) + (big ? 3 : 0))),
+        { kind: "wave", x: center.x, y: center.y, color: "rgba(255,200,210,0.9)", size: short * (big ? 1.7 : 0.95), width: big ? 7 : 3 },
+        ...(big ? [{ kind: "wave" as const, x: center.x, y: center.y, color: "rgba(255,60,90,0.8)", size: short * 2.3, width: 4, delay: 90 }] : []),
+        { kind: "text", x: center.x + lifeSize * 0.15, y: center.y - lifeSize * 0.35, text: `${d}`, color: "#FFE1E5", size: big ? lifeSize * 0.5 : lifeSize * 0.3 },
+      ]);
       if (big) feel.heavy();
     } else {
       numScale.value = withSequence(withTiming(big ? 1.14 : 1.07, { duration: 90 }), withSpring(1, { damping: 7, stiffness: 200 }));
-      addEffects(healBurst(center.x, center.y, color.glow, Math.min(6, d)));
+      bloom.value = withSequence(withTiming(big ? 1 : 0.6, { duration: 120 }), withTiming(0, { duration: big ? 1000 : 650 }));
+      addEffects([
+        ...healBurst(center.x, center.y, color.glow, Math.min(8, d + (big ? 3 : 0))),
+        { kind: "wave", x: center.x, y: center.y, color: "rgba(255,255,255,0.85)", size: short * (big ? 1.6 : 0.9), width: big ? 6 : 3 },
+        { kind: "text", x: center.x + lifeSize * 0.15, y: center.y - lifeSize * 0.35, text: `+${d}`, color: "#E9FFF3", size: big ? lifeSize * 0.5 : lifeSize * 0.3 },
+      ]);
       if (big) feel.medium();
     }
     setDelta((x) => x + d);
@@ -153,7 +171,19 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [danger]);
 
-  // ── Turn glow ──
+  // ── Turn glow, and a banner that swooshes across when the turn arrives ──
+  const [bannerText, setBannerText] = useState("");
+  useEffect(() => {
+    if (active && turnsOn) {
+      const first = game.turn <= 1;
+      setBannerText(first ? "YOU GO FIRST" : "YOUR TURN");
+      banner.value = 0;
+      banner.value = withSequence(withSpring(1, { damping: 14, stiffness: 140 }), withDelay(900, withTiming(2, { duration: 380, easing: Easing.in(Easing.cubic) })));
+      addEffects(starBurst(width / 2, height / 2, [color.glow, "#FFFFFF", "#FFE7A3"], first ? 30 : 16, short * (first ? 0.9 : 0.6)));
+      feel.success();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
   useEffect(() => {
     if (active) {
       glow.value = withRepeat(withSequence(withTiming(1, { duration: 900 }), withTiming(0.45, { duration: 900 })), -1, true);
@@ -167,7 +197,18 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
   // ── Knocked out / back in ──
   const wasOut = useRef(out);
   useEffect(() => {
-    if (out && !wasOut.current) feel.warning();
+    if (out && !wasOut.current) {
+      feel.warning();
+      stamp.value = 0;
+      stamp.value = withDelay(180, withSpring(1, { damping: 9, stiffness: 160 }));
+      shake.value = withSequence(withTiming(-18, { duration: 40 }), withTiming(16, { duration: 50 }), withTiming(-10, { duration: 50 }), withTiming(6, { duration: 50 }), withTiming(0, { duration: 60 }));
+      addEffects([
+        { kind: "wave", x: center.x, y: center.y, color: "rgba(255,40,70,0.95)", size: short * 2.4, width: 10 },
+        { kind: "wave", x: center.x, y: center.y, color: "rgba(255,255,255,0.7)", size: short * 1.6, width: 4, delay: 120 },
+        ...damageBurst(center.x, center.y, 10),
+      ]);
+    }
+    if (!out) stamp.value = 0;
     if (!out && wasOut.current) feel.success();
     wasOut.current = out;
     outP.value = out ? withSpring(1, { damping: 11, stiffness: 120 }) : withTiming(0, { duration: 260 });
@@ -194,7 +235,7 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
 
   const ripple = (e: GestureResponderEvent, offsetX: number, sign: 1 | -1) => {
     const { locationX, locationY } = e.nativeEvent;
-    addEffects([{ kind: "ripple", x: offsetX + (locationX ?? width / 4), y: locationY ?? height / 2, color: sign > 0 ? "#FFFFFF" : "#1A0006", size: short * 0.9 }]);
+    addEffects([{ kind: "ripple", x: offsetX + (locationX ?? width / 4), y: locationY ?? height / 2, color: sign > 0 ? "#FFFFFF" : "#FF2D55", size: short * 0.9 }]);
   };
 
   const zone = (sign: 1 | -1) => ({
@@ -233,6 +274,14 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
   }));
   const highlightStyle = useAnimatedStyle(() => ({ opacity: highlight.value * 0.45 }));
   const deltaStyle = useAnimatedStyle(() => ({ opacity: deltaP.value, transform: [{ scale: 0.7 + deltaP.value * 0.3 }] }));
+  const bannerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(banner.value, [0, 0.4, 1, 1.6, 2], [0, 1, 1, 1, 0]),
+    transform: [{ translateX: interpolate(banner.value, [0, 1, 2], [-width, 0, width]) }, { skewX: `${interpolate(banner.value, [0, 1, 2], [-14, 0, 14])}deg` }],
+  }));
+  const stampStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, stamp.value * 1.6),
+    transform: [{ scale: interpolate(stamp.value, [0, 1], [2.6, 1]) }, { rotate: "-9deg" }],
+  }));
 
   // ── Counter chips under the total ──
   const cmdHigh = highestCommanderDamage(player);
@@ -251,7 +300,9 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
       <Animated.View style={[StyleSheet.absoluteFill, styles.face, frontStyle]} pointerEvents={showBack ? "none" : "auto"}>
         <LinearGradient colors={[color.from, color.to]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
         <LinearGradient colors={["rgba(255,255,255,0.22)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 0.2, y: 0.55 }} style={StyleSheet.absoluteFill} />
+        <Aurora width={width} height={height} color={color.glow} seed={seat} />
         <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.28)"]} start={{ x: 0.5, y: 0.5 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
+        {!out && <Sheen width={width} height={height} seed={seat} />}
         {danger && (
           <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, dangerStyle]}>
             <LinearGradient colors={["rgba(255,30,60,0)", "rgba(255,30,60,0.55)"]} start={{ x: 0.5, y: 0.2 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -268,7 +319,10 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
           <Text style={[styles.zoneGlyph, { right: compact ? 10 : 18 }]}>+</Text>
         </Pressable>
 
-        {/* Life total */}
+        {/* Life total, with its halo */}
+        <View pointerEvents="none" style={[styles.center, out && { opacity: 0 }]}>
+          <Halo size={lifeSize * 2.4} bloom={bloom} hurt={hurt} />
+        </View>
         <View pointerEvents="none" style={[styles.center, out && { opacity: 0 }]}>
           {winner && <Ionicons name="trophy" size={compact ? 20 : 26} color="#FFE7A3" style={{ marginBottom: -4 }} />}
           <Animated.Text
@@ -341,13 +395,22 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
             <Animated.View style={skullStyle}>
               <Ionicons name="skull" size={compact ? 34 : 48} color="#FFFFFF" />
             </Animated.View>
-            <Text style={[styles.outTitle, compact && { fontSize: 15 }]}>{reason ? OUT_LABEL[reason] : ""}</Text>
+            <Animated.View style={[styles.stamp, compact && { paddingHorizontal: 10, paddingVertical: 4 }, stampStyle]}>
+              <Text style={[styles.stampText, compact && { fontSize: 15 }]}>{reason ? OUT_LABEL[reason].toUpperCase() : ""}</Text>
+            </Animated.View>
             <Text style={styles.outQuip}>{compact ? `${player.life} life` : `${quipFor(`${game.id}${player.id}`)} · ${player.life} life`}</Text>
             <Text style={styles.outHint}>Tap + to bring them back</Text>
           </Animated.View>
         )}
 
         {effects}
+        <Animated.View pointerEvents="none" style={[styles.bannerWrap, bannerStyle]}>
+          <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.55)", "rgba(0,0,0,0)"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.bannerBand}>
+            <Text style={[styles.bannerText, { fontSize: Math.max(18, Math.min(34, short * 0.15)) }]} numberOfLines={1}>
+              {bannerText}
+            </Text>
+          </LinearGradient>
+        </Animated.View>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "#FFFFFF" }, highlightStyle]} />
       </Animated.View>
 
@@ -396,6 +459,11 @@ const styles = StyleSheet.create({
   more: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.25)" },
   dangerRing: { borderRadius: RADIUS, borderWidth: 3, borderColor: "rgba(255,70,95,0.9)" },
   out: { alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "rgba(9,9,13,0.84)" },
+  stamp: { marginTop: 10, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 3, borderColor: "#FF4D6A", borderRadius: 10, backgroundColor: "rgba(255,40,70,0.12)" },
+  stampText: { fontFamily: font.heavy, fontSize: 20, letterSpacing: 2, color: "#FF6B83" },
+  bannerWrap: { ...StyleSheet.absoluteFillObject, justifyContent: "center" },
+  bannerBand: { paddingVertical: 10, alignItems: "center" },
+  bannerText: { fontFamily: font.heavy, letterSpacing: 3, color: "#FFFFFF", textShadowColor: "rgba(0,0,0,0.4)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
   outTitle: { fontFamily: font.heavy, fontSize: 19, color: "#FFFFFF", marginTop: 6, letterSpacing: -0.3 },
   outQuip: { fontFamily: font.medium, fontSize: 13, color: "rgba(255,255,255,0.6)" },
   outHint: { position: "absolute", bottom: 14, fontFamily: font.semibold, fontSize: 11, color: "rgba(255,255,255,0.45)" },

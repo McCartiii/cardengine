@@ -15,6 +15,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withSequence,
+  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -22,6 +23,7 @@ import { font } from "@/design/fonts";
 import { PLAYER_COLORS } from "@/lib/lifeConstants";
 import type { LifePlayer } from "@/lib/lifeGame";
 import { Confetti } from "./effects";
+import { Glow, SunRays } from "./ambience";
 import { feel } from "./feel";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -213,6 +215,28 @@ export function FirstPrompt({ onRoll, onSkip }: { onRoll: () => void; onSkip: ()
   );
 }
 
+// ── Game on ───────────────────────────────────────────────────────────────────
+
+export function IntroSplash() {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withSequence(withSpring(1, { damping: 9, stiffness: 150 }), withDelay(650, withTiming(2, { duration: 300 })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(p.value, [0, 0.3, 1, 2], [0, 1, 1, 0]),
+    transform: [{ scale: interpolate(p.value, [0, 1, 2], [2.8, 1, 0.8]) }, { rotate: `${interpolate(p.value, [0, 1], [-12, -4])}deg` }],
+  }));
+  return (
+    <View pointerEvents="none" style={styles.introWrap}>
+      <Animated.View style={[styles.introBadge, style]}>
+        <LinearGradient colors={["#FFFFFF", "#E9E4FF"]} style={StyleSheet.absoluteFill} />
+        <Text style={styles.introText}>GAME ON</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
 // ── Winner ────────────────────────────────────────────────────────────────────
 
 export function WinnerOverlay({
@@ -246,7 +270,13 @@ export function WinnerOverlay({
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.winScrim}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
-      <Confetti colors={[color.from, color.glow, "#FFFFFF", "#FFE7A3", color.to]} />
+      <View pointerEvents="none" style={styles.raysWrap}>
+        <Glow size={520} color={color.glow} opacity={0.45} />
+      </View>
+      <View pointerEvents="none" style={styles.raysWrap}>
+        <SunRays size={620} color={color.glow} />
+      </View>
+      <Confetti colors={[color.from, color.glow, "#FFFFFF", "#FFE7A3", color.to]} count={120} />
       <Animated.View entering={ZoomIn.springify().damping(13).delay(150)} style={[styles.winCard, { transform: [{ rotate: `${rotation}deg` }] }]}>
         <LinearGradient colors={[color.from, color.to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <LinearGradient colors={["rgba(255,255,255,0.25)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 0.3, y: 0.6 }} style={StyleSheet.absoluteFill} />
@@ -323,6 +353,10 @@ const styles = StyleSheet.create({
   promptBtn: { flexDirection: "row", alignItems: "center", gap: 6, height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.1)" },
   promptPrimary: { backgroundColor: "#FFFFFF" },
   promptBtnText: { fontFamily: font.bold, fontSize: 14, color: "#FFFFFF" },
+  raysWrap: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  introWrap: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  introBadge: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 22, overflow: "hidden", shadowColor: "#B79BFF", shadowOpacity: 0.8, shadowRadius: 30, shadowOffset: { width: 0, height: 0 }, elevation: 14 },
+  introText: { fontFamily: font.heavy, fontSize: 46, letterSpacing: 2, color: "#14121F" },
   winScrim: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,8,0.55)" },
   winCard: { width: 300, alignItems: "center", gap: 10, padding: 22, borderRadius: 30, overflow: "hidden" },
   trophy: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF6DA", marginBottom: 4 },

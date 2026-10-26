@@ -2,7 +2,7 @@
 // menu button in the middle. Keeps the screen awake, runs the turn clock, and
 // pauses it when the app goes to the background.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import { AppState, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeepAwake } from "expo-keep-awake";
@@ -10,8 +10,11 @@ import { seatLayout, seatRotation, timeLeft, winnerOf, isOut, type LifeGame } fr
 import { LIFE_BG } from "@/lib/lifeConstants";
 import { useLifeStore } from "@/store/lifeStore";
 import { PlayerPanel, formatClock } from "@/components/life/PlayerPanel";
-import { FirstPrompt, GameMenu, HubButton, RollResult, WinnerOverlay, formatElapsed, type ToolRoll, type ToolRollInput } from "@/components/life/GameOverlays";
+import { FirstPrompt, GameMenu, HubButton, IntroSplash, RollResult, WinnerOverlay, formatElapsed, type ToolRoll, type ToolRollInput } from "@/components/life/GameOverlays";
 import { feel } from "@/components/life/feel";
+import { starBurst, useEffectsLayer } from "@/components/life/effects";
+import Animated, { ZoomIn } from "react-native-reanimated";
+import { PLAYER_COLORS } from "@/lib/lifeConstants";
 
 const GAP = 6;
 
@@ -33,6 +36,27 @@ export function GameScreen() {
   const [showWinner, setShowWinner] = useState(false);
 
   const running = game.runningSince != null;
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const { add: addScreenEffects, layer: screenEffects } = useEffectsLayer();
+
+  // ── "Game on!" when a fresh game starts (or a rematch) ──
+  const [intro, setIntro] = useState(false);
+  useEffect(() => {
+    const fresh = game.turn === 0 && useLifeStore.getState().history.length === 0;
+    if (!fresh) return;
+    setIntro(true);
+    const burst = setTimeout(() => {
+      addScreenEffects(starBurst(screenW / 2, screenH / 2, [...game.players.map((p) => PLAYER_COLORS[p.color].glow), "#FFFFFF"], 36, Math.min(screenW, screenH) * 0.55));
+      feel.heavy();
+    }, 450);
+    const t = setTimeout(() => setIntro(false), 1500);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(burst);
+    };
+    // Once per game.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.id]);
   const layout = useMemo(() => seatLayout(game.players.length), [game.players.length]);
 
   // ── Clock: re-render and check for time-outs while it runs ──
@@ -129,7 +153,7 @@ export function GameScreen() {
   const seat = (index: number, flex = 1) => {
     const p = game.players[index];
     return (
-      <Seat key={p.id} flex={flex} rotation={seatRotation(layout, index)}>
+      <Seat key={`${game.id}-${p.id}`} flex={flex} rotation={seatRotation(layout, index)} order={index}>
         {(w, h) => (
           <PlayerPanel
             player={p}
@@ -153,7 +177,7 @@ export function GameScreen() {
   // between top and bottom when two players face each other.
   const hub = (
     <View pointerEvents="box-none" style={styles.hubLayer}>
-      {!turnsOn && !skipFirst && !picking && !winner ? (
+      {intro ? null : !turnsOn && !skipFirst && !picking && !winner ? (
         <FirstPrompt onRoll={rollFirst} onSkip={() => setSkipFirst(true)} />
       ) : (
         <HubButton onPress={() => setMenuOpen(true)} label={hubLabel} attention={false} small={game.players.length >= 5} />
@@ -217,6 +241,8 @@ export function GameScreen() {
         ]}
       />
 
+      {screenEffects}
+      {intro && <IntroSplash />}
       {roll && <RollResult roll={roll} onDone={() => setRoll(null)} />}
 
       {showWinner && winner && (
@@ -239,7 +265,7 @@ export function GameScreen() {
 }
 
 /** A cell that measures itself and turns its panel to face the seat. */
-function Seat({ flex, rotation, children }: { flex: number; rotation: number; children: (w: number, h: number) => React.ReactNode }) {
+function Seat({ flex, rotation, order, children }: { flex: number; rotation: number; order: number; children: (w: number, h: number) => React.ReactNode }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -259,7 +285,10 @@ function Seat({ flex, rotation, children }: { flex: number; rotation: number; ch
             transform: [{ rotate: `${rotation}deg` }],
           }}
         >
-          {children(sideways ? size.h : size.w, sideways ? size.w : size.h)}
+          {/* Panels fly in one after another when the game opens. */}
+          <Animated.View entering={ZoomIn.delay(60 + order * 90).springify().damping(13).stiffness(140)} style={{ flex: 1 }}>
+            {children(sideways ? size.h : size.w, sideways ? size.w : size.h)}
+          </Animated.View>
         </View>
       )}
     </View>

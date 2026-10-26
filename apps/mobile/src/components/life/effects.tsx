@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { font } from "@/design/fonts";
 
 type Done = () => void;
 
@@ -94,7 +95,78 @@ function Particle({ x, y, dx, dy, gravity, color, size, delay, duration, shape, 
   );
 }
 
-export type EffectSpec = RippleSpec | ParticleSpec;
+export interface WaveSpec {
+  kind: "wave";
+  x: number;
+  y: number;
+  color: string;
+  size: number;
+  /** Ring thickness. */
+  width: number;
+  delay?: number;
+}
+
+/** A ring that expands from a point and fades, like a shockwave. */
+function Wave({ x, y, color, size, width, delay = 0, onDone }: WaveSpec & { onDone: Done }) {
+  const p = useProgress(650, delay, onDone, Easing.out(Easing.exp));
+  const style = useAnimatedStyle(() => ({
+    opacity: p.value < 0.1 ? p.value * 10 : 1 - p.value,
+    transform: [{ scale: 0.15 + p.value * 0.85 }],
+  }));
+  return (
+    <Animated.View
+      style={[
+        { position: "absolute", left: x - size / 2, top: y - size / 2, width: size, height: size, borderRadius: size / 2, borderWidth: width, borderColor: color },
+        style,
+      ]}
+    />
+  );
+}
+
+export interface FlyTextSpec {
+  kind: "text";
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  size: number;
+}
+
+/** A number that pops out of the total and flies up. */
+function FlyText({ x, y, text, color, size, onDone }: FlyTextSpec & { onDone: Done }) {
+  const p = useProgress(900, 0, onDone, Easing.out(Easing.cubic));
+  const style = useAnimatedStyle(() => ({
+    opacity: p.value < 0.6 ? 1 : 1 - (p.value - 0.6) / 0.4,
+    transform: [
+      { translateY: -size * 1.6 * p.value },
+      { scale: p.value < 0.18 ? 0.5 + (p.value / 0.18) * 0.75 : 1.25 - (p.value - 0.18) * 0.35 },
+    ],
+  }));
+  return (
+    <Animated.Text
+      style={[
+        {
+          position: "absolute",
+          left: x - size * 2,
+          width: size * 4,
+          top: y - size * 0.6,
+          textAlign: "center",
+          fontFamily: font.heavy,
+          fontSize: size,
+          color,
+          textShadowColor: "rgba(0,0,0,0.35)",
+          textShadowOffset: { width: 0, height: 3 },
+          textShadowRadius: 10,
+        },
+        style,
+      ]}
+    >
+      {text}
+    </Animated.Text>
+  );
+}
+
+export type EffectSpec = RippleSpec | ParticleSpec | WaveSpec | FlyTextSpec;
 
 let nextId = 1;
 
@@ -107,9 +179,19 @@ export function useEffectsLayer() {
   const remove = useCallback((id: number) => setItems((prev) => prev.filter((i) => i.id !== id)), []);
   const layer = (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {items.map((it) =>
-        it.kind === "ripple" ? <Ripple key={it.id} {...it} onDone={() => remove(it.id)} /> : <Particle key={it.id} {...it} onDone={() => remove(it.id)} />
-      )}
+      {items.map((it) => {
+        const done = () => remove(it.id);
+        switch (it.kind) {
+          case "ripple":
+            return <Ripple key={it.id} {...it} onDone={done} />;
+          case "wave":
+            return <Wave key={it.id} {...it} onDone={done} />;
+          case "text":
+            return <FlyText key={it.id} {...it} onDone={done} />;
+          default:
+            return <Particle key={it.id} {...it} onDone={done} />;
+        }
+      })}
     </View>
   );
   return { add, layer };
@@ -155,6 +237,28 @@ export function damageBurst(x: number, y: number, strength: number): ParticleSpe
       duration: rand(550, 800),
       shape: "shard" as const,
       spin: rand(-260, 260),
+    };
+  });
+}
+
+/** Sparks flying out in every direction from (x, y). */
+export function starBurst(x: number, y: number, colors: string[], count = 22, reach = 160): ParticleSpec[] {
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * Math.PI * 2 + rand(-0.15, 0.15);
+    const speed = rand(reach * 0.55, reach);
+    return {
+      kind: "particle" as const,
+      x,
+      y,
+      dx: Math.cos(angle) * speed,
+      dy: Math.sin(angle) * speed,
+      gravity: 30,
+      color: colors[i % colors.length],
+      size: i % 3 === 0 ? rand(14, 18) : rand(6, 10),
+      delay: rand(0, 60),
+      duration: rand(700, 1050),
+      shape: i % 3 === 0 ? ("plus" as const) : ("dot" as const),
+      spin: rand(-180, 180),
     };
   });
 }
