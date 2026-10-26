@@ -1,112 +1,73 @@
-// apps/mobile/src/lib/lifeConstants.ts
-
-// ── UI Colors (matching web design system) ──────────────────────────────────
-
-export const LC = {
-  bg:             "#0F1117",
-  surface:        "#161B27",
-  surfaceRaised:  "#1E2535",
-  surfaceSunken:  "#0A0D13",
-  surfaceOverlay: "rgba(22,27,39,0.92)",
-
-  border:       "#1E2D3D",
-  borderStrong: "#2D4059",
-
-  textPrimary:   "#E2E8F0",
-  textSecondary: "#94A3B8",
-  textMuted:     "#475569",
-
-  accent:      "#0D9488",
-  accentHover: "#14B8A6",
-  accentText:  "#2DD4BF",
-
-  danger:  "#F43F5E",
-  success: "#22C55E",
-  warning: "#FB923C",
-} as const;
-
-// ── Player Colors ───────────────────────────────────────────────────────────
+// Look and options for the life counter.
+import type { OutReason } from "./lifeGame";
 
 export interface PlayerColor {
-  base: string;
-  active: string;
+  name: string;
+  /** Gradient stops, light to deep. */
+  from: string;
+  to: string;
+  /** A bright tint for glows and accents on dark backgrounds. */
+  glow: string;
 }
 
 export const PLAYER_COLORS: PlayerColor[] = [
-  { base: "#0D9488", active: "#2DD4BF" },  // Teal
-  { base: "#0EA5E9", active: "#38BDF8" },  // Sky
-  { base: "#8B5CF6", active: "#A78BFA" },  // Purple
-  { base: "#F59E0B", active: "#FBBF24" },  // Amber
-  { base: "#F43F5E", active: "#FB7185" },  // Rose
-  { base: "#10B981", active: "#34D399" },  // Emerald
+  { name: "Violet", from: "#9B7BFF", to: "#5A2FD6", glow: "#C4B2FF" },
+  { name: "Coral", from: "#FF8A7A", to: "#D3304F", glow: "#FFB3A8" },
+  { name: "Ocean", from: "#4FC3FF", to: "#1F5FD8", glow: "#9EDCFF" },
+  { name: "Jade", from: "#4BE0A4", to: "#0E8A63", glow: "#9DF2CF" },
+  { name: "Gold", from: "#FFD25E", to: "#E0861B", glow: "#FFE7A3" },
+  { name: "Orchid", from: "#FF8FD2", to: "#B5257F", glow: "#FFC2E6" },
+  { name: "Teal", from: "#5EE6DE", to: "#12858F", glow: "#A6F3EE" },
+  { name: "Slate", from: "#A3AEC7", to: "#3C4660", glow: "#D3D9E8" },
 ];
-
-// ── Starting Life Options ───────────────────────────────────────────────────
 
 export const LIFE_OPTIONS = [20, 30, 40, 60] as const;
-export type StartingLife = (typeof LIFE_OPTIONS)[number];
+export const CLOCK_OPTIONS: ReadonlyArray<number | null> = [null, 10, 15, 20, 30];
 
-// ── Timer Options (minutes) ─────────────────────────────────────────────────
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 6;
 
-export const TIMER_OPTIONS = [15, 30, 60, 90] as const;
-export type TimerMinutes = (typeof TIMER_OPTIONS)[number];
+/** Life at or under this shows the low-life heartbeat. */
+export const DANGER_LIFE = 5;
 
-// ── Counter Definitions ─────────────────────────────────────────────────────
+export const LIFE_BG = "#0B0C10";
 
-export interface CounterDef {
-  key: string;
-  label: string;
-  color: string;
-  max: number | null;
-  eliminationAt: number | null;
-}
-
-export const COUNTERS: CounterDef[] = [
-  { key: "poison",     label: "PSN", color: "#A78BFA", max: null, eliminationAt: 10 },
-  { key: "energy",     label: "NRG", color: "#FB923C", max: null, eliminationAt: null },
-  { key: "commander",  label: "CMD", color: "#F43F5E", max: null, eliminationAt: 21 },
-  { key: "experience", label: "EXP", color: "#22C55E", max: null, eliminationAt: null },
-];
-
-// ── Elimination Quips ───────────────────────────────────────────────────────
+export const OUT_LABEL: Record<OutReason, string> = {
+  life: "Out of life",
+  poison: "Poisoned",
+  commander: "Commander damage",
+  time: "Out of time",
+  conceded: "Conceded",
+};
 
 export const ELIMINATION_QUIPS = [
   "Skill issue",
   "Should've played blue",
   "That's rough, buddy",
   "Lands in front, please",
-  "They had the nuts",
-  "At least you have your health... oh wait",
-  "First blood",
+  "They had it",
   "Back to the command zone",
   "Maybe next pod",
   "You were the threat all along",
   "Mana screwed, probably",
-  "The stack resolves... you don't",
-  "Press F",
-  "You died as you lived -- tapped out",
+  "The stack resolves. You don't.",
   "Should've mulliganed",
+  "GG, go next",
 ] as const;
 
-export function randomQuip(): string {
-  return ELIMINATION_QUIPS[Math.floor(Math.random() * ELIMINATION_QUIPS.length)];
+export function quipFor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return ELIMINATION_QUIPS[Math.abs(h) % ELIMINATION_QUIPS.length];
 }
 
-// ── Shadows (matching web) ──────────────────────────────────────────────────
-
-export const SHADOWS = {
-  card: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  elevated: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    elevation: 8,
-  },
+export const COUNTER_INFO = {
+  poison: { label: "Poison", icon: "skull", tint: "#B79BFF" },
+  energy: { label: "Energy", icon: "flash", tint: "#FFC34D" },
+  experience: { label: "Experience", icon: "star", tint: "#5CE0A0" },
+  tax: { label: "Commander tax", icon: "repeat", tint: "#7CC8FF" },
 } as const;
+
+export function defaultName(i: number) {
+  return `Player ${i + 1}`;
+}

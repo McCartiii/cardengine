@@ -1,521 +1,210 @@
-// apps/mobile/src/screens/life/SetupScreen.tsx
-
-import React, { useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Pressable,
-  Dimensions,
-  Platform,
-} from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  interpolate,
-  Easing,
-} from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-import { useLifeStore } from "../../store/lifeStore";
-import {
-  LC,
-  LIFE_OPTIONS,
-  TIMER_OPTIONS,
-  type StartingLife,
-  type TimerMinutes,
-} from "../../lib/lifeConstants";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-// ── Shimmer animation on the start button ───────────────────────────────────
-
-function ShimmerButton({ onPress }: { onPress: () => void }) {
-  const shimmer = useSharedValue(0);
-
-  useEffect(() => {
-    shimmer.value = withRepeat(
-      withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-  }, [shimmer]);
-
-  const shimmerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(shimmer.value, [0, 1], [0.7, 1]);
-    return { opacity };
-  });
-
-  const scale = useSharedValue(1);
-  const pressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.98, { duration: 80 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 120 });
-  };
-
-  return (
-    <Animated.View style={[styles.startButtonWrap, pressStyle]}>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.startButtonShimmer, shimmerStyle]} />
-      <Pressable
-        style={styles.startButton}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-      >
-        <Text style={styles.startButtonText}>Start Game</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-// ── Main component ───────────────────────────────────────────────────────────
+// Setting up a game: how many players and where they sit, names and colors,
+// starting life and an optional turn clock.
+import React from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import { font } from "@/design/fonts";
+import { CLOCK_OPTIONS, LIFE_BG, LIFE_OPTIONS, MAX_PLAYERS, MIN_PLAYERS, PLAYER_COLORS } from "@/lib/lifeConstants";
+import { seatLayout, seatRotation } from "@/lib/lifeGame";
+import { useLifeStore } from "@/store/lifeStore";
+import { feel } from "@/components/life/feel";
 
 export function SetupScreen() {
-  const startingLife = useLifeStore((s) => s.startingLife);
-  const playerCount = useLifeStore((s) => s.playerCount);
-  const timerMinutes = useLifeStore((s) => s.timerMinutes);
-  const setStartingLife = useLifeStore((s) => s.setStartingLife);
-  const setPlayerCount = useLifeStore((s) => s.setPlayerCount);
-  const setTimerMinutes = useLifeStore((s) => s.setTimerMinutes);
-  const startGame = useLifeStore((s) => s.startGame);
-
-  const handleSelectLife = (life: StartingLife) => {
-    Haptics.selectionAsync();
-    setStartingLife(life);
-  };
-
-  const handleSelectPlayers = (count: number) => {
-    Haptics.selectionAsync();
-    setPlayerCount(count);
-  };
-
-  const handleSelectTimer = (minutes: TimerMinutes | null) => {
-    Haptics.selectionAsync();
-    setTimerMinutes(minutes);
-  };
-
-  const handleStartGame = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    startGame();
-  };
-
-  const totalMinutes = timerMinutes ?? null;
-  const perPlayerMinutes = totalMinutes !== null ? Math.round(totalMinutes / playerCount) : null;
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const setup = useLifeStore((s) => s.setup);
+  const { setStartingLife, setClock, setPlayerCount, renamePlayer, cycleColor, start } = useLifeStore.getState();
+  const count = setup.players.length;
 
   return (
-    <View style={styles.root}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* ── Header ── */}
-        <View style={styles.headerWrap}>
-          <View style={styles.ambientGlow} />
-          <Text style={styles.title}>New Game</Text>
-          <Text style={styles.subtitle}>Configure your battle</Text>
-        </View>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={styles.topBar}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.close} accessibilityRole="button" accessibilityLabel="Close life counter">
+          <Ionicons name="close" size={20} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
-        {/* ── Starting Life ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Starting Life</Text>
-          <View style={styles.optionRow}>
-            {LIFE_OPTIONS.map((life) => {
-              const active = startingLife === life;
-              return (
-                <TouchableOpacity
-                  key={life}
-                  style={[
-                    styles.optionCard,
-                    active && styles.optionCardActiveLife,
-                  ]}
-                  onPress={() => handleSelectLife(life)}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[
-                      styles.optionNumber,
-                      active ? styles.optionNumberActiveLife : styles.optionNumberInactive,
-                    ]}
-                  >
-                    {life}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* ── Player Count ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Players</Text>
-          <View style={styles.optionRow}>
-            {[2, 3, 4, 5, 6].map((count) => {
-              const active = playerCount === count;
-              return (
-                <TouchableOpacity
-                  key={count}
-                  style={[
-                    styles.optionCard,
-                    active && styles.optionCardActivePlayers,
-                  ]}
-                  onPress={() => handleSelectPlayers(count)}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[
-                      styles.optionNumber,
-                      active ? styles.optionNumberActivePlayers : styles.optionNumberInactive,
-                    ]}
-                  >
-                    {count}
-                  </Text>
-                  {/* Dots */}
-                  <View style={styles.dotsRow}>
-                    {Array.from({ length: count }).map((_, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.dot,
-                          active ? styles.dotActive : styles.dotInactive,
-                        ]}
-                      />
-                    ))}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* ── Timer ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Game Timer</Text>
-          <View style={styles.optionRow}>
-            {TIMER_OPTIONS.map((mins) => {
-              const active = timerMinutes === mins;
-              return (
-                <TouchableOpacity
-                  key={mins}
-                  style={[
-                    styles.optionCard,
-                    active && styles.optionCardActiveTimer,
-                  ]}
-                  onPress={() => handleSelectTimer(mins)}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[
-                      styles.optionNumber,
-                      active ? styles.optionNumberActiveTimer : styles.optionNumberInactive,
-                    ]}
-                  >
-                    {mins}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.optionUnit,
-                      active ? styles.optionUnitActiveTimer : styles.optionUnitInactive,
-                    ]}
-                  >
-                    min
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* No Timer chip */}
-          <TouchableOpacity
-            style={[
-              styles.noTimerChip,
-              timerMinutes === null && styles.noTimerChipActive,
-            ]}
-            onPress={() => handleSelectTimer(null)}
-            activeOpacity={0.75}
-          >
-            <Text
-              style={[
-                styles.noTimerText,
-                timerMinutes === null ? styles.noTimerTextActive : styles.noTimerTextInactive,
-              ]}
-            >
-              No Timer
-            </Text>
-          </TouchableOpacity>
-
-          {/* Timer summary bar */}
-          {totalMinutes !== null && perPlayerMinutes !== null && (
-            <View style={styles.timerSummaryBar}>
-              <Text style={styles.timerSummaryText}>
-                <Text style={styles.timerSummaryHighlight}>{perPlayerMinutes}</Text>
-                <Text style={styles.timerSummaryMuted}> min per player  ·  </Text>
-                <Text style={styles.timerSummaryHighlight}>{totalMinutes}</Text>
-                <Text style={styles.timerSummaryMuted}> min total</Text>
-              </Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeInDown.duration(350)} style={styles.hero}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={styles.kicker}>LIFE COUNTER</Text>
+              <Text style={styles.title}>New game</Text>
+              <Text style={styles.subtitle}>Lay the phone in the middle of the table. Each panel turns to face its player.</Text>
             </View>
-          )}
-        </View>
+            <TablePreview players={setup.players} onTapSeat={(i) => { feel.tick(); cycleColor(i); }} />
+          </Animated.View>
 
-        {/* Spacer so content isn't hidden behind pinned button */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+          <Section title="PLAYERS" delay={60}>
+            <View style={styles.chips}>
+              {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, k) => k + MIN_PLAYERS).map((n) => (
+                <Choice key={n} label={`${n}`} on={count === n} round onPress={() => setPlayerCount(n)} />
+              ))}
+            </View>
+            <Animated.View layout={LinearTransition} style={styles.names}>
+              {setup.players.map((p, i) => {
+                const c = PLAYER_COLORS[p.color];
+                return (
+                  <Animated.View key={i} entering={FadeInDown.duration(220)} layout={LinearTransition} style={styles.nameRow}>
+                    <Pressable
+                      onPress={() => {
+                        feel.tick();
+                        cycleColor(i);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Change ${p.name}'s color, now ${c.name}`}
+                    >
+                      <LinearGradient colors={[c.from, c.to]} style={styles.swatch}>
+                        <Text style={styles.swatchText}>{i + 1}</Text>
+                      </LinearGradient>
+                    </Pressable>
+                    <TextInput
+                      value={p.name}
+                      onChangeText={(t) => renamePlayer(i, t)}
+                      style={styles.nameInput}
+                      placeholder={`Player ${i + 1}`}
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      selectionColor={c.from}
+                      maxLength={16}
+                      returnKeyType="done"
+                    />
+                    <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.25)" />
+                  </Animated.View>
+                );
+              })}
+            </Animated.View>
+            <Text style={styles.hint}>Tap a color to change it. Turn order goes clockwise from player 1.</Text>
+          </Section>
 
-      {/* ── Pinned start button ── */}
-      <View style={styles.startContainer}>
-        <View style={styles.bottomGlow} />
-        <ShimmerButton onPress={handleStartGame} />
+          <Section title="STARTING LIFE" delay={120}>
+            <View style={styles.chips}>
+              {LIFE_OPTIONS.map((n) => (
+                <Choice key={n} label={`${n}`} sub={n === 40 ? "Commander" : n === 20 ? "Standard" : undefined} on={setup.startingLife === n} big onPress={() => setStartingLife(n)} />
+              ))}
+            </View>
+          </Section>
+
+          <Section title="TURN CLOCK" delay={180}>
+            <View style={styles.chips}>
+              {CLOCK_OPTIONS.map((m) => (
+                <Choice key={String(m)} label={m == null ? "Off" : `${m}`} sub={m == null ? undefined : "min each"} on={setup.clockMinutes === m} big onPress={() => setClock(m)} />
+              ))}
+            </View>
+            <Text style={styles.hint}>
+              {setup.clockMinutes == null
+                ? "No clock. You can still pass turns to track who's up."
+                : `Each player gets ${setup.clockMinutes} minutes. It only runs on your turn, and you're out if it hits zero.`}
+            </Text>
+          </Section>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <Pressable
+          onPress={() => {
+            feel.success();
+            start();
+          }}
+          style={({ pressed }) => [styles.start, pressed && { transform: [{ scale: 0.98 }] }]}
+          accessibilityRole="button"
+        >
+          <Ionicons name="play" size={18} color="#111" />
+          <Text style={styles.startText}>Start game</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+function Section({ title, delay, children }: { title: string; delay: number; children: React.ReactNode }) {
+  return (
+    <Animated.View entering={FadeInDown.delay(delay).duration(350)} style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </Animated.View>
+  );
+}
+
+function Choice({ label, sub, on, round, big, onPress }: { label: string; sub?: string; on: boolean; round?: boolean; big?: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        feel.tick();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      style={({ pressed }) => [styles.choice, round && styles.choiceRound, big && styles.choiceBig, on && styles.choiceOn, pressed && { transform: [{ scale: 0.95 }] }]}
+    >
+      <Text style={[styles.choiceText, big && { fontSize: 22 }, on && { color: "#111" }]}>{label}</Text>
+      {sub && <Text style={[styles.choiceSub, on && { color: "rgba(0,0,0,0.55)" }]}>{sub}</Text>}
+    </Pressable>
+  );
+}
+
+/** A small phone showing where each player sits. */
+function TablePreview({ players, onTapSeat }: { players: Array<{ name: string; color: number }>; onTapSeat: (i: number) => void }) {
+  const layout = seatLayout(players.length);
+  const block = (i: number) => {
+    const c = PLAYER_COLORS[players[i].color];
+    const r = seatRotation(layout, i);
+    return (
+      <Pressable key={i} onPress={() => onTapSeat(i)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Seat ${i + 1}`}>
+        <LinearGradient colors={[c.from, c.to]} style={styles.previewSeat}>
+          <Text style={[styles.previewNum, { transform: [{ rotate: `${r}deg` }] }]}>{i + 1}</Text>
+        </LinearGradient>
+      </Pressable>
+    );
+  };
+  const sides = layout.left.length > 0;
+  return (
+    <View style={styles.preview}>
+      {layout.top != null && <View style={styles.previewRow}>{block(layout.top)}</View>}
+      {sides && (
+        <View style={[styles.previewRow, { flex: layout.bottom != null ? (layout.left.length > 1 ? 2.6 : 1.7) : 1 }]}>
+          <View style={styles.previewCol}>{layout.left.map(block)}</View>
+          <View style={styles.previewCol}>{layout.right.map(block)}</View>
+        </View>
+      )}
+      {layout.bottom != null && <View style={styles.previewRow}>{block(layout.bottom)}</View>}
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: LC.bg,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-    paddingBottom: 20,
-  },
-
-  // Header
-  headerWrap: {
-    alignItems: "center",
-    marginBottom: 36,
-    position: "relative",
-  },
-  ambientGlow: {
-    position: "absolute",
-    top: -40,
-    left: "10%",
-    right: "10%",
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "rgba(13,148,136,0.06)",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: LC.textPrimary,
-    letterSpacing: 0.2,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 11,
-    color: LC.textMuted,
-    letterSpacing: 0.5,
-  },
-
-  // Sections
-  section: {
-    marginBottom: 28,
-  },
-  sectionLabel: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: LC.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    marginBottom: 10,
-  },
-
-  // Option row
-  optionRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-
-  // Option cards
-  optionCard: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(30,45,61,0.4)",
-    backgroundColor: "rgba(255,255,255,0.015)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 4,
-  },
-  optionCardActiveLife: {
-    borderColor: LC.accentText,
-    backgroundColor: "rgba(45,212,191,0.07)",
-  },
-  optionCardActivePlayers: {
-    borderColor: "#38BDF8",
-    backgroundColor: "rgba(56,189,248,0.07)",
-  },
-  optionCardActiveTimer: {
-    borderColor: LC.warning,
-    backgroundColor: "rgba(251,146,60,0.07)",
-  },
-
-  // Numbers
-  optionNumber: {
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  optionNumberInactive: {
-    color: LC.textSecondary,
-  },
-  optionNumberActiveLife: {
-    color: LC.accentText,
-  },
-  optionNumberActivePlayers: {
-    color: "#38BDF8",
-  },
-  optionNumberActiveTimer: {
-    color: LC.warning,
-  },
-
-  // Units ("min" text)
-  optionUnit: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  optionUnitInactive: {
-    color: LC.textMuted,
-  },
-  optionUnitActiveTimer: {
-    color: LC.warning,
-  },
-
-  // Player dots
-  dotsRow: {
-    flexDirection: "row",
-    marginTop: 6,
-    gap: 2,
-    flexWrap: "wrap",
-    justifyContent: "center",
-    maxWidth: 40,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  dotInactive: {
-    backgroundColor: LC.textMuted,
-    opacity: 0.4,
-  },
-  dotActive: {
-    backgroundColor: "#38BDF8",
-  },
-
-  // No Timer chip
-  noTimerChip: {
-    marginTop: 8,
-    borderRadius: 40,
-    borderWidth: 1,
-    borderColor: "rgba(30,45,61,0.4)",
-    backgroundColor: "rgba(255,255,255,0.015)",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  noTimerChipActive: {
-    borderColor: LC.textMuted,
-    backgroundColor: "rgba(71,85,105,0.15)",
-  },
-  noTimerText: {
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-  },
-  noTimerTextInactive: {
-    color: LC.textMuted,
-  },
-  noTimerTextActive: {
-    color: LC.textSecondary,
-  },
-
-  // Timer summary bar
-  timerSummaryBar: {
-    marginTop: 10,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: "rgba(251,146,60,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(251,146,60,0.15)",
-    alignItems: "center",
-  },
-  timerSummaryText: {
-    fontSize: 12,
-  },
-  timerSummaryHighlight: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: LC.warning,
-  },
-  timerSummaryMuted: {
-    fontSize: 12,
-    color: LC.textMuted,
-  },
-
-  // Bottom spacer
-  bottomSpacer: {
-    height: 100,
-  },
-
-  // Start button container (pinned)
-  startContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
-    paddingTop: 12,
-  },
-  bottomGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(13,148,136,0.1)",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-
-  // Shimmer button
-  startButtonWrap: {
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  startButtonShimmer: {
-    backgroundColor: LC.accent,
-    borderRadius: 18,
-  },
-  startButton: {
-    backgroundColor: "transparent",
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-  },
-  startButtonText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
-  },
+  root: { flex: 1, backgroundColor: LIFE_BG },
+  topBar: { flexDirection: "row", paddingHorizontal: 16, paddingTop: 8 },
+  close: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
+  body: { paddingHorizontal: 20, paddingBottom: 40, gap: 26 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 6 },
+  kicker: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, color: "#B79BFF" },
+  title: { fontFamily: font.heavy, fontSize: 34, letterSpacing: -1, color: "#FFFFFF" },
+  subtitle: { fontFamily: font.medium, fontSize: 14, lineHeight: 20, color: "rgba(255,255,255,0.55)" },
+  preview: { width: 92, height: 160, padding: 5, gap: 4, borderRadius: 20, backgroundColor: "#1A1B22", borderWidth: 2, borderColor: "#2A2C36" },
+  previewRow: { flex: 1, flexDirection: "row", gap: 4 },
+  previewCol: { flex: 1, gap: 4 },
+  previewSeat: { flex: 1, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  previewNum: { fontFamily: font.heavy, fontSize: 13, color: "#FFFFFF" },
+  section: { gap: 12 },
+  sectionTitle: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1, color: "rgba(255,255,255,0.45)" },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  choice: { minWidth: 56, height: 46, paddingHorizontal: 14, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.08)" },
+  choiceRound: { width: 52, height: 52, minWidth: 0, borderRadius: 26, paddingHorizontal: 0 },
+  choiceBig: { flexGrow: 1, flexBasis: 60, height: 64, borderRadius: 18 },
+  choiceOn: { backgroundColor: "#FFFFFF" },
+  choiceText: { fontFamily: font.heavy, fontSize: 18, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
+  choiceSub: { fontFamily: font.semibold, fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 1 },
+  names: { gap: 8 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 12, height: 56, paddingLeft: 8, paddingRight: 16, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.06)" },
+  swatch: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  swatchText: { fontFamily: font.heavy, fontSize: 15, color: "#FFFFFF" },
+  nameInput: { flex: 1, height: 44, fontFamily: font.bold, fontSize: 16, color: "#FFFFFF" },
+  hint: { fontFamily: font.medium, fontSize: 12, lineHeight: 17, color: "rgba(255,255,255,0.4)" },
+  footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: LIFE_BG },
+  start: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 58, borderRadius: 29, backgroundColor: "#FFFFFF" },
+  startText: { fontFamily: font.heavy, fontSize: 18, color: "#111" },
 });

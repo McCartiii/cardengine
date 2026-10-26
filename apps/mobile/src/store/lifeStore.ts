@@ -1,262 +1,176 @@
+// The life counter's state: the setup screen's choices and the game in
+// progress, saved on the device so a game survives the app closing. Every
+// change to the game can be undone.
 import { create } from "zustand";
-import {
-  PLAYER_COLORS,
-  type StartingLife,
-  type TimerMinutes,
-  type PlayerColor,
-} from "../lib/lifeConstants";
+import { createJSONStorage, persist } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as L from "../lib/lifeGame";
+import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_COLORS, defaultName } from "../lib/lifeConstants";
 
-export type GamePhase = "setup" | "playing" | "finished";
+const HISTORY_LIMIT = 60;
+/** Taps on the same thing this close together undo as one step. */
+const COALESCE_MS = 1500;
 
-export interface Player {
-  id: string;
-  name: string;
-  color: PlayerColor;
-  life: number;
-  poison: number;
-  energy: number;
-  experience: number;
-  commanderDamage: Record<string, number>;
-  timeRemainingMs: number;
-  isEliminated: boolean;
+export interface LifeSetup {
+  startingLife: number;
+  clockMinutes: number | null;
+  players: L.NewPlayer[];
 }
 
-export interface LifeState {
-  startingLife: StartingLife;
-  playerCount: number;
-  timerMinutes: TimerMinutes | null;
+interface LifeState {
+  setup: LifeSetup;
+  game: L.LifeGame | null;
+  history: L.LifeGame[];
+  /** Bumps on undo, so panels can skip their hit and heal effects. */
+  undoNonce: number;
+  /** The winner overlay was closed for this game. */
+  winnerDismissed: string | null;
 
-  phase: GamePhase;
-  players: Player[];
-  activePlayerIndex: number;
-  isClockRunning: boolean;
-  globalElapsedMs: number;
-
-  setStartingLife: (life: StartingLife) => void;
+  setStartingLife: (life: number) => void;
+  setClock: (minutes: number | null) => void;
   setPlayerCount: (count: number) => void;
-  setTimerMinutes: (minutes: TimerMinutes | null) => void;
+  renamePlayer: (index: number, name: string) => void;
+  cycleColor: (index: number) => void;
 
-  startGame: () => void;
-  adjustLife: (playerId: string, delta: number) => void;
-  adjustPoison: (playerId: string, delta: number) => void;
-  adjustEnergy: (playerId: string, delta: number) => void;
-  adjustExperience: (playerId: string, delta: number) => void;
-  adjustCommanderDamage: (targetId: string, sourceId: string, delta: number) => void;
-  startClock: () => void;
-  stopClock: () => void;
+  start: () => void;
+  rematch: () => void;
+  endGame: () => void;
+
+  life: (id: string, delta: number) => void;
+  counter: (id: string, key: L.CounterKey, delta: number) => void;
+  commanderDamage: (targetId: string, source: string, delta: number) => void;
+  setPartner: (id: string, partner: boolean) => void;
+  concede: (id: string, conceded: boolean) => void;
+
+  startTurns: (first: number) => void;
   passTurn: () => void;
-  tick: (deltaMs: number) => void;
-  resetGame: () => void;
-  backToSetup: () => void;
+  pause: () => void;
+  resume: () => void;
+  tickClock: () => void;
+
+  undo: () => void;
+  dismissWinner: () => void;
 }
 
-function makePlayers(count: number, life: number, timerMs: number): Player[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `p${i}`,
-    name: `Player ${i + 1}`,
-    color: PLAYER_COLORS[i % PLAYER_COLORS.length],
-    life,
-    poison: 0,
-    energy: 0,
-    experience: 0,
-    commanderDamage: {},
-    timeRemainingMs: timerMs,
-    isEliminated: false,
-  }));
+let lastEdit: { key: string; at: number } | null = null;
+
+function defaultPlayers(count: number): L.NewPlayer[] {
+  return Array.from({ length: count }, (_, i) => ({ name: defaultName(i), color: i % PLAYER_COLORS.length }));
 }
 
-function checkEliminated(p: Player): boolean {
-  if (p.life <= 0) return true;
-  if (p.poison >= 10) return true;
-  const maxCmd = Math.max(0, ...Object.values(p.commanderDamage));
-  if (maxCmd >= 21) return true;
-  return false;
-}
-
-function nextAliveIndex(players: Player[], currentIndex: number): number {
-  const len = players.length;
-  for (let i = 1; i <= len; i++) {
-    const idx = (currentIndex + i) % len;
-    if (!players[idx].isEliminated) return idx;
-  }
-  return -1;
-}
-
-function countAlive(players: Player[]): number {
-  return players.filter((p) => !p.isEliminated).length;
-}
-
-export const useLifeStore = create<LifeState>((set, get) => ({
-  startingLife: 40,
-  playerCount: 4,
-  timerMinutes: 60,
-
-  phase: "setup",
-  players: [],
-  activePlayerIndex: 0,
-  isClockRunning: false,
-  globalElapsedMs: 0,
-
-  setStartingLife: (life) => set({ startingLife: life }),
-  setPlayerCount: (count) => set({ playerCount: Math.min(6, Math.max(2, count)) }),
-  setTimerMinutes: (minutes) => set({ timerMinutes: minutes }),
-
-  startGame: () => {
-    const { startingLife, playerCount, timerMinutes } = get();
-    const perPlayerMs = timerMinutes ? (timerMinutes * 60 * 1000) / playerCount : 0;
-    set({
-      phase: "playing",
-      players: makePlayers(playerCount, startingLife, perPlayerMs),
-      activePlayerIndex: 0,
-      isClockRunning: false,
-      globalElapsedMs: 0,
-    });
-  },
-
-  adjustLife: (playerId, delta) =>
-    set((s) => {
-      const players = s.players.map((p) => {
-        if (p.id !== playerId || p.isEliminated) return p;
-        const updated = { ...p, life: p.life + delta };
-        if (checkEliminated(updated)) updated.isEliminated = true;
-        return updated;
-      });
-      const alive = countAlive(players);
-      return {
-        players,
-        phase: alive <= 1 ? "finished" : s.phase,
-        isClockRunning: alive <= 1 ? false : s.isClockRunning,
+export const useLifeStore = create<LifeState>()(
+  persist(
+    (set, get) => {
+      /** Applies a change to the game, recording an undo step. */
+      const change = (fn: (g: L.LifeGame, now: number) => L.LifeGame, coalesceKey?: string) => {
+        const { game, history } = get();
+        if (!game) return;
+        const now = Date.now();
+        let next = L.fixActive(fn(game, now), now);
+        // Nobody's clock runs once the game is won.
+        if (L.winnerOf(next)) next = L.pauseClock(next, now);
+        if (next === game) return;
+        const merge = coalesceKey && lastEdit?.key === coalesceKey && now - lastEdit.at < COALESCE_MS;
+        lastEdit = coalesceKey ? { key: coalesceKey, at: now } : null;
+        set({ game: next, history: merge ? history : [...history, game].slice(-HISTORY_LIMIT) });
       };
-    }),
-
-  adjustPoison: (playerId, delta) =>
-    set((s) => {
-      const players = s.players.map((p) => {
-        if (p.id !== playerId || p.isEliminated) return p;
-        const updated = { ...p, poison: Math.max(0, p.poison + delta) };
-        if (checkEliminated(updated)) updated.isEliminated = true;
-        return updated;
-      });
-      const alive = countAlive(players);
-      return {
-        players,
-        phase: alive <= 1 ? "finished" : s.phase,
-        isClockRunning: alive <= 1 ? false : s.isClockRunning,
-      };
-    }),
-
-  adjustEnergy: (playerId, delta) =>
-    set((s) => ({
-      players: s.players.map((p) =>
-        p.id === playerId && !p.isEliminated
-          ? { ...p, energy: Math.max(0, p.energy + delta) }
-          : p
-      ),
-    })),
-
-  adjustExperience: (playerId, delta) =>
-    set((s) => ({
-      players: s.players.map((p) =>
-        p.id === playerId && !p.isEliminated
-          ? { ...p, experience: Math.max(0, p.experience + delta) }
-          : p
-      ),
-    })),
-
-  adjustCommanderDamage: (targetId, sourceId, delta) =>
-    set((s) => {
-      const players = s.players.map((p) => {
-        if (p.id !== targetId || p.isEliminated) return p;
-        const prev = p.commanderDamage[sourceId] ?? 0;
-        const next = Math.max(0, prev + delta);
-        const actualDelta = next - prev;
-        const updated = {
-          ...p,
-          life: p.life - actualDelta,
-          commanderDamage: { ...p.commanderDamage, [sourceId]: next },
-        };
-        if (checkEliminated(updated)) updated.isEliminated = true;
-        return updated;
-      });
-      const alive = countAlive(players);
-      return {
-        players,
-        phase: alive <= 1 ? "finished" : s.phase,
-        isClockRunning: alive <= 1 ? false : s.isClockRunning,
-      };
-    }),
-
-  startClock: () => set({ isClockRunning: true }),
-  stopClock: () => set({ isClockRunning: false }),
-
-  passTurn: () =>
-    set((s) => {
-      const next = nextAliveIndex(s.players, s.activePlayerIndex);
-      if (next === -1) return { phase: "finished", isClockRunning: false };
-      return { activePlayerIndex: next, isClockRunning: false };
-    }),
-
-  tick: (deltaMs) =>
-    set((s) => {
-      if (s.phase !== "playing" || !s.isClockRunning || !s.timerMinutes) return {};
-      const active = s.players[s.activePlayerIndex];
-      if (!active || active.isEliminated) return {};
-
-      const newTime = active.timeRemainingMs - deltaMs;
-      let players = s.players.map((p, i) =>
-        i === s.activePlayerIndex ? { ...p, timeRemainingMs: Math.max(0, newTime) } : p
-      );
-
-      let activeIndex = s.activePlayerIndex;
-      let phase: GamePhase = s.phase;
-      let clockRunning: boolean = s.isClockRunning;
-
-      if (newTime <= 0) {
-        players = players.map((p, i) =>
-          i === s.activePlayerIndex ? { ...p, isEliminated: true, timeRemainingMs: 0 } : p
-        );
-        if (countAlive(players) <= 1) {
-          phase = "finished";
-          clockRunning = false;
-        } else {
-          const next = nextAliveIndex(players, s.activePlayerIndex);
-          if (next === -1) {
-            phase = "finished";
-            clockRunning = false;
-          } else {
-            activeIndex = next;
-            clockRunning = false;
-          }
-        }
-      }
 
       return {
-        players,
-        activePlayerIndex: activeIndex,
-        phase,
-        isClockRunning: clockRunning,
-        globalElapsedMs: s.globalElapsedMs + deltaMs,
+        setup: { startingLife: 40, clockMinutes: null, players: defaultPlayers(4) },
+        game: null,
+        history: [],
+        undoNonce: 0,
+        winnerDismissed: null,
+
+        setStartingLife: (startingLife) => set((s) => ({ setup: { ...s.setup, startingLife } })),
+        setClock: (clockMinutes) => set((s) => ({ setup: { ...s.setup, clockMinutes } })),
+        setPlayerCount: (count) =>
+          set((s) => {
+            const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, count));
+            const players = s.setup.players.slice(0, n);
+            for (let i = players.length; i < n; i++) {
+              const used = new Set(players.map((p) => p.color));
+              const color = PLAYER_COLORS.findIndex((_, c) => !used.has(c));
+              players.push({ name: defaultName(i), color: color < 0 ? i % PLAYER_COLORS.length : color });
+            }
+            return { setup: { ...s.setup, players } };
+          }),
+        renamePlayer: (index, name) =>
+          set((s) => ({ setup: { ...s.setup, players: s.setup.players.map((p, i) => (i === index ? { ...p, name: name.slice(0, 16) } : p)) } })),
+        cycleColor: (index) =>
+          set((s) => {
+            const used = new Set(s.setup.players.filter((_, i) => i !== index).map((p) => p.color));
+            let c = s.setup.players[index].color;
+            do c = (c + 1) % PLAYER_COLORS.length;
+            while (used.has(c) && used.size < PLAYER_COLORS.length);
+            return { setup: { ...s.setup, players: s.setup.players.map((p, i) => (i === index ? { ...p, color: c } : p)) } };
+          }),
+
+        start: () => {
+          const { setup } = get();
+          lastEdit = null;
+          set({
+            game: L.newGame({
+              players: setup.players.map((p, i) => ({ name: p.name.trim() || defaultName(i), color: p.color })),
+              startingLife: setup.startingLife,
+              clockMinutes: setup.clockMinutes,
+              now: Date.now(),
+            }),
+            history: [],
+            winnerDismissed: null,
+          });
+        },
+        rematch: () => {
+          const { game } = get();
+          if (!game) return;
+          lastEdit = null;
+          set({ game: L.rematch(game, Date.now()), history: [], winnerDismissed: null });
+        },
+        endGame: () => set({ game: null, history: [], winnerDismissed: null }),
+
+        life: (id, delta) => change((g) => L.adjustLife(g, id, delta), `life:${id}`),
+        counter: (id, key, delta) => change((g) => L.adjustCounter(g, id, key, delta), `${key}:${id}`),
+        commanderDamage: (targetId, source, delta) => change((g) => L.adjustCommanderDamage(g, targetId, source, delta), `cmd:${targetId}:${source}`),
+        setPartner: (id, partner) => change((g) => L.setPartner(g, id, partner)),
+        concede: (id, conceded) => change((g) => L.setConceded(g, id, conceded)),
+
+        startTurns: (first) => change((g, now) => L.startTurns(g, first, now)),
+        passTurn: () => change((g, now) => L.passTurn(g, now)),
+        // Pausing isn't a game change worth undoing.
+        pause: () => set((s) => (s.game ? { game: L.pauseClock(s.game, Date.now()) } : {})),
+        resume: () => set((s) => (s.game ? { game: L.resumeClock(s.game, Date.now()) } : {})),
+        tickClock: () => change((g, now) => L.checkClock(g, now)),
+
+        undo: () => {
+          const { history, game } = get();
+          if (!game || history.length === 0) return;
+          const prev = history[history.length - 1];
+          lastEdit = null;
+          // Undo restores counters, not the clock: time already spent stays spent.
+          const now = Date.now();
+          const restored: L.LifeGame = {
+            ...prev,
+            players: prev.players.map((p, i) => ({ ...p, timeLeftMs: L.timeLeft(game, i, now) })),
+            // The clock runs again if it was running at that point.
+            runningSince: prev.runningSince != null ? now : null,
+          };
+          set((s) => ({ game: restored, history: history.slice(0, -1), undoNonce: s.undoNonce + 1, winnerDismissed: null }));
+        },
+        dismissWinner: () => set((s) => ({ winnerDismissed: s.game?.id ?? null })),
       };
-    }),
-
-  resetGame: () => {
-    const { startingLife, playerCount, timerMinutes } = get();
-    const perPlayerMs = timerMinutes ? (timerMinutes * 60 * 1000) / playerCount : 0;
-    set({
-      phase: "playing",
-      players: makePlayers(playerCount, startingLife, perPlayerMs),
-      activePlayerIndex: 0,
-      isClockRunning: false,
-      globalElapsedMs: 0,
-    });
-  },
-
-  backToSetup: () => set({ phase: "setup", players: [], isClockRunning: false }),
-}));
-
-export function formatTime(ms: number): string {
-  const totalSec = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
+    },
+    {
+      name: "life-counter",
+      version: 2,
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (s) => ({ setup: s.setup, game: s.game, history: s.history.slice(-20), winnerDismissed: s.winnerDismissed }),
+      // A saved game comes back paused: time the app was closed doesn't count.
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<LifeState>;
+        return { ...current, ...saved, game: saved.game ? { ...saved.game, runningSince: null } : null };
+      },
+      // Games saved by the old counter don't carry over.
+      migrate: () => ({ setup: { startingLife: 40, clockMinutes: null, players: defaultPlayers(4) }, game: null, history: [], winnerDismissed: null }),
+    }
+  )
+);
