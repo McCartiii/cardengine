@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { streamDeckAgent, type AgentEvent, type AgentMode, type ParsedCard, type ParsedSwap } from "@/lib/deckAgentStream";
+import { streamDeckAgent, type AgentCheck, type AgentEvent, type AgentMode, type ParsedCard, type ParsedSwap } from "@/lib/deckAgentStream";
 import { StatusPills, type ToolState } from "./components/StatusPills";
 import { CardGallery } from "./components/CardGallery";
 import { UpgradeDiff } from "./components/UpgradeDiff";
@@ -149,12 +149,13 @@ export default function DeckEditorPage() {
   // ── AI panel state ──
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiMode, setAiMode] = useState<AgentMode>("build");
+  const [, setAiMode] = useState<AgentMode>("build");
   const [toolStates, setToolStates] = useState<ToolState[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [tierGroups, setTierGroups] = useState<Array<{ name: string; cards: ParsedCard[] }>>([]);
   const [aiSwaps, setAiSwaps] = useState<ParsedSwap[]>([]);
-  const [cardDetails] = useState<Map<string, { priceUsd?: number | null; imageUri?: string | null }>>(new Map());
+  const [cardDetails, setCardDetails] = useState<Map<string, { priceUsd?: number | null; imageUri?: string | null }>>(new Map());
+  const [aiCheck, setAiCheck] = useState<AgentCheck | null>(null);
   const [addedByAi, setAddedByAi] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [escalateMessage, setEscalateMessage] = useState<string | null>(null);
@@ -285,8 +286,10 @@ export default function DeckEditorPage() {
     setAiSwaps([]);
     setEscalateMessage(null);
     setAiError(null);
+    setAiCheck(null);
 
     let currentTier = "";
+    const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
     try {
       const supabase = createClient();
@@ -342,6 +345,31 @@ export default function DeckEditorPage() {
               break;
             case "swap":
               setAiSwaps((prev) => [...prev, event.swap]);
+              break;
+            case "replace":
+              setTierGroups((prev) =>
+                prev.map((g) => ({
+                  ...g,
+                  cards: g.cards.map((c) => (same(c.name, event.from) ? { ...c, name: event.to, reason: event.reason || c.reason } : c)),
+                }))
+              );
+              setAiSwaps((prev) =>
+                prev.map((sw) => (same(sw.add.name, event.from) ? { ...sw, add: { name: event.to, reason: event.reason || sw.add.reason } } : sw))
+              );
+              break;
+            case "remove":
+              setTierGroups((prev) => prev.map((g) => ({ ...g, cards: g.cards.filter((c) => !same(c.name, event.name)) })));
+              setAiSwaps((prev) => prev.filter((sw) => !same(sw.add.name, event.name) && !same(sw.cut.name, event.name)));
+              break;
+            case "check":
+              setAiCheck(event.check);
+              if (event.check.fixing) setStatusMessage("Fixing a few picks…");
+              break;
+            case "cards":
+              setCardDetails(new Map(event.cards.map((c) => [c.name, { priceUsd: c.priceUsd, imageUri: c.imageUri }])));
+              break;
+            case "error":
+              setAiError(event.message);
               break;
             case "session_id":
               setSessionId(event.id);
@@ -1415,7 +1443,26 @@ export default function DeckEditorPage() {
 
             <StatusPills tools={toolStates} statusMessage={statusMessage} />
 
-            {aiMode === "upgrade" && aiSwaps.length > 0 && (
+            {aiCheck && !aiCheck.fixing && (
+              <div
+                className={`p-3 rounded-xl text-sm border ${
+                  aiCheck.ok ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                }`}
+              >
+                {aiCheck.ok
+                  ? `Checked: every card is real, legal and on-color${aiCheck.totalPrice ? ` · about $${aiCheck.totalPrice.toFixed(2)}` : ""}.`
+                  : (
+                    <>
+                      <div className="font-semibold mb-1">Still worth a look:</div>
+                      <ul className="list-disc pl-5 space-y-0.5">
+                        {aiCheck.issues.map((issue) => <li key={issue}>{issue}</li>)}
+                      </ul>
+                    </>
+                  )}
+              </div>
+            )}
+
+            {aiSwaps.length > 0 && (
               <UpgradeDiff
                 swaps={aiSwaps}
                 onAccept={(swap) => handleAddFromAi(swap.add.name)}
@@ -1423,7 +1470,7 @@ export default function DeckEditorPage() {
               />
             )}
 
-            {aiMode !== "upgrade" && tierGroups.length > 0 && (
+            {tierGroups.some((g) => g.cards.length > 0) && (
               <CardGallery
                 tiers={tierGroups}
                 cardDetails={cardDetails}

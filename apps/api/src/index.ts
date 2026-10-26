@@ -25,6 +25,7 @@ import { registerLocalSceneRoutes } from "./routes/localScene.js";
 import { registerTelemetryRoutes } from "./routes/telemetry.js";
 import { registerDeckRoutes } from "./routes/decks.js";
 import { registerDeckAgentRoutes } from "./routes/deckAgent.js";
+import { registerAiChatRoutes } from "./routes/aiChat.js";
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
@@ -138,6 +139,7 @@ registerLocalSceneRoutes(app);
 registerTelemetryRoutes(app);
 registerDeckRoutes(app);
 registerDeckAgentRoutes(app);
+registerAiChatRoutes(app);
 
 // ── Pricing refresh job ──
 // MTGJSON publishes a daily multi-provider snapshot. Refresh on boot as well

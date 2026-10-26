@@ -1,22 +1,32 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { tavily } from "@tavily/core";
+import { z } from "zod";
 import { prisma } from "../db.js";
 import { fetchEdhrecCommander } from "./edhrec.js";
+import { lookupCardFacts, normalizeCardName } from "./cardFacts.js";
+import { loadCollectionHoldings } from "./collectionHoldings.js";
+import { scryfallSearch } from "./scryfallSearch.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface CardDetail {
   name: string;
+  found: boolean;
   variantId: string | null;
   imageUri: string | null;
   typeLine: string | null;
   manaCost: string | null;
+  cmc: number | null;
+  colorIdentity: string[];
+  oracleText: string | null;
   priceUsd: number | null;
+  /** Legality in the deck's format: legal, banned, not_legal, restricted or unknown. */
+  legality: string;
 }
 
 export interface OwnedCard {
   name: string;
-  variantId: string;
+  quantity: number;
 }
 
 export interface SearchResult {
@@ -33,44 +43,39 @@ export interface MetaSnapshotData {
 
 // ── Tool: get_card_details ─────────────────────────────────────────────────────
 
-export function buildGetCardDetails() {
+export function buildGetCardDetails(format = "commander") {
   return async function getCardDetails(cardNames: string[]): Promise<CardDetail[]> {
     if (cardNames.length === 0) return [];
-
-    const variants = await prisma.cardVariant.findMany({
-      where: { game: "mtg", name: { in: cardNames, mode: "insensitive" } },
-      select: { variantId: true, name: true, imageUri: true, typeLine: true, manaCost: true },
-    });
-
-    // Deduplicate: prefer non-foil
-    const dbMap = new Map<string, { variantId: string; imageUri: string | null; typeLine: string | null; manaCost: string | null }>();
-    for (const v of variants) {
-      const key = v.name.toLowerCase();
-      if (!dbMap.has(key) || dbMap.get(key)!.variantId.endsWith("-foil")) {
-        dbMap.set(key, { variantId: v.variantId, imageUri: v.imageUri, typeLine: v.typeLine, manaCost: v.manaCost });
-      }
-    }
-
-    // Batch price lookup
-    const variantIds = [...dbMap.values()].map((v) => v.variantId);
-    const prices = variantIds.length > 0
-      ? await prisma.priceCache.findMany({
-          where: { variantId: { in: variantIds }, market: "tcgplayer", kind: "market", currency: "USD" },
-        })
-      : [];
-    const priceMap = new Map(prices.map((p) => [p.variantId, p.amount]));
-
+    const facts = await lookupCardFacts(cardNames);
     return cardNames.map((name) => {
-      const key = name.toLowerCase();
-      const db = dbMap.get(key) ?? null;
-      const scryfallImage = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal`;
+      const f = facts.get(normalizeCardName(name));
+      if (!f) {
+        return {
+          name,
+          found: false,
+          variantId: null,
+          imageUri: null,
+          typeLine: null,
+          manaCost: null,
+          cmc: null,
+          colorIdentity: [],
+          oracleText: null,
+          priceUsd: null,
+          legality: "unknown",
+        };
+      }
       return {
-        name,
-        variantId: db?.variantId ?? null,
-        imageUri: db?.imageUri ?? scryfallImage,
-        typeLine: db?.typeLine ?? null,
-        manaCost: db?.manaCost ?? null,
-        priceUsd: db ? (priceMap.get(db.variantId) ?? null) : null,
+        name: f.name,
+        found: true,
+        variantId: f.variantId,
+        imageUri: f.imageUri,
+        typeLine: f.typeLine,
+        manaCost: f.manaCost,
+        cmc: f.cmc,
+        colorIdentity: f.colorIdentity,
+        oracleText: f.oracleText ? f.oracleText.slice(0, 400) : null,
+        priceUsd: f.priceUsd,
+        legality: f.legalities?.[format] ?? "unknown",
       };
     });
   };
@@ -78,30 +83,17 @@ export function buildGetCardDetails() {
 
 // ── Tool: get_collection ──────────────────────────────────────────────────────
 
+/** The signed-in user's cards, one row per name. Never takes a user id from the model. */
 export function buildGetCollection() {
   return async function getCollection(userId: string): Promise<OwnedCard[]> {
-    const events = await prisma.collectionEvent.findMany({
-      where: { userId },
-      select: { type: true, variantId: true, payload: true },
-    });
-
-    const quantities = new Map<string, number>();
-    for (const e of events) {
-      const qty = quantities.get(e.variantId) ?? 0;
-      const payload = e.payload as Record<string, unknown>;
-      const eventQty = (payload.quantity as number) ?? 1;
-      quantities.set(e.variantId, e.type === "add" ? qty + eventQty : qty - eventQty);
+    const holdings = await loadCollectionHoldings(userId, { market: "tcgplayer", kind: "auto", currency: "USD" });
+    const byName = new Map<string, OwnedCard>();
+    for (const h of holdings) {
+      const entry = byName.get(h.name) ?? { name: h.name, quantity: 0 };
+      entry.quantity += h.quantity;
+      byName.set(h.name, entry);
     }
-
-    const variantIds = [...quantities.entries()].filter(([, q]) => q > 0).map(([vid]) => vid);
-    if (variantIds.length === 0) return [];
-
-    const variants = await prisma.cardVariant.findMany({
-      where: { variantId: { in: variantIds } },
-      select: { name: true, variantId: true },
-    });
-
-    return variants.map((v) => ({ name: v.name.toLowerCase(), variantId: v.variantId }));
+    return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
   };
 }
 
@@ -140,12 +132,53 @@ export function buildSearchWeb() {
   };
 }
 
+// ── Tool: fetch_edhrec ────────────────────────────────────────────────────────
+
+/** EDHREC's commander page, trimmed to the parts that help pick cards. */
+export async function edhrecForAgent(commanderName: string) {
+  const page = await fetchEdhrecCommander(commanderName);
+  if (!page) return { error: `No EDHREC page for "${commanderName}"` };
+  return {
+    commander: commanderName,
+    decks: page.num_decks_avg,
+    averagePrice: page.avg_price,
+    themes: page.themes.slice(0, 12),
+    similarCommanders: page.similar.slice(0, 6).map((s) => s.name),
+    cards: page.cardlists
+      .slice()
+      .sort((a, b) => b.inclusion - a.inclusion)
+      .slice(0, 150)
+      .map((c) => ({
+        name: c.name,
+        synergy: Math.round(c.synergy * 100) / 100,
+        inclusion: Math.round(c.inclusion * 100),
+        type: c.primary_type,
+        cmc: c.cmc,
+        priceUsd: c.prices?.tcgplayer?.price ?? null,
+      })),
+  };
+}
+
 // ── Tool definitions for Claude ───────────────────────────────────────────────
+
+const TOOL_INPUTS = {
+  fetch_edhrec: z.object({ commanderName: z.string().min(1).max(200) }),
+  search_web: z.object({ query: z.string().min(1).max(300) }),
+  get_meta_snapshot: z.object({
+    format: z.enum(["commander", "standard", "modern", "pioneer", "legacy"]),
+    bracket: z.number().int().min(0).max(5),
+  }),
+  get_card_details: z.object({ cardNames: z.array(z.string().min(1).max(200)).min(1).max(150) }),
+  search_cards: z.object({ query: z.string().min(1).max(300) }),
+  get_collection: z.object({}).passthrough(),
+} as const;
+
+export type AgentToolName = keyof typeof TOOL_INPUTS;
 
 export const AGENT_TOOLS: Anthropic.Tool[] = [
   {
     name: "fetch_edhrec",
-    description: "Fetch EDHREC commander page data: synergy scores, inclusion rates, popular cards, themes, and similar commanders. Always call this first for any commander deck.",
+    description: "EDHREC data for a commander: themes, similar commanders, and the 150 most-played cards with synergy (-1 to 1) and inclusion rate (% of decks). Call this first for any commander deck.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -156,7 +189,7 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "search_web",
-    description: "Search the web for current MTG deck tech, Reddit discussions, tournament results, and upgrade guides. Use for Bracket 3-5 or when you need recent community knowledge.",
+    description: "Search the web for current deck techs, Reddit discussion, tournament results and upgrade guides. Most useful for higher brackets or recent sets.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -167,19 +200,19 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "get_meta_snapshot",
-    description: "Get the cached MTGGoldfish meta snapshot for a format and bracket. Use for Bracket 4-5 commander or competitive constructed formats.",
+    description: "The cached MTGGoldfish meta snapshot for a format: top decks and staples. Use for bracket 4-5 Commander or competitive 60-card formats.",
     input_schema: {
       type: "object" as const,
       properties: {
         format: { type: "string", enum: ["commander", "standard", "modern", "pioneer", "legacy"] },
-        bracket: { type: "number", description: "1-5 for commander, 0 for non-commander" },
+        bracket: { type: "number", description: "1-5 for commander, 0 for other formats" },
       },
       required: ["format", "bracket"],
     },
   },
   {
     name: "get_card_details",
-    description: "Look up card details (image, type, mana cost, price) for a list of card names. Call after finalizing your card list to verify names are real.",
+    description: "Look up cards by exact name (up to 150 per call): whether the card exists, type, mana cost, color identity, rules text, cheapest price, and legality in this deck's format. Use it to confirm names, colors, legality and prices before you answer.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -189,43 +222,55 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: "get_collection",
-    description: "Get the user's owned cards. Only call if a userId is provided.",
+    name: "search_cards",
+    description: "Search every card with Scryfall syntax, ordered by EDHREC popularity, up to 12 results with price and rules text. Good for finding replacements, e.g. 'id<=BG t:creature o:sacrifice usd<2' or 'f:commander id<=UR o:\"draw a card\" cmc<=2'.",
     input_schema: {
       type: "object" as const,
       properties: {
-        userId: { type: "string" },
+        query: { type: "string", description: "Scryfall search query" },
       },
-      required: ["userId"],
+      required: ["query"],
     },
   },
-];
+  {
+    name: "get_collection",
+    description: "The signed-in player's collection: every card name they own and how many. Prefer owned cards when they fit.",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+].map((tool) => ({ ...tool, eager_input_streaming: true }));
 
 // ── Tool executor ─────────────────────────────────────────────────────────────
 
-export function buildToolExecutor(userId?: string) {
-  const getCardDetails = buildGetCardDetails();
+export class ToolInputError extends Error {}
+
+export function buildToolExecutor(opts: { userId?: string; format?: string } = {}) {
+  const getCardDetails = buildGetCardDetails(opts.format ?? "commander");
   const getCollection = buildGetCollection();
   const getMetaSnapshot = buildGetMetaSnapshot();
   const searchWeb = buildSearchWeb();
 
-  return async function executeTool(
-    name: string,
-    input: Record<string, unknown>
-  ): Promise<unknown> {
-    switch (name) {
+  return async function executeTool(name: string, rawInput: unknown): Promise<unknown> {
+    const schema = TOOL_INPUTS[name as AgentToolName];
+    if (!schema) throw new ToolInputError(`Unknown tool: ${name}`);
+    const parsed = schema.safeParse(rawInput);
+    if (!parsed.success) {
+      throw new ToolInputError(`Invalid input for ${name}: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`);
+    }
+    const input = parsed.data as Record<string, unknown>;
+    switch (name as AgentToolName) {
       case "fetch_edhrec":
-        return fetchEdhrecCommander(input.commanderName as string);
+        return edhrecForAgent(input.commanderName as string);
       case "search_web":
         return searchWeb(input.query as string);
       case "get_meta_snapshot":
         return getMetaSnapshot(input.format as string, input.bracket as number);
       case "get_card_details":
         return getCardDetails(input.cardNames as string[]);
+      case "search_cards":
+        return scryfallSearch(input.query as string);
       case "get_collection":
-        return getCollection((input.userId as string | undefined) ?? userId ?? "");
-      default:
-        throw new Error(`Unknown tool: ${name}`);
+        if (!opts.userId) return { error: "No signed-in player" };
+        return getCollection(opts.userId);
     }
   };
 }

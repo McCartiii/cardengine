@@ -1,8 +1,11 @@
+import { rulesFor } from "./deckCheck.js";
+
 export type AgentMode = "build" | "upgrade" | "modify";
 
 export interface AgentContext {
   bracket: 1 | 2 | 3 | 4 | 5;
   budget: number;
+  format: string;
   commander?: string;
   deckCards?: string[];
   userId?: string;
@@ -15,7 +18,7 @@ export interface AgentContext {
 export function detectMode(instruction: string, hasDeck: boolean): AgentMode {
   if (!hasDeck) return "build";
   const lower = instruction.toLowerCase();
-  const upgradeWords = ["upgrade", "improve", "better", "optimize", "strengthen", "enhance"];
+  const upgradeWords = ["upgrade", "improve", "better", "optimize", "strengthen", "enhance", "stronger", "power up"];
   if (upgradeWords.some((w) => lower.includes(w))) return "upgrade";
   return "modify";
 }
@@ -28,108 +31,96 @@ const BRACKET_LABELS: Record<number, string> = {
   5: "cEDH (fully competitive, fast mana, best cards for the strategy)",
 };
 
+const isCommanderFormat = (format: string) => rulesFor(format).identity;
+
 const OUTPUT_FORMAT = `
-## Output Format
+## Output format
 
-Stream your response using EXACTLY this structured format. Do not deviate from these tokens.
+The app parses your answer line by line, so write only these lines (no markdown, no prose between them):
 
-For each status update:
-STATUS: <message>
-
-For each card tier, open with:
+STATUS: <short progress note for the player>
 TIER: <tier name>
-
-For each card in a tier:
-CARD: <exact card name>
-REASON: <1-2 sentences: why this card belongs here and its strategic role>
-GAMEPLAY: <1-2 sentences: when to cast it, what it enables, key interactions>
+CARD: <exact English card name>          (for several copies, e.g. basic lands: "CARD: 12x Forest")
+REASON: <one sentence: its role here>
+GAMEPLAY: <one sentence: when to cast it, key interaction>
 IMPORTANCE: <critical|high|flex>
 
-For upgrade cut/add pairs (upgrade mode only):
-CUT: <exact card name>
-CUT_REASON: <why this card is weak here>
-ADD: <exact card name>
-ADD_REASON: <why this replacement is better>
-NET_SYNERGY: <+X.XX or -X.XX>
+REASON and GAMEPLAY are optional: give both for critical cards, REASON for high, and nothing for flex cards and lands, so a full list stays short.
 
-Rules:
-- Use ONLY real MTG card names. Call get_card_details to verify any card you are unsure about.
-- Use STATUS: lines to keep the user informed as you work.
-- Emit TIER: lines in this order: Win Conditions → Core Engine → Strong Includes → Flex Slots → (Cuts for upgrade mode)
-- Always end with STATUS: Done.
-`;
+For upgrade and change answers, write each swap as:
+CUT: <card in the deck>
+CUT_REASON: <why it's weak here>
+ADD: <card to bring in>
+ADD_REASON: <why it's better>
+NET_SYNERGY: <+X.XX or -X.XX, your estimate of the improvement>
+
+Order tiers: Win Conditions, Core Engine, Strong Includes, Flex Slots, Lands. End with "STATUS: Done."`;
+
+const CORRECTIONS = `
+## Corrections
+
+After you answer, the app checks every card against its catalog and the format rules. If it finds problems it will tell you; answer only with fixes, using:
+REPLACE: <card from your answer>
+WITH: <new card>
+WHY: <one sentence>
+REMOVE: <card from your answer>
+and CARD lines (under a TIER line) for cards to add. Then "STATUS: Done."`;
+
+function formatRules(ctx: AgentContext): string {
+  const rules = rulesFor(ctx.format);
+  if (rules.identity) {
+    return `Format: ${rules.label}. ${rules.mainSize} cards plus the commander, singleton except basic lands, every card within the commander's color identity and legal in ${rules.label}.`;
+  }
+  return `Format: ${rules.label}. Exactly ${rules.mainSize} main-deck cards, at most 4 copies of any card except basic lands, every card legal in ${rules.label}. No sideboard.`;
+}
+
+function budgetLine(ctx: AgentContext, mode: AgentMode): string {
+  if (ctx.budget <= 0) return "No budget limit.";
+  return mode === "build"
+    ? `Budget: $${ctx.budget} for the whole deck. get_card_details gives each card's cheapest printing; keep the total under budget.`
+    : `Budget: $${ctx.budget} to spend on the cards you add.`;
+}
 
 export function buildSystemPrompt(mode: AgentMode, ctx: AgentContext): string {
-  const bracketLabel = BRACKET_LABELS[ctx.bracket];
-  const budgetLine = `Total deck budget: $${ctx.budget}. Per-card ceiling: $${Math.round(ctx.budget / 30)}. Never recommend cards above this ceiling unless the user explicitly names them.`;
-  const collectionLine = ctx.userId
-    ? "Call get_collection to see what the user owns. Prioritize owned cards — mark them clearly."
-    : "No user collection available.";
+  const commanderFormat = isCommanderFormat(ctx.format);
+  const power = commanderFormat
+    ? `Target power: Bracket ${ctx.bracket} (${BRACKET_LABELS[ctx.bracket]}).`
+    : "Target power: a strong, tuned list for the current metagame.";
+  const collection = ctx.userId
+    ? "The player is signed in: call get_collection and prefer cards they own when they fit; say so in REASON."
+    : "";
+  const deck = (ctx.deckCards ?? []).length
+    ? `\nCurrent deck (${ctx.deckCards!.length} entries): ${ctx.deckCards!.join("; ")}`
+    : "";
+  const commander = ctx.commander ? `Commander: ${ctx.commander}.` : "";
 
-  if (mode === "build") {
-    return `You are an elite Magic: The Gathering deck architect with encyclopedic knowledge of all formats, card interactions, and competitive metagames.
+  const header = `You are an expert Magic: The Gathering deck builder working inside a collection app. Your picks are checked against real card data, so use the tools rather than memory for names, colors, legality and prices.
 
-## Task: Build a complete Commander deck from scratch.
+${formatRules(ctx)}
+${commander}
+${power}
+${budgetLine(ctx, mode)}
+${collection}${deck}`;
 
-Target power level: Bracket ${ctx.bracket} — ${bracketLabel}
-${budgetLine}
-${collectionLine}
+  const task =
+    mode === "build"
+      ? `## Task: build the complete deck.
+Research first (fetch_edhrec for a commander; search_web or get_meta_snapshot when power or recency matters), then confirm your full list with get_card_details before answering. Cover win conditions, ramp, card draw, interaction and lands in sensible numbers for the format and power level. List every card exactly once (use "Nx" for basics) so the total is exactly ${rulesFor(ctx.format).mainSize}.`
+      : mode === "upgrade"
+        ? `## Task: upgrade this deck.
+Find its weakest cards for its strategy and power target (EDHREC synergy and inclusion help for Commander), and pair each cut with a clearly better add of a similar role. Confirm the adds with get_card_details. Give 8-15 swaps, best first. Cuts must be cards in the deck; adds must not already be in it.`
+        : `## Task: change the deck as the player asks.
+Make only the changes the request needs, as swaps (CUT/ADD), plus CARD lines only for pure additions. Confirm the adds with get_card_details. If the request would replace more than about a third of the deck, write only:
+STATUS: ESCALATE — This changes most of the deck. Do you want a full rebuild, or should I push the current strategy as far as it goes in this direction?`;
 
-## Process
-1. Call fetch_edhrec for the commander to understand the card pool and top synergies.
-2. If Bracket 4-5, call get_meta_snapshot("commander", ${ctx.bracket}) and search_web for recent cEDH/competitive builds.
-3. If Bracket 3+, call search_web with a targeted query like "${ctx.commander ?? "[commander]"} bracket ${ctx.bracket} deck guide site:reddit.com".
-4. Call get_card_details on your final card list before outputting to verify names and prices.
-5. Build a full 99-card list covering: win conditions, ramp (10-12), card draw (8-10), interaction (8-10), synergy pieces, and 35-38 lands.
-6. Respect the budget hard. Sum up prices. If over budget, swap expensive cards for efficient budget alternatives.
+  return `${header}
 
-${OUTPUT_FORMAT}`;
-  }
+${task}
+${OUTPUT_FORMAT}
+${CORRECTIONS}`;
+}
 
-  if (mode === "upgrade") {
-    const deckList = (ctx.deckCards ?? []).join(", ");
-    return `You are an elite Magic: The Gathering deck upgrader. You analyze existing decks and identify the highest-impact improvements.
-
-## Task: Upgrade the provided Commander deck.
-
-Current deck cards: ${deckList}
-Target power level: Bracket ${ctx.bracket} — ${bracketLabel}
-${budgetLine}
-${collectionLine}
-
-## Process
-1. Call fetch_edhrec for the commander to score every card in the current deck by synergy and inclusion rate.
-2. Identify weak cards: synergy < 0, inclusion rate < 10%, or cards that don't serve the deck strategy.
-3. If Bracket 3+, call search_web for recent upgrade guides and community discussion.
-4. Find high-synergy replacements from EDHREC data and web results.
-5. Pair cuts with adds: match categories (creature → creature, draw → draw) where possible.
-6. Call get_card_details to verify all add cards are real and within budget.
-7. Output 10-15 cut/add pairs ordered by net synergy gain (highest first).
-
-For each pair, explain concisely why the cut is weak and why the add is a clear upgrade.
-
-${OUTPUT_FORMAT}`;
-  }
-
-  // modify
-  const deckList = (ctx.deckCards ?? []).join(", ");
-  return `You are an elite Magic: The Gathering deck tuner. You make precise, surgical changes to existing decks based on specific instructions.
-
-## Task: Modify the provided Commander deck based on the user's instruction.
-
-Current deck cards: ${deckList}
-Target power level: Bracket ${ctx.bracket} — ${bracketLabel}
-${budgetLine}
-${collectionLine}
-
-## Process
-1. Read the user's instruction carefully. Identify ONLY the cards that need to change.
-2. If ≤8 cards are affected, make the changes and output only the affected cards as swaps.
-3. If >30% of the deck would change, emit this exact line before doing anything:
-   STATUS: ESCALATE — This change affects most of the deck. Do you want a full rebuild, or should I push the current strategy as far as possible with this direction?
-   Then stop and wait.
-4. Call get_card_details to verify replacement card names and prices before outputting.
-5. Keep every unchanged card exactly as-is.
-
-${OUTPUT_FORMAT}`;
+/** The message that sends the checker's findings back to the model. */
+export function correctionPrompt(issues: string[]): string {
+  return `The app checked your answer and found these problems:\n${issues.map((i) => `- ${i}`).join("\n")}\n\nFix them now, using REPLACE/WITH/WHY, REMOVE and CARD lines only (check new picks with get_card_details first), then "STATUS: Done."`;
 }

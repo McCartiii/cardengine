@@ -4,80 +4,80 @@ vi.mock("../db.js", () => ({
   prisma: {
     cardVariant: { findMany: vi.fn() },
     priceCache: { findMany: vi.fn() },
+    pricePoint: { findMany: vi.fn() },
     metaSnapshot: { findUnique: vi.fn() },
     collectionEvent: { findMany: vi.fn() },
   },
 }));
 
-import { buildGetCardDetails, buildGetCollection } from "./deckAgentTools.js";
+import { buildGetCardDetails, buildGetCollection, buildToolExecutor, ToolInputError } from "./deckAgentTools.js";
 import { prisma } from "../db.js";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Legality lookups go to Scryfall; keep tests offline.
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ data: [{ name: "Sol Ring", legalities: { commander: "legal" } }] }))));
+});
 
 describe("buildGetCardDetails", () => {
-  it("returns card details from local DB with price", async () => {
+  it("returns the cheapest printing with rules text, identity and legality", async () => {
     vi.mocked(prisma.cardVariant.findMany).mockResolvedValue([
-      { variantId: "abc", name: "Sol Ring", imageUri: "https://img.example.com/sol.jpg", typeLine: "Artifact", manaCost: "{1}" } as any,
-    ]);
+      { variantId: "a", name: "Sol Ring", imageUri: "https://img/a.jpg", typeLine: "Artifact", manaCost: "{1}", oracleText: "{T}: Add {C}{C}.", cmc: 1, colorIdentity: [] },
+      { variantId: "b", name: "Sol Ring", imageUri: "https://img/b.jpg", typeLine: "Artifact", manaCost: "{1}", oracleText: "{T}: Add {C}{C}.", cmc: 1, colorIdentity: [] },
+    ] as never);
     vi.mocked(prisma.priceCache.findMany).mockResolvedValue([
-      { variantId: "abc", amount: 2.5 } as any,
-    ]);
+      { variantId: "a", amount: 3 },
+      { variantId: "b", amount: 1.5 },
+    ] as never);
 
-    const getCardDetails = buildGetCardDetails();
-    const result = await getCardDetails(["Sol Ring"]);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].name).toBe("Sol Ring");
-    expect(result[0].priceUsd).toBe(2.5);
-    expect(result[0].imageUri).toBe("https://img.example.com/sol.jpg");
+    const [sol] = await buildGetCardDetails("commander")(["sol ring"]);
+    expect(sol).toMatchObject({ name: "Sol Ring", found: true, variantId: "b", priceUsd: 1.5, oracleText: "{T}: Add {C}{C}.", legality: "legal" });
   });
 
-  it("returns Scryfall fallback image when card not in DB", async () => {
+  it("marks unknown names as not found", async () => {
     vi.mocked(prisma.cardVariant.findMany).mockResolvedValue([]);
     vi.mocked(prisma.priceCache.findMany).mockResolvedValue([]);
-
-    const getCardDetails = buildGetCardDetails();
-    const result = await getCardDetails(["Nonexistent Card"]);
-
-    expect(result[0].variantId).toBeNull();
-    expect(result[0].imageUri).toContain("api.scryfall.com");
+    const [card] = await buildGetCardDetails()(["Nonexistent Card"]);
+    expect(card).toMatchObject({ name: "Nonexistent Card", found: false, variantId: null, legality: "unknown" });
   });
 
   it("returns empty array for empty input", async () => {
-    const getCardDetails = buildGetCardDetails();
-    const result = await getCardDetails([]);
-    expect(result).toEqual([]);
+    expect(await buildGetCardDetails()([])).toEqual([]);
   });
 });
 
 describe("buildGetCollection", () => {
-  it("returns owned card names after applying add/remove events", async () => {
+  it("sums owned copies by name after adds and removes", async () => {
     vi.mocked(prisma.collectionEvent.findMany).mockResolvedValue([
-      { type: "add", variantId: "abc", payload: { quantity: 2 } } as any,
-      { type: "remove", variantId: "abc", payload: { quantity: 1 } } as any,
-    ]);
+      { type: "add", variantId: "abc", payload: { quantity: 2 }, at: new Date() },
+      { type: "remove", variantId: "abc", payload: { quantity: 1 }, at: new Date() },
+      { type: "add", variantId: "def", payload: { quantity: 1, finish: "foil" }, at: new Date() },
+    ] as never);
     vi.mocked(prisma.cardVariant.findMany).mockResolvedValue([
-      { name: "Sol Ring", variantId: "abc" } as any,
-    ]);
+      { name: "Sol Ring", variantId: "abc" },
+      { name: "Sol Ring", variantId: "def" },
+    ] as never);
+    vi.mocked(prisma.priceCache.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.pricePoint.findMany).mockResolvedValue([]);
 
-    const getCollection = buildGetCollection();
-    const result = await getCollection("user-123");
+    expect(await buildGetCollection()("user-123")).toEqual([{ name: "Sol Ring", quantity: 2 }]);
+  });
+});
 
-    expect(result).toContainEqual({ name: "sol ring", variantId: "abc" });
+describe("buildToolExecutor", () => {
+  it("rejects invalid input instead of running the tool", async () => {
+    const run = buildToolExecutor({ userId: "u1" });
+    await expect(run("get_card_details", { cardNames: "Sol Ring" })).rejects.toBeInstanceOf(ToolInputError);
+    await expect(run("drop_tables", {})).rejects.toThrow(/Unknown tool/);
   });
 
-  it("excludes cards with net quantity <= 0", async () => {
-    vi.mocked(prisma.collectionEvent.findMany).mockResolvedValue([
-      { type: "add", variantId: "abc", payload: { quantity: 1 } } as any,
-      { type: "remove", variantId: "abc", payload: { quantity: 1 } } as any,
-    ]);
-    vi.mocked(prisma.cardVariant.findMany).mockResolvedValue([]);
+  it("only reads the signed-in player's collection, whatever the model asks for", async () => {
+    vi.mocked(prisma.collectionEvent.findMany).mockResolvedValue([]);
+    await buildToolExecutor({ userId: "me" })("get_collection", { userId: "someone-else" });
+    expect(prisma.collectionEvent.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "me" } }));
+  });
 
-    const getCollection = buildGetCollection();
-    const result = await getCollection("user-123");
-
-    expect(result).toHaveLength(0);
-    // cardVariant.findMany should not be called since variantIds is empty
-    expect(prisma.cardVariant.findMany).not.toHaveBeenCalled();
+  it("has no collection without a signed-in player", async () => {
+    expect(await buildToolExecutor({})("get_collection", {})).toEqual({ error: "No signed-in player" });
   });
 });

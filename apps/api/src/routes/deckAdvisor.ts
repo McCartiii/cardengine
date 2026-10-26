@@ -4,6 +4,11 @@ import { prisma } from "../db.js";
 import { requireAuth, optionalAuth, type AuthUser } from "../middleware/auth.js";
 import { fetchEdhrecCommander, sanitizeCommanderName } from "../services/edhrec.js";
 import { suggestDecks, getRecommendations, getSwapSuggestions } from "../services/deckAdvisor.js";
+import Anthropic from "@anthropic-ai/sdk";
+import { aiQuota } from "../lib/aiQuota.js";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const ADVICE_MODEL = "claude-opus-5-5";
 
 export function registerDeckAdvisorRoutes(app: FastifyInstance) {
   // ── Deck advisor: suggest decks from collection ──
@@ -84,12 +89,11 @@ export function registerDeckAdvisorRoutes(app: FastifyInstance) {
   app.post(
     "/v1/ai/deck-advice",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, aiQuota("advice")],
       config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
     },
     async (req, reply) => {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) return reply.code(503).send({ error: "AI advice not configured" });
+      if (!process.env.ANTHROPIC_API_KEY) return reply.code(503).send({ error: "AI advice not configured" });
 
       const body = z
         .object({
@@ -159,28 +163,28 @@ export function registerDeckAdvisorRoutes(app: FastifyInstance) {
         .filter(Boolean)
         .join("\n");
 
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-opus-4-6",
-          max_tokens: 1024,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-
-      if (!res.ok) {
-        app.log.error({ status: res.status }, "[ai/deck-advice] Anthropic API error");
-        return reply.code(502).send({ error: "AI service error" });
+      try {
+        const message = await anthropic.messages
+          .stream({
+            model: ADVICE_MODEL,
+            max_tokens: 16_000,
+            thinking: { type: "adaptive" },
+            output_config: { effort: "medium" },
+            messages: [{ role: "user", content: prompt }],
+          } as Anthropic.MessageStreamParams)
+          .finalMessage();
+        const text = message.content
+          .flatMap((b) => (b.type === "text" ? [b.text] : []))
+          .join("");
+        if (message.stop_reason === "refusal" || !text) {
+          return reply.code(502).send({ error: "The AI couldn't answer that. Try rephrasing." });
+        }
+        return { advice: text };
+      } catch (err) {
+        app.log.error({ err }, "[ai/deck-advice] Anthropic API error");
+        const status = err instanceof Anthropic.RateLimitError ? 429 : 502;
+        return reply.code(status).send({ error: "AI service error" });
       }
-
-      const data = (await res.json()) as { content: Array<{ type: string; text: string }> };
-      const text = data.content.find((b) => b.type === "text")?.text ?? "";
-      return { advice: text };
     }
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { api } from "@/lib/api";
+import { api, getToken } from "@/lib/api";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 import {
   type RichCard,
   type DeckIssue,
@@ -147,17 +149,13 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
 
   const toggleGoal = (g: string) => setSelectedGoals(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
 
-  const commanderName = deck.commander ?? null;
-  const deckContext = [
-    `Deck: ${deck.name}`, `Format: ${deck.format}`,
-    commanderName ? `Commander: ${commanderName}` : `Commander: not yet selected (deck name "${deck.name}" may hint at the intended commander — search Scryfall if unsure)`,
+  // The server reads the deck itself; these are the player's settings for the chat.
+  const chatNotes = [
     `Power bracket: ${bracket} — ${BRACKET_LABELS[bracket]}`,
     selectedTheme ? `Deck theme/archetype: ${selectedTheme}` : "",
     selectedGoals.length > 0 ? `Strategy goals: ${selectedGoals.join(", ")}` : "",
     `Collection preference: ${{ mixed: "Prefer owned cards, but suggest new where upgrades exist.", owned: "Only suggest cards the user already owns.", new: "Suggest best cards regardless of collection." }[poolMode]}`,
-    customInstructions.trim() ? `\nUser instructions: ${customInstructions.trim()}` : "",
-    `Cards (${stats.totalCards} total):`,
-    deck.cards.slice(0, 50).map(c => `${c.quantity}x ${c.cardName}`).join("\n"),
+    customInstructions.trim() ? `Player instructions: ${customInstructions.trim()}` : "",
   ].filter(Boolean).join("\n");
 
   const send = useCallback(async (msg?: string) => {
@@ -168,8 +166,17 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
     setMessages(next); setInput(""); setStreaming(true); setSuggestedCards([]); setImportResult(null);
     setMessages(prev => [...prev, { role: "assistant", content: "" }]);
     try {
-      const res = await fetch("/api/architect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, deckContext }) });
-      if (!res.body) throw new Error("No response body");
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/v1/ai/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ messages: next.filter(m => m.content.trim()), deckId: deck.id, notes: chatNotes }),
+      });
+      if (res.status === 401) throw new Error("Sign in to use the AI assistant.");
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(err?.error ?? `AI error ${res.status}`);
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let full = "";
@@ -178,7 +185,13 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
         for (const line of decoder.decode(value).split("\n")) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6); if (data === "[DONE]") break;
-            try { full += JSON.parse(data).text; setMessages(prev => [...prev.slice(0, -1), { role: "assistant", content: full }]); } catch {}
+            try {
+              const evt = JSON.parse(data) as { type: string; text?: string; message?: string };
+              if (evt.type === "text" && evt.text) full += evt.text;
+              else if (evt.type === "error" && evt.message) full += `${full ? "\n\n" : ""}${evt.message}`;
+              else continue;
+              setMessages(prev => [...prev.slice(0, -1), { role: "assistant", content: full }]);
+            } catch {}
           }
         }
       }
@@ -187,7 +200,7 @@ export function AIArchitectTab({ deck, totalValue }: { deck: DeckData; totalValu
     } catch (err) {
       setMessages(prev => [...prev.slice(0, -1), { role: "assistant", content: `Error: ${(err as Error).message}` }]);
     } finally { setStreaming(false); }
-  }, [input, messages, streaming, deckContext]);
+  }, [input, messages, streaming, chatNotes, deck.id]);
 
   async function importToAPI() {
     if (!suggestedCards.length) return; setImporting(true);
