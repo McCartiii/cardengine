@@ -24,7 +24,7 @@ That's all you need for the web app. With no `.env` files:
 - **Card data**: on first boot the API loads one Scryfall set (`INITIAL_INGEST_SET`, default `fdn`). This needs internet access to `api.scryfall.com`. Set `INITIAL_INGEST_SET` to another set code if you like, or `AUTO_INGEST_ON_EMPTY=false` to skip it. For a quick fixture card without internet: `curl -X POST localhost:3001/dev/seed`.
 - **Auth**: without Supabase keys the site runs signed-out, and signed-in pages (collection, decks, watchlist) will be empty. To sign in, copy `apps/api/.env.example` → `apps/api/.env` and `apps/web/.env.example` → `apps/web/.env.local`, and fill in the Supabase keys from a dev project.
 - **Background jobs** (daily MTGJSON price refresh, watchlist alerts, meta snapshots) are off under `npm run dev`. Turn one on by setting it in `apps/api/.env`, e.g. `ENABLE_PRICE_REFRESH=true`.
-- **AI features** need `ANTHROPIC_API_KEY` (and `TAVILY_API_KEY` for the deck agent's web search) in `apps/api/.env`.
+- **AI features** need `ANTHROPIC_API_KEY` (and `TAVILY_API_KEY` for the deck agent's web search) in `apps/api/.env`, and a signed-in user. Each user gets a daily allowance per feature, set with `AI_DAILY_AGENT_RUNS` (default 25), `AI_DAILY_CHAT_MESSAGES` (150) and `AI_DAILY_ADVICE` (50).
 
 Anything you set in `apps/api/.env` or your shell overrides the `npm run dev` defaults.
 

@@ -136,6 +136,10 @@ export default function HomeScreen() {
           <Action icon="location" label="Shops" hint="Near you" onPress={() => router.push("/shops")} />
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(175).duration(400)} style={styles.section}>
+          <AskAi onPress={() => router.push("/assistant")} />
+        </Animated.View>
+
         {spotlight.length > 0 && (
           <Animated.View entering={FadeInDown.delay(210).duration(400)} style={styles.section}>
             <Spotlight cards={spotlight} onOpen={openCard} />
@@ -184,6 +188,26 @@ function HeaderButton({ icon, label, onPress }: { icon: IconName; label: string;
       style={styles.headerButton}
     >
       <Ionicons name={icon} size={20} color={color.ink} />
+    </Touchable>
+  );
+}
+
+/** The way into the AI assistant: a wide violet strip under the quick actions. */
+function AskAi({ onPress }: { onPress: () => void }) {
+  return (
+    <Touchable onPress={onPress} accessibilityRole="button" accessibilityLabel="Ask AI about your cards" pressedScale={0.98}>
+      <LinearGradient colors={bubble.violet} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.askAi}>
+        <View style={[styles.actionIcon, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
+          <Ionicons name="sparkles" size={19} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.actionLabel, { color: "#FFFFFF" }]}>Ask AI</Text>
+          <Text variant="caption" color="rgba(255,255,255,0.78)">
+            What to build, sell or trade from your binder
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+      </LinearGradient>
     </Touchable>
   );
 }
@@ -258,6 +282,7 @@ const styles = StyleSheet.create({
   },
   section: { paddingHorizontal: space.lg, marginTop: space.lg },
   actions: { flexDirection: "row", gap: 10 },
+  askAi: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 22, ...elevation.card },
   action: { height: 112, borderRadius: 22, padding: 14, justifyContent: "space-between", ...elevation.card },
   actionLight: { backgroundColor: "#FFFFFF", ...hairline },
   actionIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },

@@ -144,6 +144,7 @@ export default function BinderScreen() {
                 }}
               />
               <HeaderButton icon="swap-vertical" label="Sort" onPress={() => setSortOpen(true)} />
+              <HeaderButton icon="sparkles" label="Ask AI about your binder" onPress={() => router.push("/assistant")} />
             </View>
           )}
         </View>

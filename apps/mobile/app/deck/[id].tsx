@@ -27,7 +27,6 @@ import { formatUsd } from "@/design/format";
 import { primaryType } from "@/lib/deckAnalysis";
 import {
   deleteDeck,
-  getAiAdvice,
   getDeck,
   getDeckEdhrec,
   importDeckFromUrl,
@@ -38,6 +37,7 @@ import {
 } from "@/lib/api";
 import { DeckAnalysisView } from "@/components/deck/DeckAnalysisView";
 import { OpeningHand } from "@/components/deck/OpeningHand";
+import { DeckAgentPanel } from "@/components/deck/DeckAgentPanel";
 import { Button, CardArt, CardTile, Chip, Segmented, Sheet, Text, Touchable, padToColumns, tap } from "@/ui";
 
 type Tab = "cards" | "analysis" | "edhrec" | "ai";
@@ -67,13 +67,6 @@ const GROUP_LABEL: Record<string, string> = {
   Sideboard: "Sideboard",
 };
 
-const AI_PROMPTS = [
-  "What are the main weaknesses and top 5 improvements?",
-  "Suggest budget upgrades under $5 each.",
-  "Which 10 cards should I cut?",
-  "What combos or synergies am I missing?",
-];
-
 function groupOf(c: DeckCard): string {
   if (c.section === "commander") return "Commander";
   if (c.section === "sideboard") return "Sideboard";
@@ -95,10 +88,6 @@ export default function DeckDetailScreen() {
 
   const [edhrec, setEdhrec] = useState<Awaited<ReturnType<typeof getDeckEdhrec>> | null>(null);
   const [edhrecState, setEdhrecState] = useState<"idle" | "loading" | "done">("idle");
-
-  const [aiQuestion, setAiQuestion] = useState(AI_PROMPTS[0]);
-  const [aiAdvice, setAiAdvice] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
 
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
@@ -152,20 +141,6 @@ export default function DeckDetailScreen() {
       };
     });
   }, [deck]);
-
-  const askAi = async (question = aiQuestion) => {
-    setAiQuestion(question);
-    setAiLoading(true);
-    setAiAdvice("");
-    try {
-      const { advice } = await getAiAdvice({ deckId: id, question });
-      setAiAdvice(advice);
-    } catch (e: unknown) {
-      setAiAdvice(`Couldn't get advice: ${(e as Error).message}`);
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   const runImport = async () => {
     const text = importText.trim();
@@ -509,38 +484,11 @@ export default function DeckDetailScreen() {
 
           {tab === "ai" && (
             <View style={styles.section}>
-              <View style={styles.panel}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-                  <View style={styles.aiIcon}>
-                    <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-                  </View>
-                  <Text variant="headline">Ask about this deck</Text>
-                </View>
-                <View style={styles.prompts}>
-                  {AI_PROMPTS.map((p) => (
-                    <Pressable key={p} onPress={() => askAi(p)} disabled={aiLoading} style={[styles.prompt, aiQuestion === p && styles.promptOn]}>
-                      <Text variant="callout" color={aiQuestion === p ? "#FFFFFF" : color.ink}>
-                        {p}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <TextInput
-                  style={styles.input}
-                  value={aiQuestion}
-                  onChangeText={setAiQuestion}
-                  multiline
-                  placeholder="Or ask your own question…"
-                  placeholderTextColor={color.textTertiary}
-                  selectionColor={color.accent}
-                />
-                <Button label={aiLoading ? "Thinking…" : "Ask"} icon="sparkles" onPress={() => askAi()} loading={aiLoading} disabled={!aiQuestion.trim()} />
-              </View>
-              {aiAdvice !== "" && (
-                <Animated.View entering={FadeIn.duration(250)} style={[styles.panel, { marginTop: space.md }]}>
-                  <Text variant="body">{aiAdvice}</Text>
-                </Animated.View>
-              )}
+              <DeckAgentPanel
+                deck={d}
+                onApplied={loadDeck}
+                onAsk={() => router.push({ pathname: "/assistant", params: { deckId: id, deckName: d.name } })}
+              />
             </View>
           )}
         </ScrollView>
@@ -687,10 +635,6 @@ const styles = StyleSheet.create({
   recArt: { width: 42 },
   synergyTrack: { height: 4, borderRadius: 2, backgroundColor: color.surface2, overflow: "hidden", marginTop: 2 },
   synergyFill: { height: "100%", borderRadius: 2, backgroundColor: color.positive },
-  aiIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: color.accent },
-  prompts: { gap: space.sm, marginTop: space.xs },
-  prompt: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, backgroundColor: color.surface2 },
-  promptOn: { backgroundColor: color.ink },
   input: {
     minHeight: 72,
     borderRadius: radius.md,

@@ -91,6 +91,7 @@ export default function RootLayout() {
             <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="shops" options={{ ...pushedHeader, title: "Local shops" }} />
             <Stack.Screen name="alerts" options={{ ...pushedHeader, title: "Price alerts" }} />
+            <Stack.Screen name="assistant" />
           </Stack>
         </AuthGate>
       </SafeAreaProvider>
