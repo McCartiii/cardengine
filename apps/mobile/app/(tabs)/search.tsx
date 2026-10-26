@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -80,7 +80,17 @@ export default function SearchScreen() {
   };
 
   const chips = filterChips(filters, displaySymbol());
-  const data = searching ? results : popular;
+  // With only a sort picked, the popular cards follow it.
+  const sortedPopular = useMemo(() => {
+    const price = (c: GridCard) => c.priceUsd ?? (filters.sort === "price-asc" ? Infinity : -Infinity);
+    if (filters.sort === "price-desc") return [...popular].sort((a, b) => price(b) - price(a));
+    if (filters.sort === "price-asc") return [...popular].sort((a, b) => price(a) - price(b));
+    if (filters.sort === "name-asc" && chips.length) return [...popular].sort((a, b) => a.name.localeCompare(b.name));
+    return popular;
+  }, [popular, filters.sort, chips.length]);
+  const data = searching ? results : sortedPopular;
+  // A long paste shouldn't push the "no results" title off the screen.
+  const shown = query.trim().length > 32 ? `${query.trim().slice(0, 32)}…` : query.trim();
 
   return (
     <Screen>
@@ -162,7 +172,7 @@ export default function SearchScreen() {
           ListHeaderComponent={
             data.length > 0 ? (
               <Text variant="label" color={color.textTertiary} style={styles.listLabel}>
-                {searching ? `${results.length}${results.length === 60 ? "+" : ""} results` : "Popular right now"}
+                {searching ? `${results.length}${results.length === 60 ? "+" : ""} ${results.length === 1 ? "result" : "results"}` : "Popular right now"}
               </Text>
             ) : null
           }
@@ -173,13 +183,13 @@ export default function SearchScreen() {
               ) : filterCount > 0 ? (
                 <EmptyState
                   icon="options-outline"
-                  title={hasText ? `No cards match “${query.trim()}” with these filters` : "No cards match these filters"}
+                  title={hasText ? `No cards match “${shown}” with these filters` : "No cards match these filters"}
                   body="Try removing a filter."
                   action="Clear filters"
                   onAction={() => setFilters(NO_FILTERS)}
                 />
               ) : (
-                <EmptyState icon="search" title={`No cards match “${query.trim()}”`} body="Try a shorter name or check the spelling." />
+                <EmptyState icon="search" title={`No cards match “${shown}”`} body="Try a shorter name or check the spelling." />
               )
             ) : (
               <EmptyState icon="sparkles-outline" title="Find any card" body="Search by name to see printings and prices across markets." />

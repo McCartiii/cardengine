@@ -10,6 +10,7 @@ import { exportFilename, shareTextFile } from "@/lib/shareFile";
 import { disablePush, enablePush, pushPermission, showDenied } from "@/lib/push";
 import { useAuthStore } from "@/store/authStore";
 import { useSettings } from "@/store/settingsStore";
+import { friendlyName } from "@/lib/names";
 import { Button, Chip, IconBubble, ListGroup, ListRow, PageHeader, Screen, Sheet, Text } from "@/ui";
 
 type Permission = Awaited<ReturnType<typeof pushPermission>>;
@@ -221,7 +222,7 @@ export default function SettingsScreen() {
                 icon="person"
                 tint="violet"
                 title="Name"
-                value={name ?? user?.email?.split("@")[0] ?? ""}
+                value={friendlyName(name, user?.email) ?? ""}
                 onPress={() => {
                   setDraft(name ?? "");
                   setEditingName(true);

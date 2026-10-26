@@ -110,7 +110,7 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     if (!binders) return reply.code(404).send({ error: "Binder not found" });
     const cards = await loadCollectionHoldings(user.sub, query, binders);
     if (cards.length === 0) {
-      return { cards: [], totalCards: 0, totalValue: 0, page: query.page, hasMore: false };
+      return { cards: [], totalCards: 0, totalCopies: 0, totalValue: 0, page: query.page, hasMore: false };
     }
 
     sortCollection(cards, query.sort, query.dir);
@@ -122,6 +122,8 @@ export function registerCollectionRoutes(app: FastifyInstance) {
     return {
       cards: page,
       totalCards: cards.length,
+      // Copies, counting each of four Islands: what people mean by "cards".
+      totalCopies: cards.reduce((n, c) => n + c.quantity, 0),
       totalValue: Math.round(totalValue * 100) / 100,
       page: query.page,
       hasMore: start + query.limit < cards.length,
@@ -157,6 +159,7 @@ export function registerCollectionRoutes(app: FastifyInstance) {
       totalValue: Math.round(totalValue * 100) / 100,
       currency: query.currency,
       cardCount: holdings.length,
+      copies: holdings.reduce((n, h) => n + h.quantity, 0),
       breakdown: breakdown.slice(0, 100),
     };
   });

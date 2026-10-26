@@ -98,3 +98,21 @@ export async function matchImport(entries: ImportEntry[], game = "mtg"): Promise
   }
   return { matched: [...merged.values()], unmatched };
 }
+
+/**
+ * Cards by name, ignoring case; two-faced cards also answer to their front
+ * face ("Delver of Secrets"). Keys are lowercase; plain printings preferred.
+ */
+export async function variantsByName(names: string[], game = "mtg"): Promise<Map<string, Variant>> {
+  const out = new Map<string, Variant>();
+  for (const part of chunks([...new Set(names.map((n) => n.trim()).filter(Boolean))])) {
+    const rows = await prisma.cardVariant.findMany({
+      where: { game, OR: [{ name: { in: part, mode: "insensitive" } }, ...part.filter((n) => !n.includes("//")).map((n) => ({ name: { startsWith: `${n} // `, mode: "insensitive" as const } }))] },
+      select,
+    });
+    for (const v of rows) {
+      for (const key of new Set([lower(v.name), lower(v.name.split(" // ")[0])])) out.set(key, better(out.get(key), v));
+    }
+  }
+  return out;
+}

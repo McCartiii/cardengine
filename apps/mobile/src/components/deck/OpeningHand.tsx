@@ -162,7 +162,11 @@ export function OpeningHand({
 
           <View style={styles.actions}>
             {choosing ? (
-              <ActionButton icon="checkmark" label={`Keep ${HAND - game.toBottom}`} primary disabled={picked.size !== game.toBottom} onPress={keep} />
+              <>
+                {/* London rules: you can mulligan again before choosing what goes to the bottom. */}
+                <ActionButton icon="shuffle" label="Mulligan" onPress={mulligan} disabled={game.mulligans >= HAND - 1} />
+                <ActionButton icon="checkmark" label={`Keep ${HAND - game.toBottom}`} primary disabled={picked.size !== game.toBottom} onPress={keep} />
+              </>
             ) : (
               <>
                 <ActionButton icon="refresh" label="New hand" onPress={restart} />

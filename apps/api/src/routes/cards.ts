@@ -431,7 +431,11 @@ export function registerCardRoutes(app: FastifyInstance) {
     { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const filters = searchFilterSchema.parse(req.query);
-      if (!hasCriteria(filters)) return reply.code(400).send({ error: "Search for a name or pick a filter" });
+      if (!hasCriteria(filters)) {
+        // Only punctuation typed: nothing matches, which isn't an error.
+        if (filters.q) return { query: filters.q, sort: "name-asc", total: 0, cards: [] };
+        return reply.code(400).send({ error: "Search for a name or pick a filter" });
+      }
       const query = z
         .object({
           game: z.string().default("mtg"),
@@ -458,12 +462,24 @@ export function registerCardRoutes(app: FastifyInstance) {
       // Price bounds drop cards after prices load, so look through a wider pool.
       const pool = hasPriceBounds(filters) ? 1000 : fetchLimit;
 
+      const where = searchWhere(filters, query.game);
       let cards = await prisma.cardVariant.findMany({
-        where: searchWhere(filters, query.game),
+        where,
         take: pool + query.offset,
         skip: 0,
         orderBy,
       });
+      // In the default order, names that start with what was typed come first
+      // ("lightning" → Lightning Bolt before Ball Lightning), then the rest A–Z.
+      if (query.sort === "name-asc" && filters.q) {
+        const lead = await prisma.cardVariant.findMany({
+          where: { ...where, AND: [...where.AND, { name: { startsWith: filters.q.trim(), mode: "insensitive" } }] },
+          take: pool + query.offset,
+          orderBy,
+        });
+        const seen = new Set(lead.map((c) => c.variantId));
+        cards = [...lead, ...cards.filter((c) => !seen.has(c.variantId))];
+      }
 
       const variantIds = cards.map((c) => c.variantId);
       const prices =

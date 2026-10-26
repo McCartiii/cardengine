@@ -2,7 +2,7 @@
 // fetch can't read a response as it arrives; expo/fetch can.
 import { fetch as streamingFetch } from "expo/fetch";
 import { API_BASE_URL } from "./constants";
-import { getAuthToken } from "./api";
+import { authReady, getAuthToken } from "./api";
 
 export type SseEvent = Record<string, unknown> & { type?: string };
 
@@ -11,6 +11,7 @@ export type SseEvent = Record<string, unknown> & { type?: string };
  * server sends [DONE]. Throws with the server's error message on a bad status.
  */
 export async function postSse(path: string, body: unknown, onEvent: (e: SseEvent) => void, signal?: AbortSignal): Promise<void> {
+  await authReady();
   const token = getAuthToken();
   const res = await streamingFetch(`${API_BASE_URL}${path}`, {
     method: "POST",

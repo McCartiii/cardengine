@@ -61,8 +61,11 @@ export function registerBinderRoutes(app: FastifyInstance) {
   app.post("/v1/binders", { preHandler: [requireAuth] }, async (req, reply) => {
     const user = userOf(req);
     const body = z.object({ name: z.string().trim().min(1).max(40), kind: z.enum(BINDER_KINDS).default("custom") }).parse(req.body);
-    const count = await prisma.binder.count({ where: { userId: user.sub } });
-    if (count >= MAX_BINDERS) return reply.code(400).send({ error: `You can have up to ${MAX_BINDERS} binders` });
+    const existing = await listBinders(user.sub);
+    if (existing.length - 1 >= MAX_BINDERS) return reply.code(400).send({ error: `You can have up to ${MAX_BINDERS} binders` });
+    if (existing.some((b) => b.name.toLowerCase() === body.name.toLowerCase())) {
+      return reply.code(409).send({ error: `You already have a binder called “${body.name}”` });
+    }
     const b = await prisma.binder.create({ data: { userId: user.sub, name: body.name, kind: body.kind } });
     return { binder: { id: b.id, name: b.name, kind: b.kind } };
   });
@@ -71,6 +74,9 @@ export function registerBinderRoutes(app: FastifyInstance) {
     const user = userOf(req);
     const { id } = z.object({ id: z.string() }).parse(req.params);
     const body = z.object({ name: z.string().trim().min(1).max(40) }).parse(req.body);
+    if ((await listBinders(user.sub)).some((b) => b.id !== id && b.name.toLowerCase() === body.name.toLowerCase())) {
+      return reply.code(409).send({ error: `You already have a binder called “${body.name}”` });
+    }
     const { count } = await prisma.binder.updateMany({ where: { id, userId: user.sub }, data: { name: body.name } });
     if (!count) return reply.code(404).send({ error: "Binder not found" });
     return { ok: true };

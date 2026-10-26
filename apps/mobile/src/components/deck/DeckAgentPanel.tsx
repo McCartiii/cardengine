@@ -47,7 +47,18 @@ function presetsFor(mainCount: number, targetSize: number): string[] {
   return [...build, "Upgrade this deck", "Make it cheaper", "Add more removal", "Lower the mana curve", "Improve the mana base"];
 }
 
-export function DeckAgentPanel({ deck, onApplied, onAsk }: { deck: PanelDeck; onApplied: () => void; onAsk: () => void }) {
+export function DeckAgentPanel({
+  deck,
+  onApplied,
+  onAsk,
+  onStart,
+}: {
+  deck: PanelDeck;
+  onApplied: () => void;
+  onAsk: () => void;
+  /** A run began; the screen can bring its progress into view. */
+  onStart?: () => void;
+}) {
   const commanderFormat = hasCommandZone(deck.format);
   const mainCount = deck.cards.filter((c) => c.section === "mainboard").reduce((n, c) => n + c.quantity, 0);
   const presets = presetsFor(mainCount, commanderFormat ? 99 : 60);
@@ -69,6 +80,7 @@ export function DeckAgentPanel({ deck, onApplied, onAsk }: { deck: PanelDeck; on
     abort.current?.abort();
     abort.current = new AbortController();
     setSkipped(new Set());
+    onStart?.();
     await runDeckAgent(
       { instruction: ask, bracket, budget, deckId: deck.id, sessionId },
       setState,

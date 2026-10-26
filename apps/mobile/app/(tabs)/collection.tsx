@@ -87,12 +87,13 @@ export default function BinderScreen() {
     try {
       const res = await getCollectionCards({ binder: activeId, sort, dir, page: p, limit: FETCH_SIZE });
       setCards((prev) => (p > 1 ? [...prev, ...res.cards] : res.cards));
-      setTotals({ cards: res.totalCards, value: res.totalValue });
+      setTotals({ cards: res.totalCopies ?? res.totalCards, value: res.totalValue });
       setHasMore(res.hasMore);
       setFetchedPage(p);
       setStatus("ready");
     } catch {
-      if (p === 1) setStatus("error");
+      // A failed refresh keeps showing what's already loaded.
+      if (p === 1) setStatus((prev) => (prev === "ready" ? "ready" : "error"));
     }
   }, [sort, dir, activeId]);
 
@@ -147,9 +148,13 @@ export default function BinderScreen() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id]) => id);
   }, [cards]);
 
+  const q = query.trim().toLowerCase();
+  const visible = useMemo(
+    () => cards.filter((c) => (set === "all" || c.setId === set) && (!q || c.name.toLowerCase().includes(q))),
+    [cards, set, q]
+  );
+
   const pages = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const visible = cards.filter((c) => (set === "all" || c.setId === set) && (!q || c.name.toLowerCase().includes(q)));
     const slots: Slot[] = [...visible];
     // Once everything is loaded, end on empty sleeves so there's somewhere to scan into.
     if (!hasMore) {
@@ -159,7 +164,7 @@ export default function BinderScreen() {
     const out: Slot[][] = [];
     for (let i = 0; i < slots.length; i += PER_PAGE) out.push(slots.slice(i, i + PER_PAGE));
     return out.length ? out : [Array<Slot>(PER_PAGE).fill(null)];
-  }, [cards, set, query, hasMore]);
+  }, [visible, hasMore]);
 
   const pickSet = (id: string) => {
     tap();
@@ -215,7 +220,9 @@ export default function BinderScreen() {
               {session
                 ? status === "ready"
                   ? `${formatUsd(totals.value)}${wishlist ? " to buy" : ""} · ${totals.cards} ${totals.cards === 1 ? "card" : "cards"}`
-                  : "Opening your binder…"
+                  : status === "error"
+                    ? "Couldn't open your binder"
+                    : "Opening your binder…"
                 : "Sign in to start collecting"}
             </Text>
           </View>
@@ -238,6 +245,11 @@ export default function BinderScreen() {
         {searchOpen && (
           <Animated.View entering={FadeIn.duration(200)} style={styles.searchWrap}>
             <SearchField value={query} onChangeText={setQuery} placeholder="Find a card in your binder" autoFocus />
+            {q.length > 0 && visible.length === 0 && !hasMore && (
+              <Text variant="callout" color={binderPage.muted} style={{ marginTop: space.sm, marginLeft: space.xs }}>
+                Nothing in {binder.name} matches “{query.trim().length > 28 ? `${query.trim().slice(0, 28)}…` : query.trim()}”
+              </Text>
+            )}
           </Animated.View>
         )}
 
@@ -265,7 +277,23 @@ export default function BinderScreen() {
         </ScrollView>
 
         <View style={{ flex: 1 }} onLayout={(e) => setAreaHeight(e.nativeEvent.layout.height)}>
-          {areaHeight > 0 && (
+          {status === "error" && (
+            <View style={styles.errorBox}>
+              <Ionicons name="cloud-offline-outline" size={30} color={binderPage.muted} />
+              <Text variant="headline" color="#FFFFFF" align="center">
+                Can't reach your binder
+              </Text>
+              <Text variant="callout" color={binderPage.muted} align="center">
+                Check your connection and try again.
+              </Text>
+              <Pressable onPress={() => { setStatus("loading"); refresh(); }} style={styles.retry} accessibilityRole="button">
+                <Text variant="bodyStrong" color={binderPage.page}>
+                  Try again
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          {areaHeight > 0 && status !== "error" && (
             <FlipBook
               key={`${activeId}|${set}|${query}|${sort}|${dir}`}
               pageCount={pages.length}
@@ -447,6 +475,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: font.heavy, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: binderPage.text, flexShrink: 1 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", maxWidth: "100%" },
   titleChevron: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.14)" },
+  errorBox: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm, paddingHorizontal: space.xxl },
+  retry: { marginTop: space.sm, height: 42, paddingHorizontal: 20, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
   toast: {
     position: "absolute",
     alignSelf: "center",

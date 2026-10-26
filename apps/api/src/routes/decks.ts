@@ -2,9 +2,11 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
-import { fetchEdhrecCommander } from "../services/edhrec.js";
+import { fetchEdhrecCommanderResult } from "../services/edhrec.js";
 import { preferredPriceKind } from "../lib/pricing.js";
 import { detectUrlType, fetchDeckFromUrl } from "../services/urlImport.js";
+import { parseDecklistText } from "../lib/decklistText.js";
+import { variantsByName } from "../services/collectionImport.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -327,25 +329,26 @@ export function registerDeckRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "No cards parsed from decklist text" });
     }
 
-    // Try to resolve card names to variantIds
-    const names = [...new Set(parsed.map((c) => c.cardName))];
-    const variants = await prisma.cardVariant.findMany({
-      where: { name: { in: names }, game: existing.game },
-      select: { variantId: true, name: true },
-    });
-    // Pick first non-foil variant for each name
-    const nameToVariantId = new Map<string, string>();
-    for (const v of variants) {
-      if (!nameToVariantId.has(v.name) && !v.variantId.endsWith("-foil")) {
-        nameToVariantId.set(v.name, v.variantId);
+    // Match names to cards ignoring case, and merge repeats ("4 Bolt" + "2 bolt").
+    // A line with no count that matches nothing is probably a note, so it's skipped;
+    // a counted one stays, as a card our catalog may not have yet.
+    const known = await variantsByName(parsed.map((c) => c.cardName), existing.game);
+    const merged = new Map<string, { cardName: string; quantity: number; section: string; deckId: string; variantId?: string }>();
+    let skipped = 0;
+    for (const c of parsed) {
+      const v = known.get(c.cardName.trim().toLowerCase());
+      if (!v && !c.counted) {
+        skipped++;
+        continue;
       }
+      const cardName = v?.name ?? c.cardName;
+      const key = `${cardName.toLowerCase()}|${c.section}`;
+      const prev = merged.get(key);
+      if (prev) prev.quantity = Math.min(99, prev.quantity + c.quantity);
+      else merged.set(key, { cardName, quantity: c.quantity, section: c.section, deckId: id, variantId: v?.variantId });
     }
-
-    const cards = parsed.map((c) => ({
-      ...c,
-      deckId: id,
-      variantId: nameToVariantId.get(c.cardName) ?? undefined,
-    }));
+    const cards = [...merged.values()];
+    if (cards.length === 0) return reply.code(400).send({ error: "We couldn't find any cards in that list" });
 
     const ops = [];
     if (body.replace) ops.push(prisma.deckCard.deleteMany({ where: { deckId: id } }));
@@ -354,7 +357,7 @@ export function registerDeckRoutes(app: FastifyInstance) {
     await prisma.$transaction(ops);
 
     const legality = checkLegality(cards, existing.format);
-    return { ok: true, imported: cards.length, resolved: nameToVariantId.size, legality };
+    return { ok: true, imported: cards.length, resolved: cards.filter((c) => c.variantId).length, skipped, legality };
   });
 
   // Import a deck from Moxfield, Archidekt or MTGGoldfish: creates a new deck,
@@ -576,7 +579,11 @@ export function registerDeckRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "No commander set on this deck" });
     }
 
-    const data = await fetchEdhrecCommander(commanderName);
+    const result = await fetchEdhrecCommanderResult(commanderName);
+    if ("error" in result && result.error === "unavailable") {
+      return reply.code(503).send({ error: "EDHREC isn't reachable right now. Try again in a bit." });
+    }
+    const data = "page" in result ? result.page : null;
     if (!data) {
       return reply.code(404).send({ error: "Commander not found on EDHREC" });
     }
@@ -607,35 +614,4 @@ export function registerDeckRoutes(app: FastifyInstance) {
       recommendations,
     };
   });
-}
-
-// ── Decklist text parser ──────────────────────────────────────────────────────
-
-function parseDecklistText(
-  text: string
-): Array<{ cardName: string; quantity: number; section: string }> {
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  const cards: Array<{ cardName: string; quantity: number; section: string }> = [];
-  let currentSection = "mainboard";
-
-  for (const line of lines) {
-    // Section headers
-    const lower = line.toLowerCase();
-    if (lower.startsWith("sideboard") || lower === "sb:") { currentSection = "sideboard"; continue; }
-    if (lower.startsWith("commander")) { currentSection = "commander"; continue; }
-    if (lower.startsWith("companion")) { currentSection = "companion"; continue; }
-    if (lower.startsWith("main") || lower.startsWith("deck")) { currentSection = "mainboard"; continue; }
-    if (line.startsWith("//") || line.startsWith("#")) continue; // comments
-
-    // "4 Lightning Bolt" or "4x Lightning Bolt" or "Lightning Bolt"
-    const match = line.match(/^(?:(\d+)[xX]?\s+)?(.+?)(?:\s+\([\w\d]+\)(?:\s+\d+)?)?$/);
-    if (!match) continue;
-    const qty = match[1] ? parseInt(match[1], 10) : 1;
-    const name = match[2]?.trim();
-    if (!name || name.length < 2) continue;
-
-    cards.push({ cardName: name, quantity: qty, section: currentSection });
-  }
-
-  return cards;
 }

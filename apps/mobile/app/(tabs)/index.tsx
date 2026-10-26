@@ -6,7 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { bubble, color, elevation, hairline, space, TAB_BAR_CLEARANCE } from "@/design/tokens";
 import { font } from "@/design/fonts";
-import { getCollectionCards, getCollectionValue, getMarketHome, type MarketCard, type OwnedCard } from "@/lib/api";
+import { Image } from "expo-image";
+import { getCollectionCards, getCollectionValue, getMarketHome, getProfile, type MarketCard, type OwnedCard } from "@/lib/api";
+import { friendlyName } from "@/lib/names";
 import { useAuthStore } from "@/store/authStore";
 import { GREETING_NAMES, greeting, pick } from "@/lib/flavor";
 import { BinderCover, FoilTabs, HoloRing, RankRow, Screen, SkeletonBlock, Spotlight, Text, Ticker, Touchable, tap } from "@/ui";
@@ -28,19 +30,25 @@ export default function HomeScreen() {
   const { session, user } = useAuthStore();
   const [market, setMarket] = useState<Record<MarketTab, MarketCard[]> | null>(null);
   const [value, setValue] = useState<{ total: number; count: number } | null>(null);
+  const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
+  const [offline, setOffline] = useState(false);
   const [topCards, setTopCards] = useState<OwnedCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<MarketTab>("popular");
 
   const load = useCallback(async () => {
-    const [m, v, top] = await Promise.allSettled([
+    const [m, v, top, p] = await Promise.allSettled([
       getMarketHome(),
       session ? getCollectionValue() : Promise.reject(),
       session ? getCollectionCards({ sort: "value", limit: 24 }) : Promise.reject(),
+      session ? getProfile() : Promise.reject(),
     ]);
+    if (p.status === "fulfilled") setProfile(p.value);
+    // Nothing came back: say so rather than showing an empty collection.
+    setOffline(m.status === "rejected" && (!session || v.status === "rejected"));
     if (m.status === "fulfilled") setMarket(m.value);
-    if (v.status === "fulfilled") setValue({ total: v.value.totalValue, count: v.value.cardCount });
+    if (v.status === "fulfilled") setValue({ total: v.value.totalValue, count: v.value.copies ?? v.value.cardCount });
     if (top.status === "fulfilled") setTopCards(top.value.cards);
     setLoading(false);
     setRefreshing(false);
@@ -53,7 +61,7 @@ export default function HomeScreen() {
   );
 
   const openCard = (variantId: string) => router.push({ pathname: "/card/[id]", params: { id: variantId } });
-  const name = user?.email?.split("@")[0];
+  const name = session ? friendlyName(profile?.displayName, user?.email) : null;
   const ranked = (market?.[tab] ?? []).slice(0, 8);
 
   // The biggest movers, either way, get the spotlight.
@@ -99,7 +107,9 @@ export default function HomeScreen() {
           <Touchable onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="Profile" pressedScale={0.92}>
             <HoloRing radius={22} thickness={2.5}>
               <View style={styles.avatar}>
-                {session ? (
+                {session && profile?.avatarUrl ? (
+                  <Image source={{ uri: profile.avatarUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                ) : session ? (
                   <Text style={styles.avatarText}>{(name ?? "?").slice(0, 1).toUpperCase()}</Text>
                 ) : (
                   <Ionicons name="person" size={17} color="#FFFFFF" />
@@ -109,6 +119,15 @@ export default function HomeScreen() {
           </Touchable>
         </View>
 
+        {offline && (
+          <View style={styles.offline}>
+            <Ionicons name="cloud-offline-outline" size={18} color={color.textSecondary} />
+            <Text variant="callout" color={color.textSecondary} style={{ flex: 1 }}>
+              Can't reach CardEngine right now. Pull down to try again.
+            </Text>
+          </View>
+        )}
+
         <Animated.View entering={FadeInDown.duration(400)} style={styles.section}>
           {loading ? (
             <SkeletonBlock height={330} style={{ borderRadius: 28 }} />
@@ -116,7 +135,7 @@ export default function HomeScreen() {
             <BinderCover
               cards={binderCards}
               value={value?.total ?? null}
-              count={value?.count ?? 0}
+              count={value?.count ?? null}
               signedIn={!!session}
               onOpen={() => (session ? router.navigate("/(tabs)/collection") : router.push("/(auth)/sign-in"))}
               onCard={openCard}
@@ -267,7 +286,17 @@ function Action({
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm },
   name: { fontFamily: font.heavy, fontSize: 26, lineHeight: 32, letterSpacing: -0.8, color: color.ink },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: color.ink, alignItems: "center", justifyContent: "center" },
+  offline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    marginHorizontal: space.lg,
+    marginBottom: space.md,
+    padding: space.md,
+    borderRadius: 14,
+    backgroundColor: color.surface2,
+  },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: color.ink, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarText: { fontFamily: font.heavy, fontSize: 16, color: "#FFFFFF" },
   headerButton: {
     width: 44,

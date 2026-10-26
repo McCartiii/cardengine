@@ -47,7 +47,7 @@ await app.register(rateLimit, {
 // ── Global error handler ──
 // Intercepts ZodError thrown from .parse() in route handlers and returns a
 // clean 400 rather than leaking raw Zod internals as a 500.
-app.setErrorHandler((err: FastifyError | ZodError, _req, reply) => {
+app.setErrorHandler((err: FastifyError | ZodError, req, reply) => {
   if (err instanceof ZodError) {
     reply.code(400).send({
       error: "Validation error",
@@ -56,7 +56,14 @@ app.setErrorHandler((err: FastifyError | ZodError, _req, reply) => {
     return;
   }
   const e = err as FastifyError;
-  reply.code(e.statusCode ?? 500).send({ error: e.message });
+  const status = e.statusCode ?? 500;
+  if (status >= 500) {
+    // Internals (database messages, stack details) stay in the log, not on the user's screen.
+    req.log.error({ err }, "request failed");
+    reply.code(status).send({ error: "Something went wrong on our side. Please try again." });
+    return;
+  }
+  reply.code(status).send({ error: e.message });
 });
 
 // ── Health ──

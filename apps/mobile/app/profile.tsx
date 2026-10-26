@@ -6,6 +6,7 @@ import { color, elevation, radius, space } from "@/design/tokens";
 import { formatUsd } from "@/design/format";
 import { getCollectionValue, getProfile, updateProfile } from "@/lib/api";
 import { pickProfilePhoto } from "@/lib/pictures";
+import { friendlyName } from "@/lib/names";
 import { PicturePicker } from "@/components/PicturePicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
@@ -45,7 +46,7 @@ export default function ProfileScreen() {
       Promise.allSettled([getProfile(), getCollectionValue()]).then(([p, v]) => {
         if (cancelled) return;
         if (p.status === "fulfilled") setProfile(p.value);
-        if (v.status === "fulfilled") setStats({ value: v.value.totalValue, cards: v.value.cardCount });
+        if (v.status === "fulfilled") setStats({ value: v.value.totalValue, cards: v.value.copies ?? v.value.cardCount });
         setLoading(false);
       });
       return () => {
@@ -54,7 +55,7 @@ export default function ProfileScreen() {
     }, [session])
   );
 
-  const displayName = profile?.displayName ?? user?.email?.split("@")[0] ?? "Guest";
+  const displayName = friendlyName(profile?.displayName, user?.email) ?? "Guest";
   const memberSince = profile
     ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : null;
@@ -117,8 +118,8 @@ export default function ProfileScreen() {
               </>
             ) : (
               <>
-                <Stat label="Collection value" value={formatUsd(stats?.value ?? 0)} onPress={() => router.navigate("/(tabs)/collection")} />
-                <Stat label="Cards" value={String(stats?.cards ?? 0)} onPress={() => router.navigate("/(tabs)/collection")} />
+                <Stat label="Collection value" value={stats ? formatUsd(stats.value) : "—"} onPress={() => router.navigate("/(tabs)/collection")} />
+                <Stat label="Cards" value={stats ? String(stats.cards) : "—"} onPress={() => router.navigate("/(tabs)/collection")} />
               </>
             )}
           </View>

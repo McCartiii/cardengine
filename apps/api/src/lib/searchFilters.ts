@@ -31,12 +31,23 @@ export const hasPriceBounds = (f: SearchFilters) => f.minPrice != null || f.maxP
 
 /** True when there's something to search for. */
 export const hasCriteria = (f: SearchFilters) =>
-  f.q.length > 0 || !!f.colors || !!f.type || !!f.rarity?.length || !!f.set || hasPriceBounds(f);
+  queryWords(f.q).length > 0 || !!f.colors || !!f.type || !!f.rarity?.length || !!f.set || hasPriceBounds(f);
+
+/** The words of a search, without punctuation. */
+export function queryWords(q: string): string[] {
+  return q
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .slice(0, 8);
+}
 
 /** The Prisma `where` for a cardVariant search. */
 export function searchWhere(f: SearchFilters, game: string) {
   const and: Record<string, unknown>[] = [];
-  if (f.q) and.push({ name: { contains: f.q, mode: "insensitive" } });
+  // Each word on its own, ignoring punctuation: "atraxa praetors voice" finds
+  // "Atraxa, Praetors' Voice" and "fire//ice" finds "Fire // Ice".
+  for (const w of queryWords(f.q)) and.push({ name: { contains: w, mode: "insensitive" } });
   if (f.type) and.push({ typeLine: { contains: f.type, mode: "insensitive" } });
   if (f.rarity?.length) and.push({ rarity: { in: f.rarity } });
   if (f.set) and.push({ setId: { equals: f.set, mode: "insensitive" } });

@@ -52,8 +52,9 @@ export interface BinderCard {
 
 interface BinderCoverProps {
   cards: BinderCard[];
+  /** Null while loading or when it couldn't load: shown as a dash, never as $0. */
   value: number | null;
-  count: number;
+  count: number | null;
   signedIn: boolean;
   onOpen: () => void;
   onCard: (id: string) => void;
@@ -99,9 +100,11 @@ export function BinderCover({ cards, value, count, signedIn, onOpen, onCard, onE
       <View style={styles.coverHead}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text variant="callout" color={color.textSecondary}>
-            {signedIn ? `My binder · ${count} cards` : "Your binder"}
+            {signedIn ? (count != null ? `My collection · ${count} ${count === 1 ? "card" : "cards"}` : "My collection") : "Your binder"}
           </Text>
-          {signedIn ? (
+          {signedIn && value == null ? (
+            <Text style={styles.coverValue}>—</Text>
+          ) : signedIn ? (
             <CountUp value={value ?? 0} format={(n) => formatUsd(n)} style={styles.coverValue} numberOfLines={1} adjustsFontSizeToFit />
           ) : (
             <Text style={styles.coverValue}>Start collecting</Text>

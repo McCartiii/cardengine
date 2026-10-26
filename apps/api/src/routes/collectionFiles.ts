@@ -9,6 +9,14 @@ import { matchImport } from "../services/collectionImport.js";
 import { MAIN_BINDER, loadCollectionHoldings } from "../services/collectionHoldings.js";
 
 const MAX_ROWS = 20_000;
+
+/** Text files don't contain NUL bytes or many unreadable characters. */
+function looksBinary(text: string): boolean {
+  if (text.includes("\u0000")) return true;
+  const sample = text.slice(0, 4000);
+  const odd = sample.match(/[\uFFFD\u0001-\u0008\u000E-\u001F]/g)?.length ?? 0;
+  return odd > sample.length * 0.02;
+}
 const userOf = (req: FastifyRequest) => (req as FastifyRequest & { user: AuthUser }).user;
 
 export function registerCollectionFileRoutes(app: FastifyInstance) {
@@ -31,6 +39,8 @@ export function registerCollectionFileRoutes(app: FastifyInstance) {
       const binders = await listBinders(user.sub);
       if (!binders.some((b) => b.id === body.binderId)) return reply.code(404).send({ error: "Binder not found" });
 
+      // A spreadsheet saved as .xlsx, a photo… anything that isn't text.
+      if (looksBinary(body.text)) return reply.code(400).send({ error: "That file isn't a CSV or text list. Export it from the other app as CSV and try again." });
       const parsed = parseCollectionFile(body.text);
       if (!parsed.entries.length) return reply.code(400).send({ error: "We couldn't find any cards in that file" });
       if (parsed.entries.length > MAX_ROWS) return reply.code(400).send({ error: `That's more than ${MAX_ROWS.toLocaleString()} rows; split the file and import it in parts` });

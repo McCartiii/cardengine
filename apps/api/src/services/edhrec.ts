@@ -80,9 +80,16 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 /**
  * Fetch EDHREC commander page data, with Postgres caching (24h TTL).
  */
-export async function fetchEdhrecCommander(
+export async function fetchEdhrecCommander(commanderName: string): Promise<EdhrecCommanderPage | null> {
+  const r = await fetchEdhrecCommanderResult(commanderName);
+  return "page" in r ? r.page : null;
+}
+
+/** Like fetchEdhrecCommander, but says whether EDHREC lacks the commander or couldn't be reached. */
+export async function fetchEdhrecCommanderResult(
   commanderName: string
-): Promise<EdhrecCommanderPage | null> {
+): Promise<{ page: EdhrecCommanderPage } | { error: "not_found" | "unavailable" }> {
+  const found = (page: EdhrecCommanderPage | null) => (page ? { page } : { error: "not_found" as const });
   const sanitized = sanitizeCommanderName(commanderName);
   const cacheKey = `commander:${sanitized}`;
 
@@ -94,7 +101,7 @@ export async function fetchEdhrecCommander(
   if (cached) {
     const age = Date.now() - cached.fetchedAt.getTime();
     if (age < CACHE_TTL_MS) {
-      return parseEdhrecResponse(cached.data);
+      return found(parseEdhrecResponse(cached.data));
     }
   }
 
@@ -105,14 +112,14 @@ export async function fetchEdhrecCommander(
     res = await rateLimitedFetch(url);
   } catch {
     // Network error — return cached data if available
-    if (cached) return parseEdhrecResponse(cached.data);
-    return null;
+    if (cached) return found(parseEdhrecResponse(cached.data));
+    return { error: "unavailable" };
   }
 
   if (!res.ok) {
     // 404 or other error — return cached data if available
-    if (cached) return parseEdhrecResponse(cached.data);
-    return null;
+    if (cached) return found(parseEdhrecResponse(cached.data));
+    return { error: res.status === 404 || res.status === 403 ? "not_found" : "unavailable" };
   }
 
   const data: unknown = await res.json();
@@ -124,7 +131,7 @@ export async function fetchEdhrecCommander(
     update: { data: data as Parameters<typeof prisma.edhrecCache.update>[0]["data"]["data"], fetchedAt: new Date() },
   });
 
-  return parseEdhrecResponse(data);
+  return found(parseEdhrecResponse(data));
 }
 
 // ── Response parsing ───────────────────────────────────────────────────────────

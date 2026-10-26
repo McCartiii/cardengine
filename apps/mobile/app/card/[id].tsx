@@ -54,6 +54,13 @@ const FINISH_PRICE_LABEL: Record<Finish, string> = { nonfoil: "Normal", foil: "F
 const FINISH_NAME: Record<Finish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
 const KIND_TO_FINISH: Record<AlertKind, Finish> = { market: "nonfoil", foil: "foil", etched: "etched" };
 
+/** A typed price, kept to digits and one decimal point. A comma counts as the
+ * point: on European iPhones the decimal keypad only has a comma. */
+function cleanAmount(t: string): string {
+  const [whole, ...rest] = t.replace(/,/g, ".").replace(/[^0-9.]/g, "").split(".");
+  return rest.length ? `${whole}.${rest.join("").slice(0, 2)}` : whole;
+}
+
 function lowestUsd(card: CardDetail, finish: Finish) {
   let best: { amount: number; store: string } | null = null;
   for (const store of card.storePricing) {
@@ -563,7 +570,7 @@ function PriceAlertSheet({
           <TextInput
             value={threshold}
             onChangeText={(t) => {
-              setThreshold(t.replace(/[^0-9.]/g, ""));
+              setThreshold(cleanAmount(t));
               setError(null);
             }}
             keyboardType="decimal-pad"

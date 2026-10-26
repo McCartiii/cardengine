@@ -2,8 +2,19 @@ import { API_BASE_URL } from "./constants";
 
 let authToken: string | null = null;
 
+// Calls wait until the saved sign-in has loaded, so a screen opened straight
+// from a link or a notification doesn't ask for the user's data as a guest.
+let markReady: () => void = () => {};
+const ready = new Promise<void>((resolve) => (markReady = resolve));
+
+/** Resolves once sign-in has loaded (or after a few seconds, whatever happens). */
+export function authReady(): Promise<void> {
+  return Promise.race([ready, new Promise<void>((resolve) => setTimeout(resolve, 4000))]);
+}
+
 export function setAuthToken(token: string | null) {
   authToken = token;
+  markReady();
 }
 
 export function getAuthToken(): string | null {
@@ -15,6 +26,7 @@ async function request<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
+  await authReady();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -170,6 +182,8 @@ export async function getCollectionCards(params?: {
 }): Promise<{
   cards: OwnedCard[];
   totalCards: number;
+  /** Every copy counted (four Islands are four cards). */
+  totalCopies?: number;
   totalValue: number;
   page: number;
   hasMore: boolean;
@@ -312,6 +326,7 @@ export async function importCollection(p: { text: string; binderId: string; mode
 
 /** The collection (or one binder) as CSV text. */
 export async function exportCollectionCsv(binder: string): Promise<string> {
+  await authReady();
   const res = await fetch(`${API_BASE_URL}/v1/collection/export?binder=${encodeURIComponent(binder)}`, {
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
   });
@@ -396,7 +411,7 @@ export async function importDeckText(
   id: string,
   text: string,
   replace = true
-): Promise<{ ok: boolean; imported: number; resolved: number; legality: { valid: boolean; issues: string[] } }> {
+): Promise<{ ok: boolean; imported: number; resolved: number; skipped?: number; legality: { valid: boolean; issues: string[] } }> {
   return request("POST", `/v1/decks/${id}/import`, { text, replace });
 }
 
@@ -455,6 +470,8 @@ export async function getCollectionValue(): Promise<{
   totalValue: number;
   currency: string;
   cardCount: number;
+  /** Every copy counted (four Islands are four cards). */
+  copies?: number;
   breakdown: Array<{ variantId: string; qty: number; price: number; lineValue: number }>;
 }> {
   return request("GET", "/v1/collection/value");

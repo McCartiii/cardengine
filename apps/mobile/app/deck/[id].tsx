@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -41,7 +41,7 @@ import { DeckAgentPanel } from "@/components/deck/DeckAgentPanel";
 import { CardEditSheet } from "@/components/deck/CardEditSheet";
 import { AddCardsSheet } from "@/components/deck/AddCardsSheet";
 import { localDeckCard, useDeckEditor } from "@/components/deck/useDeckEditor";
-import { addCard, countOf, moveCard, setCount } from "@/lib/deckEdits";
+import { addCard, countOf, hasCommandZone, moveCard, setCount } from "@/lib/deckEdits";
 import { Button, CardArt, CardTile, Chip, Segmented, Sheet, Text, Touchable, padToColumns, tap } from "@/ui";
 
 type Tab = "cards" | "analysis" | "edhrec" | "ai";
@@ -96,12 +96,14 @@ export default function DeckDetailScreen() {
 
   const [edhrec, setEdhrec] = useState<Awaited<ReturnType<typeof getDeckEdhrec>> | null>(null);
   const [edhrecState, setEdhrecState] = useState<"idle" | "loading" | "done">("idle");
+  const [edhrecDown, setEdhrecDown] = useState(false);
 
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
 
   const [editing, setEditing] = useState<{ name: string; section: string } | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [showAdd, setShowAdd] = useState(false);
   const editor = useDeckEditor(id, deck, setDeck);
   const { edit, undo, dismissUndo } = editor;
@@ -114,14 +116,16 @@ export default function DeckDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undo]);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const loadDeck = useCallback(async () => {
     try {
       setDeck(await getDeck(id));
+      setLoadError(null);
     } catch (e: unknown) {
-      Alert.alert("Couldn't open deck", (e as Error).message);
-      router.back();
+      const status = (e as { status?: number }).status;
+      setLoadError(status === 404 || status === 403 ? "This deck doesn't exist or isn't yours." : (e as Error).message || "Check your connection and try again.");
     }
-  }, [id, router]);
+  }, [id]);
 
   useEffect(() => {
     loadDeck();
@@ -139,8 +143,15 @@ export default function DeckDetailScreen() {
     if (tab !== "edhrec" || edhrecState !== "idle") return;
     setEdhrecState("loading");
     getDeckEdhrec(id)
-      .then(setEdhrec)
-      .catch(() => setEdhrec(null))
+      .then((r) => {
+        setEdhrec(r);
+        setEdhrecDown(false);
+      })
+      .catch((e: { status?: number }) => {
+        setEdhrec(null);
+        // 503: EDHREC itself is down or unreachable, which isn't "no data".
+        setEdhrecDown(e?.status === 503 || e?.status === undefined);
+      })
       .finally(() => setEdhrecState("done"));
   }, [tab, edhrecState, id]);
 
@@ -179,7 +190,11 @@ export default function DeckDetailScreen() {
         issues = r.legality.issues;
       } else {
         const r = await importDeckText(id, text);
-        message = `${r.imported} cards imported (${r.resolved} matched).`;
+        const unknown = r.imported - r.resolved;
+        message =
+          `${r.imported} cards imported.` +
+          (unknown ? `\n${unknown} aren't in our catalog yet; they're kept by name.` : "") +
+          (r.skipped ? `\n${r.skipped} ${r.skipped === 1 ? "line" : "lines"} without a count didn't match a card and were skipped.` : "");
         issues = r.legality.issues;
       }
       setShowImport(false);
@@ -255,9 +270,31 @@ export default function DeckDetailScreen() {
 
   if (!deck) {
     return (
-      <View style={[styles.root, styles.center]}>
+      <View style={[styles.root, styles.center, { gap: space.md, padding: space.xxl }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator color={color.textSecondary} />
+        {loadError ? (
+          <>
+            <Ionicons name="alert-circle-outline" size={40} color={color.textTertiary} />
+            <Text variant="headline" align="center">
+              Couldn't open this deck
+            </Text>
+            <Text variant="body" color={color.textSecondary} align="center">
+              {loadError}
+            </Text>
+            <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
+              <Button label="Back" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/decks"))} />
+              <Button
+                label="Retry"
+                onPress={() => {
+                  setLoadError(null);
+                  loadDeck();
+                }}
+              />
+            </View>
+          </>
+        ) : (
+          <ActivityIndicator color={color.textSecondary} />
+        )}
       </View>
     );
   }
@@ -276,14 +313,14 @@ export default function DeckDetailScreen() {
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           {/* Hero: the commander's art behind the deck's name and numbers. */}
           <View style={[styles.hero, { paddingTop: insets.top + space.sm }]}>
             {heroArt && <Image source={{ uri: heroArt }} blurRadius={30} contentFit="cover" style={styles.heroBlur} />}
             <LinearGradient colors={["rgba(10,11,18,0.55)", "rgba(10,11,18,0.82)", "#0E0F13"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
 
             <View style={styles.heroBar}>
-              <HeroButton icon="chevron-back" label="Back" onPress={() => router.back()} />
+              <HeroButton icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/decks"))} />
               <View style={{ flexDirection: "row", gap: space.sm }}>
                 <HeroButton icon="share-outline" label="Share" onPress={share} />
                 <HeroButton icon="ellipsis-horizontal" label="More" onPress={more} />
@@ -352,7 +389,8 @@ export default function DeckDetailScreen() {
           </View>
 
           <View style={styles.tabs}>
-            <Segmented options={TABS} value={tab} onChange={setTab} />
+            {/* EDHREC only covers Commander. */}
+            <Segmented options={hasCommandZone(d.format) ? TABS : TABS.filter((t) => t.value !== "edhrec")} value={tab} onChange={setTab} />
           </View>
 
           {legality.issues.length > 0 && tab === "cards" && (
@@ -370,6 +408,7 @@ export default function DeckDetailScreen() {
                 icon="albums-outline"
                 text="No cards yet. Search for cards to add, or import a Moxfield or Archidekt link or a pasted list."
                 action="Add cards"
+                actionIcon="add"
                 onAction={() => setShowAdd(true)}
                 secondary="Import a list"
                 onSecondary={() => setShowImport(true)}
@@ -467,6 +506,8 @@ export default function DeckDetailScreen() {
           {tab === "edhrec" &&
             (edhrecState !== "done" ? (
               <ActivityIndicator color={color.textSecondary} style={{ marginTop: 48 }} />
+            ) : !edhrec && edhrecDown ? (
+              <Empty icon="cloud-offline-outline" text="EDHREC isn't reachable right now." action="Try again" onAction={() => setEdhrecState("idle")} />
             ) : !edhrec ? (
               <Empty icon="people-outline" text={d.commander ? `EDHREC doesn't have data for ${d.commander} yet.` : "Set a commander to see what other players run with it."} />
             ) : (
@@ -547,6 +588,8 @@ export default function DeckDetailScreen() {
                 deck={d}
                 onApplied={loadDeck}
                 onAsk={() => router.push({ pathname: "/assistant", params: { deckId: id, deckName: d.name } })}
+                // The AI's progress and answer appear below the buttons; follow them.
+                onStart={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 350)}
               />
             </View>
           )}
@@ -671,6 +714,7 @@ function Empty({
   onAction,
   secondary,
   onSecondary,
+  actionIcon,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   text: string;
@@ -678,6 +722,7 @@ function Empty({
   onAction?: () => void;
   secondary?: string;
   onSecondary?: () => void;
+  actionIcon?: React.ComponentProps<typeof Ionicons>["name"];
 }) {
   return (
     <View style={styles.empty}>
@@ -687,7 +732,7 @@ function Empty({
       </Text>
       {(action || secondary) && (
         <View style={{ flexDirection: "row", gap: space.sm }}>
-          {action && <Button label={action} icon="add" onPress={onAction} />}
+          {action && <Button label={action} icon={actionIcon} onPress={onAction} />}
           {secondary && <Button label={secondary} variant="secondary" onPress={onSecondary} />}
         </View>
       )}

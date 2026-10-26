@@ -35,6 +35,16 @@ describe("search filters", () => {
     expect(searchWhere(parse({ colors: "CU" }), "mtg").AND).toEqual([{ colors: { array_contains: ["U"] } }]);
   });
 
+  it("matches each word, ignoring punctuation", () => {
+    const words = (q: string) => searchWhere(parse({ q }), "mtg").AND.map((c) => (c as { name: { contains: string } }).name.contains);
+    expect(words("atraxa praetors voice")).toEqual(["atraxa", "praetors", "voice"]);
+    expect(words("Atraxa, Praetors' Voice")).toEqual(["atraxa", "praetors", "voice"]);
+    expect(words("fire//ice")).toEqual(["fire", "ice"]);
+    expect(words("Lim-Dûl's Vault")).toEqual(["lim", "dûl", "s", "vault"]);
+    expect(hasCriteria(parse({ q: "'; --" }))).toBe(false);
+    expect(searchWhere(parse({ q: "'; --" }), "mtg").AND).toEqual([]);
+  });
+
   it("applies price bounds", () => {
     const f = parse({ minPrice: "1", maxPrice: "10" });
     expect(inPriceRange(5, f)).toBe(true);

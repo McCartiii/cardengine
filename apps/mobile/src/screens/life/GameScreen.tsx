@@ -34,7 +34,10 @@ export function GameScreen() {
   const [roll, setRoll] = useState<ToolRoll | null>(null);
   const [highlight, setHighlight] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
-  const [skipFirst, setSkipFirst] = useState(false);
+  // Don't ask who goes first again for a game that's already under way (e.g. reopened).
+  const [skipFirst, setSkipFirst] = useState(() =>
+    game.players.some((p) => p.life !== game.startingLife || p.poison > 0 || Object.values(p.cmd).some((n) => n > 0))
+  );
   const [showWinner, setShowWinner] = useState(false);
 
   const running = game.runningSince != null;

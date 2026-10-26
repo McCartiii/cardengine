@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { setAuthToken } from "../lib/api";
@@ -31,6 +32,8 @@ interface AuthState {
   continueAsGuest: () => void;
 }
 
+const GUEST_KEY = "cardengine-guest";
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
@@ -41,11 +44,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize() {
     // Restore existing session from AsyncStorage
-    supabase.auth.getSession().then(({ data }) => {
-      const sess = data?.session ?? null;
-      set({ session: sess, user: sess?.user ?? null, loading: false, initialized: true });
-      setAuthToken(sess?.access_token ?? null);
-    });
+    // A guest stays a guest across launches instead of meeting sign-in every time.
+    Promise.all([supabase.auth.getSession(), AsyncStorage.getItem(GUEST_KEY).catch(() => null)])
+      .then(([{ data }, guest]) => {
+        const sess = data?.session ?? null;
+        set({ session: sess, user: sess?.user ?? null, loading: false, initialized: true, guest: !sess && guest === "1" });
+        setAuthToken(sess?.access_token ?? null);
+      })
+      .catch(() => {
+        set({ loading: false, initialized: true });
+        setAuthToken(null);
+      });
 
     // Listen for future changes (token refresh, sign-out, etc.)
     const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => {
@@ -74,6 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) throw error;
     const sess = data.session;
     set({ session: sess, user: sess?.user ?? null, pendingEmail: null, guest: false });
+    AsyncStorage.removeItem(GUEST_KEY).catch(() => {});
     setAuthToken(sess?.access_token ?? null);
   },
 
@@ -82,10 +92,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await forgetPushToken();
     await supabase.auth.signOut();
     set({ session: null, user: null, guest: false });
+    AsyncStorage.removeItem(GUEST_KEY).catch(() => {});
     setAuthToken(null);
   },
 
   continueAsGuest() {
     set({ guest: true });
+    AsyncStorage.setItem(GUEST_KEY, "1").catch(() => {});
   },
 }));
