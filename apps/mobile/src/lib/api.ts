@@ -188,6 +188,10 @@ export async function getProfile(): Promise<{
   return request("GET", "/v1/profile");
 }
 
+export async function updateProfile(data: { displayName?: string | null; avatarUrl?: string | null }): Promise<{ avatarUrl: string | null; displayName: string | null }> {
+  return request("PUT", "/v1/profile", data);
+}
+
 export async function searchCards(q: string, limit = 30): Promise<{
   cards: Array<{
     variantId: string;

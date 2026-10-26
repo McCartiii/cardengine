@@ -4,7 +4,10 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { color, elevation, radius, space } from "@/design/tokens";
 import { formatUsd } from "@/design/format";
-import { getCollectionValue, getProfile } from "@/lib/api";
+import { getCollectionValue, getProfile, updateProfile } from "@/lib/api";
+import { pickProfilePhoto } from "@/lib/pictures";
+import { PicturePicker } from "@/components/PicturePicker";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
 import { ListGroup, ListRow, PageHeader, Screen, SkeletonBlock, Text, Touchable } from "@/ui";
 
@@ -21,6 +24,19 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<{ value: number; cards: number } | null>(null);
   const [loading, setLoading] = useState(!!session);
+  const [picking, setPicking] = useState(false);
+
+  const saveAvatar = async (avatarUrl: string | null) => {
+    const prev = profile?.avatarUrl ?? null;
+    setProfile((p) => (p ? { ...p, avatarUrl } : p));
+    setPicking(false);
+    try {
+      await updateProfile({ avatarUrl });
+    } catch (e) {
+      setProfile((p) => (p ? { ...p, avatarUrl: prev } : p));
+      Alert.alert("Couldn't save your picture", (e as Error).message);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -55,15 +71,28 @@ export default function ProfileScreen() {
         <PageHeader title="Profile" back />
 
         <View style={styles.identity}>
-          {profile?.avatarUrl ? (
-            <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text variant="headline" color={color.onAccent}>
-                {displayName.slice(0, 1).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Touchable
+            onPress={() => session && setPicking(true)}
+            disabled={!session}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile picture"
+            pressedScale={0.94}
+          >
+            {profile?.avatarUrl ? (
+              <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text variant="headline" color={color.onAccent}>
+                  {displayName.slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            {session && (
+              <View style={styles.avatarEdit}>
+                <Ionicons name="camera" size={12} color="#FFFFFF" />
+              </View>
+            )}
+          </Touchable>
           <View style={{ flex: 1 }}>
             <Text variant="headline" numberOfLines={1}>
               {displayName}
@@ -119,6 +148,25 @@ export default function ProfileScreen() {
           </ListGroup>
         </View>
       </ScrollView>
+      <PicturePicker
+        visible={picking}
+        title="Profile picture"
+        current={profile?.avatarUrl}
+        options={[
+          {
+            key: "photo",
+            label: "Choose a photo",
+            icon: "image",
+            onPress: async () => {
+              const dataUrl = await pickProfilePhoto();
+              if (dataUrl) await saveAvatar(dataUrl);
+            },
+          },
+          ...(profile?.avatarUrl ? [{ key: "remove", label: "Remove picture", icon: "trash" as const, destructive: true, onPress: () => saveAvatar(null) }] : []),
+        ]}
+        onPickCard={(art) => saveAvatar(art)}
+        onClose={() => setPicking(false)}
+      />
     </Screen>
   );
 }
@@ -141,6 +189,19 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: space.lg },
   identity: { flexDirection: "row", alignItems: "center", gap: space.lg, paddingHorizontal: space.lg, marginTop: space.sm },
   avatar: { width: 64, height: 64, borderRadius: 32 },
+  avatarEdit: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: color.ink,
+    borderWidth: 2,
+    borderColor: color.bg,
+  },
   avatarFallback: { backgroundColor: color.accent, alignItems: "center", justifyContent: "center" },
   stats: { flexDirection: "row", gap: space.md, paddingHorizontal: space.lg, marginTop: space.xxl },
   stat: { flex: 1, padding: space.lg, borderRadius: radius.lg, backgroundColor: color.surface, ...elevation.card },

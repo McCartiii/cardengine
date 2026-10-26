@@ -1,6 +1,10 @@
 // Setting up a game: how many players and where they sit, names and colors,
 // starting life and an optional turn clock.
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { Image } from "expo-image";
+import { getProfile } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { PlayerPicturePicker } from "@/components/life/PlayerPicture";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,8 +21,19 @@ export function SetupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setup = useLifeStore((s) => s.setup);
-  const { setStartingLife, setClock, setPlayerCount, renamePlayer, cycleColor, start } = useLifeStore.getState();
+  const { setStartingLife, setClock, setPlayerCount, renamePlayer, cycleColor, setPlayerArt, start } = useLifeStore.getState();
   const count = setup.players.length;
+  const [picking, setPicking] = useState<number | null>(null);
+
+  // Offer the signed-in player's profile picture as a shortcut.
+  const signedIn = useAuthStore((s) => !!s.session);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    getProfile()
+      .then((p) => setProfilePicture(p.avatarUrl))
+      .catch(() => {});
+  }, [signedIn]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -72,12 +87,27 @@ export function SetupScreen() {
                       maxLength={16}
                       returnKeyType="done"
                     />
-                    <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.25)" />
+                    <Pressable
+                      onPress={() => {
+                        feel.tick();
+                        setPicking(i);
+                      }}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${p.name}'s picture`}
+                      style={({ pressed }) => [styles.pictureBtn, pressed && { opacity: 0.7 }]}
+                    >
+                      {p.art ? (
+                        <Image source={{ uri: p.art.uri }} style={styles.pictureThumb} contentFit="cover" />
+                      ) : (
+                        <Ionicons name="image" size={18} color="rgba(255,255,255,0.55)" />
+                      )}
+                    </Pressable>
                   </Animated.View>
                 );
               })}
             </Animated.View>
-            <Text style={styles.hint}>Tap a color to change it. Turn order goes clockwise from player 1.</Text>
+            <Text style={styles.hint}>Tap a color to change it, or the picture button to add a photo or any card's art. Turn order goes clockwise from player 1.</Text>
           </Section>
 
           <Section title="STARTING LIFE" delay={120}>
@@ -102,6 +132,17 @@ export function SetupScreen() {
           </Section>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {picking != null && setup.players[picking] && (
+        <PlayerPicturePicker
+          visible
+          name={setup.players[picking].name || `Player ${picking + 1}`}
+          art={setup.players[picking].art}
+          profilePicture={profilePicture}
+          onChange={(art) => setPlayerArt(picking, art)}
+          onClose={() => setPicking(null)}
+        />
+      )}
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <Pressable
@@ -147,7 +188,7 @@ function Choice({ label, sub, on, round, big, onPress }: { label: string; sub?: 
 }
 
 /** A small phone showing where each player sits. */
-function TablePreview({ players, onTapSeat }: { players: Array<{ name: string; color: number }>; onTapSeat: (i: number) => void }) {
+function TablePreview({ players, onTapSeat }: { players: Array<{ name: string; color: number; art?: { uri: string } | null }>; onTapSeat: (i: number) => void }) {
   const layout = seatLayout(players.length);
   const block = (i: number) => {
     const c = PLAYER_COLORS[players[i].color];
@@ -155,6 +196,7 @@ function TablePreview({ players, onTapSeat }: { players: Array<{ name: string; c
     return (
       <Pressable key={i} onPress={() => onTapSeat(i)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Seat ${i + 1}`}>
         <LinearGradient colors={[c.from, c.to]} style={styles.previewSeat}>
+          {players[i].art && <Image source={{ uri: players[i].art!.uri }} style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} contentFit="cover" />}
           <Text style={[styles.previewNum, { transform: [{ rotate: `${r}deg` }] }]}>{i + 1}</Text>
         </LinearGradient>
       </Pressable>
@@ -187,7 +229,9 @@ const styles = StyleSheet.create({
   preview: { width: 92, height: 160, padding: 5, gap: 4, borderRadius: 20, backgroundColor: "#1A1B22", borderWidth: 2, borderColor: "#2A2C36" },
   previewRow: { flex: 1, flexDirection: "row", gap: 4 },
   previewCol: { flex: 1, gap: 4 },
-  previewSeat: { flex: 1, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  previewSeat: { flex: 1, borderRadius: 8, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  pictureBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  pictureThumb: { width: 40, height: 40 },
   previewNum: { fontFamily: font.heavy, fontSize: 13, color: "#FFFFFF" },
   section: { gap: 12 },
   sectionTitle: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1, color: "rgba(255,255,255,0.45)" },
@@ -199,7 +243,7 @@ const styles = StyleSheet.create({
   choiceText: { fontFamily: font.heavy, fontSize: 18, color: "#FFFFFF", fontVariant: ["tabular-nums"] },
   choiceSub: { fontFamily: font.semibold, fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 1 },
   names: { gap: 8 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 12, height: 56, paddingLeft: 8, paddingRight: 16, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.06)" },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 12, height: 56, paddingLeft: 8, paddingRight: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.06)" },
   swatch: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   swatchText: { fontFamily: font.heavy, fontSize: 15, color: "#FFFFFF" },
   nameInput: { flex: 1, height: 44, fontFamily: font.bold, fontSize: 16, color: "#FFFFFF" },

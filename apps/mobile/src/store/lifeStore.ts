@@ -31,6 +31,7 @@ interface LifeState {
   setPlayerCount: (count: number) => void;
   renamePlayer: (index: number, name: string) => void;
   cycleColor: (index: number) => void;
+  setPlayerArt: (index: number, art: L.PlayerArt | null) => void;
 
   start: () => void;
   rematch: () => void;
@@ -41,6 +42,7 @@ interface LifeState {
   commanderDamage: (targetId: string, source: string, delta: number) => void;
   setPartner: (id: string, partner: boolean) => void;
   concede: (id: string, conceded: boolean) => void;
+  setArt: (id: string, art: L.PlayerArt | null) => void;
 
   startTurns: (first: number) => void;
   passTurn: () => void;
@@ -106,12 +108,15 @@ export const useLifeStore = create<LifeState>()(
             return { setup: { ...s.setup, players: s.setup.players.map((p, i) => (i === index ? { ...p, color: c } : p)) } };
           }),
 
+        setPlayerArt: (index, art) =>
+          set((s) => ({ setup: { ...s.setup, players: s.setup.players.map((p, i) => (i === index ? { ...p, art } : p)) } })),
+
         start: () => {
           const { setup } = get();
           lastEdit = null;
           set({
             game: L.newGame({
-              players: setup.players.map((p, i) => ({ name: p.name.trim() || defaultName(i), color: p.color })),
+              players: setup.players.map((p, i) => ({ name: p.name.trim() || defaultName(i), color: p.color, art: p.art ?? null })),
               startingLife: setup.startingLife,
               clockMinutes: setup.clockMinutes,
               now: Date.now(),
@@ -133,6 +138,12 @@ export const useLifeStore = create<LifeState>()(
         commanderDamage: (targetId, source, delta) => change((g) => L.adjustCommanderDamage(g, targetId, source, delta), `cmd:${targetId}:${source}`),
         setPartner: (id, partner) => change((g) => L.setPartner(g, id, partner)),
         concede: (id, conceded) => change((g) => L.setConceded(g, id, conceded)),
+        // A new picture also becomes that seat's picture for the next game.
+        setArt: (id, art) => {
+          change((g) => L.setArt(g, id, art));
+          const index = get().game?.players.findIndex((p) => p.id === id) ?? -1;
+          if (index >= 0 && index < get().setup.players.length) get().setPlayerArt(index, art);
+        },
 
         startTurns: (first) => change((g, now) => L.startTurns(g, first, now)),
         passTurn: () => change((g, now) => L.passTurn(g, now)),

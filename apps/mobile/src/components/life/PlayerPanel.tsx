@@ -22,7 +22,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { font } from "@/design/fonts";
 import { highestCommanderDamage, outReason, type LifeGame, type LifePlayer } from "@/lib/lifeGame";
-import { COUNTER_INFO, DANGER_LIFE, OUT_LABEL, PLAYER_COLORS, quipFor } from "@/lib/lifeConstants";
+import { COUNTER_INFO, DANGER_LIFE, OUT_LABEL, PLAYER_COLORS } from "@/lib/lifeConstants";
+import { FIRST_BANNERS, LOW_LIFE_LINES, TURN_BANNERS, damageCallout, healCallout, knockoutLine, pick } from "@/lib/flavor";
+import { Image } from "expo-image";
 import { useLifeStore } from "@/store/lifeStore";
 import { damageBurst, healBurst, starBurst, useEffectsLayer } from "./effects";
 import { Aurora, Halo, Sheen } from "./ambience";
@@ -125,6 +127,8 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
         ...(big ? [{ kind: "wave" as const, x: center.x, y: center.y, color: "rgba(255,60,90,0.8)", size: short * 2.3, width: 4, delay: 90 }] : []),
         { kind: "text", x: center.x + lifeSize * 0.15, y: center.y - lifeSize * 0.35, text: `${d}`, color: "#FFE1E5", size: big ? lifeSize * 0.5 : lifeSize * 0.3 },
       ]);
+      const shout = damageCallout(d);
+      if (shout) addEffects([{ kind: "text", x: center.x, y: center.y + lifeSize * 0.85, text: shout, color: "#FFFFFF", size: Math.max(16, lifeSize * 0.2) }]);
       if (big) feel.heavy();
     } else {
       numScale.value = withSequence(withTiming(big ? 1.14 : 1.07, { duration: 90 }), withSpring(1, { damping: 7, stiffness: 200 }));
@@ -134,6 +138,8 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
         { kind: "wave", x: center.x, y: center.y, color: "rgba(255,255,255,0.85)", size: short * (big ? 1.6 : 0.9), width: big ? 6 : 3 },
         { kind: "text", x: center.x + lifeSize * 0.15, y: center.y - lifeSize * 0.35, text: `+${d}`, color: "#E9FFF3", size: big ? lifeSize * 0.5 : lifeSize * 0.3 },
       ]);
+      const cheer = healCallout(d);
+      if (cheer) addEffects([{ kind: "text", x: center.x, y: center.y + lifeSize * 0.85, text: cheer, color: "#FFFFFF", size: Math.max(16, lifeSize * 0.2) }]);
       if (big) feel.medium();
     }
     setDelta((x) => x + d);
@@ -152,6 +158,10 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
   }, []);
 
   // ── Heartbeat at low life ──
+  const [lowLine, setLowLine] = useState("");
+  useEffect(() => {
+    if (danger) setLowLine(pick("low", LOW_LIFE_LINES));
+  }, [danger]);
   useEffect(() => {
     if (danger) {
       beat.value = withRepeat(
@@ -176,7 +186,7 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
   useEffect(() => {
     if (active && turnsOn) {
       const first = game.turn <= 1;
-      setBannerText(first ? "YOU GO FIRST" : "YOUR TURN");
+      setBannerText(first ? pick("first", FIRST_BANNERS) : pick("turn", TURN_BANNERS));
       banner.value = 0;
       banner.value = withSequence(withSpring(1, { damping: 14, stiffness: 140 }), withDelay(900, withTiming(2, { duration: 380, easing: Easing.in(Easing.cubic) })));
       addEffects(starBurst(width / 2, height / 2, [color.glow, "#FFFFFF", "#FFE7A3"], first ? 30 : 16, short * (first ? 0.9 : 0.6)));
@@ -298,7 +308,15 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
     <View style={{ width, height }}>
       {/* ── Front ── */}
       <Animated.View style={[StyleSheet.absoluteFill, styles.face, frontStyle]} pointerEvents={showBack ? "none" : "auto"}>
-        <LinearGradient colors={[color.from, color.to]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+        {player.art ? (
+          <>
+            <Image source={{ uri: player.art.uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+            {/* The player's color washes over the art so the total stays readable. */}
+            <LinearGradient colors={[`${color.from}73`, `${color.to}D9`]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+          </>
+        ) : (
+          <LinearGradient colors={[color.from, color.to]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+        )}
         <LinearGradient colors={["rgba(255,255,255,0.22)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 0.2, y: 0.55 }} style={StyleSheet.absoluteFill} />
         <Aurora width={width} height={height} color={color.glow} seed={seat} />
         <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.28)"]} start={{ x: 0.5, y: 0.5 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -332,6 +350,7 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
           >
             {player.life}
           </Animated.Text>
+          {danger && lowLine !== "" && !compact && <Text style={styles.lowLine}>{lowLine}</Text>}
           {chips.length > 0 && (
             <View style={styles.chips}>
               {chips.map((c) => (
@@ -352,6 +371,7 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
 
         {/* Bottom: name, pass, counters */}
         <View style={[styles.bottomBar, compact && { paddingHorizontal: 10, paddingBottom: 8 }]}>
+          {player.art && <Image source={{ uri: player.art.uri }} style={[styles.avatar, { borderColor: color.glow }]} contentFit="cover" />}
           <Text style={[styles.name, compact && { fontSize: 13 }]} numberOfLines={1}>
             {player.name}
           </Text>
@@ -398,7 +418,7 @@ export function PlayerPanel({ player, game, width, height, active, turnsOn, cloc
             <Animated.View style={[styles.stamp, compact && { paddingHorizontal: 10, paddingVertical: 4 }, stampStyle]}>
               <Text style={[styles.stampText, compact && { fontSize: 15 }]}>{reason ? OUT_LABEL[reason].toUpperCase() : ""}</Text>
             </Animated.View>
-            <Text style={styles.outQuip}>{compact ? `${player.life} life` : `${quipFor(`${game.id}${player.id}`)} · ${player.life} life`}</Text>
+            <Text style={styles.outQuip}>{compact ? `${player.life} life` : `${(reason ? knockoutLine(`${game.id}${player.id}`, reason) : "")} · ${player.life} life`}</Text>
             <Text style={styles.outHint}>Tap + to bring them back</Text>
           </Animated.View>
         )}
@@ -459,6 +479,8 @@ const styles = StyleSheet.create({
   more: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.25)" },
   dangerRing: { borderRadius: RADIUS, borderWidth: 3, borderColor: "rgba(255,70,95,0.9)" },
   out: { alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: "rgba(9,9,13,0.84)" },
+  avatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5 },
+  lowLine: { fontFamily: font.bold, fontSize: 13, color: "#FFE1E5", marginTop: -2, letterSpacing: 0.2 },
   stamp: { marginTop: 10, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 3, borderColor: "#FF4D6A", borderRadius: 10, backgroundColor: "rgba(255,40,70,0.12)" },
   stampText: { fontFamily: font.heavy, fontSize: 20, letterSpacing: 2, color: "#FF6B83" },
   bannerWrap: { ...StyleSheet.absoluteFillObject, justifyContent: "center" },

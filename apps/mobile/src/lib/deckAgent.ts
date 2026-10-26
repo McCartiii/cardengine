@@ -264,7 +264,7 @@ function applyLine(state: AgentState, e: AgentLineEvent): AgentState {
  */
 export async function runDeckAgent(req: AgentRunRequest, onState: (s: AgentState) => void, signal?: AbortSignal): Promise<AgentState> {
   // A refinement keeps the earlier answer until the new one arrives.
-  let state: AgentState = { ...initialAgentState, running: true, sessionId: req.sessionId ?? null, status: "Starting…" };
+  let state: AgentState = { ...initialAgentState, running: true, sessionId: req.sessionId ?? null, status: "Shuffling up…" };
   const parser = new AgentLineParser();
   const set = (next: AgentState) => {
     state = next;

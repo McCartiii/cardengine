@@ -1,6 +1,8 @@
 // The back of a player's panel: poison, energy, experience, commander tax,
 // and commander damage taken from each opponent (and each partner).
-import React from "react";
+import React, { useState } from "react";
+import { Image } from "expo-image";
+import { PlayerPicturePicker } from "./PlayerPicture";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +19,8 @@ export function CountersBack({ player, game, compact, onClose }: { player: LifeP
   const commanderDamage = useLifeStore((s) => s.commanderDamage);
   const setPartner = useLifeStore((s) => s.setPartner);
   const concede = useLifeStore((s) => s.concede);
+  const setArt = useLifeStore((s) => s.setArt);
+  const [picking, setPicking] = useState(false);
   const sources = damageSources(game, player.id);
 
   return (
@@ -72,6 +76,30 @@ export function CountersBack({ player, game, compact, onClose }: { player: LifeP
           })}
         </View>
 
+        <Pressable
+          onPress={() => {
+            feel.tick();
+            setPicking(true);
+          }}
+          style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
+          accessibilityRole="button"
+        >
+          {player.art ? (
+            <Image source={{ uri: player.art.uri }} style={styles.thumb} contentFit="cover" />
+          ) : (
+            <View style={[styles.thumb, styles.thumbEmpty]}>
+              <Ionicons name="image" size={18} color="rgba(255,255,255,0.6)" />
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Picture</Text>
+            <Text style={styles.rowHint} numberOfLines={1}>
+              {player.art?.label ?? (player.art ? "Your photo" : "A photo or any card's art")}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
+        </Pressable>
+
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
             <Text style={styles.rowTitle}>Partner commanders</Text>
@@ -99,6 +127,13 @@ export function CountersBack({ player, game, compact, onClose }: { player: LifeP
           <Text style={[styles.concedeText, player.conceded && { color: "#FFFFFF" }]}>{player.conceded ? "Take back concession" : "Concede"}</Text>
         </Pressable>
       </ScrollView>
+      <PlayerPicturePicker
+        visible={picking}
+        name={player.name}
+        art={player.art}
+        onChange={(art) => setArt(player.id, art)}
+        onClose={() => setPicking(false)}
+      />
       {/* On the player's own edge, clear of the menu button in the middle of the table. */}
       <View style={[styles.footer, compact && { padding: 8 }]}>
         <Pressable onPress={onClose} hitSlop={6} style={({ pressed }) => [styles.done, pressed && { transform: [{ scale: 0.97 }] }]} accessibilityRole="button" accessibilityLabel="Done">
@@ -183,6 +218,8 @@ const styles = StyleSheet.create({
   meter: { height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" },
   meterFill: { height: "100%", borderRadius: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.06)" },
+  thumb: { width: 40, height: 40, borderRadius: 10 },
+  thumbEmpty: { alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.08)" },
   rowTitle: { fontFamily: font.bold, fontSize: 14, color: "#FFFFFF" },
   rowHint: { fontFamily: font.medium, fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 1 },
   concede: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 40, borderRadius: 20, backgroundColor: "rgba(255,90,110,0.12)" },

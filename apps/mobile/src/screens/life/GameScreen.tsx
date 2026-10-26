@@ -15,6 +15,8 @@ import { feel } from "@/components/life/feel";
 import { starBurst, useEffectsLayer } from "@/components/life/effects";
 import Animated, { ZoomIn } from "react-native-reanimated";
 import { PLAYER_COLORS } from "@/lib/lifeConstants";
+import { INTRO_BADGES, pick, winLine } from "@/lib/flavor";
+import { outReason, type OutReason } from "@/lib/lifeGame";
 
 const GAP = 6;
 
@@ -41,6 +43,16 @@ export function GameScreen() {
 
   // ── "Game on!" when a fresh game starts (or a rematch) ──
   const [intro, setIntro] = useState(false);
+  const introText = useMemo(() => pick("intro", INTRO_BADGES), [game.id]);
+
+  // Remember how the most recent player went out, for the winner's tagline.
+  const outs = useRef<Record<string, OutReason | null>>({});
+  const lastOut = useRef<OutReason | null>(null);
+  for (const p of game.players) {
+    const r = outReason(p);
+    if (r && !outs.current[p.id]) lastOut.current = r;
+    outs.current[p.id] = r;
+  }
   useEffect(() => {
     const fresh = game.turn === 0 && useLifeStore.getState().history.length === 0;
     if (!fresh) return;
@@ -242,7 +254,7 @@ export function GameScreen() {
       />
 
       {screenEffects}
-      {intro && <IntroSplash />}
+      {intro && <IntroSplash text={introText} />}
       {roll && <RollResult roll={roll} onDone={() => setRoll(null)} />}
 
       {showWinner && winner && (
@@ -251,6 +263,7 @@ export function GameScreen() {
           rotation={seatRotation(layout, game.players.indexOf(winner))}
           turn={game.turn}
           elapsedMs={elapsed}
+          tagline={winLine({ winnerLife: winner.life, startingLife: game.startingLife, lastOut: lastOut.current, turn: game.turn })}
           onRematch={() => {
             rematch();
             setSkipFirst(false);

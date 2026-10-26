@@ -27,7 +27,14 @@
           "locationAlwaysAndWhenInUsePermission": "CardEngine uses your location to find nearby game stores."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CardEngine uses your photos so you can pick a profile picture or a player picture for the life counter.",
+          "cameraPermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -37,7 +44,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "CardEngine uses the camera to scan MTG cards into your collection.",
-        "NSLocationWhenInUseUsageDescription": "CardEngine uses your location to find nearby game stores."
+        "NSLocationWhenInUseUsageDescription": "CardEngine uses your location to find nearby game stores.",
+        "NSPhotoLibraryUsageDescription": "CardEngine uses your photos so you can pick a profile picture or a player picture for the life counter."
       }
     },
     "android": {

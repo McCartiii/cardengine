@@ -29,7 +29,13 @@ export function registerProfileRoutes(app: FastifyInstance) {
         displayName: z.string().max(50).nullable().optional(),
         dateOfBirth: z.string().nullable().optional(),
         minorSafe: z.boolean().optional(),
-        avatarUrl: z.string().url().nullable().optional(),
+        // An https image, or a small photo uploaded as a data URL (up to ~150 KB).
+        avatarUrl: z
+          .string()
+          .max(200_000)
+          .refine((v) => /^https:\/\//.test(v) || /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v), "Must be an https URL or an image")
+          .nullable()
+          .optional(),
       })
       .parse(req.body);
 

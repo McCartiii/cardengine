@@ -4,11 +4,20 @@
 
 export type CounterKey = "poison" | "energy" | "experience" | "tax";
 
+/** A picture behind a player's panel: a card's art, or a photo from the phone. */
+export interface PlayerArt {
+  kind: "card" | "photo";
+  uri: string;
+  /** The card's name, for card art. */
+  label?: string;
+}
+
 export interface LifePlayer {
   id: string;
   name: string;
   /** Index into PLAYER_COLORS. */
   color: number;
+  art?: PlayerArt | null;
   life: number;
   poison: number;
   energy: number;
@@ -70,6 +79,7 @@ export function winnerOf(game: LifeGame): LifePlayer | null {
 export interface NewPlayer {
   name: string;
   color: number;
+  art?: PlayerArt | null;
 }
 
 export function newGame(opts: { players: NewPlayer[]; startingLife: number; clockMinutes: number | null; now: number; id?: string }): LifeGame {
@@ -82,6 +92,7 @@ export function newGame(opts: { players: NewPlayer[]; startingLife: number; cloc
       id: `p${i}`,
       name: p.name,
       color: p.color,
+      art: p.art ?? null,
       life: opts.startingLife,
       poison: 0,
       energy: 0,
@@ -103,7 +114,7 @@ export function newGame(opts: { players: NewPlayer[]; startingLife: number; cloc
 /** Same seats, names and colors; everything else back to the start. */
 export function rematch(game: LifeGame, now: number): LifeGame {
   const fresh = newGame({
-    players: game.players.map((p) => ({ name: p.name, color: p.color })),
+    players: game.players.map((p) => ({ name: p.name, color: p.color, art: p.art ?? null })),
     startingLife: game.startingLife,
     clockMinutes: game.clockMs ? game.clockMs / 60_000 : null,
     now,
@@ -150,6 +161,10 @@ export function setPartner(game: LifeGame, id: string, partner: boolean): LifeGa
     };
   }
   return next;
+}
+
+export function setArt(game: LifeGame, id: string, art: PlayerArt | null): LifeGame {
+  return update(game, id, (p) => ({ ...p, art }));
 }
 
 export function setConceded(game: LifeGame, id: string, conceded: boolean): LifeGame {

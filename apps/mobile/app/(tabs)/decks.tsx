@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { color, elevation, radius, space, TAB_BAR_CLEARANCE, type BubbleColor } from "@/design/tokens";
 import { createDeck, deleteDeck, importDeckFromUrl, isDeckUrl, listDecks, type Deck } from "@/lib/api";
+import { EMPTY_DECKS, pick } from "@/lib/flavor";
 import { useAuthStore } from "@/store/authStore";
 import {
   Button,
@@ -47,6 +48,7 @@ const FORMAT_TINT: Record<string, BubbleColor> = {
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function DecksScreen() {
+  const [emptyTitle] = useState(() => pick("empty-decks", EMPTY_DECKS));
   const router = useRouter();
   const session = useAuthStore((s) => s.session);
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -139,7 +141,7 @@ export default function DecksScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="layers-outline"
-              title="No decks yet"
+              title={emptyTitle}
               body="Start a deck from scratch, then add cards from search or your collection."
               action="New deck"
               onAction={() => setShowCreate(true)}

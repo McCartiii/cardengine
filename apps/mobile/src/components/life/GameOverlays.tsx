@@ -24,6 +24,8 @@ import { PLAYER_COLORS } from "@/lib/lifeConstants";
 import type { LifePlayer } from "@/lib/lifeGame";
 import { Confetti } from "./effects";
 import { Glow, SunRays } from "./ambience";
+import { Image } from "expo-image";
+import { coinLine, dieLine } from "@/lib/flavor";
 import { feel } from "./feel";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -172,6 +174,7 @@ export function RollResult({ roll, onDone }: { roll: ToolRoll; onDone: () => voi
   }));
 
   const label = roll.kind === "coin" ? (roll.heads ? "Heads" : "Tails") : `d${roll.sides}`;
+  const [line] = useState(() => (roll.kind === "coin" ? coinLine(roll.heads) : dieLine(roll.value, roll.sides)));
   return (
     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={styles.rollScrim}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onDone} accessibilityLabel="Close" />
@@ -187,7 +190,7 @@ export function RollResult({ roll, onDone }: { roll: ToolRoll; onDone: () => voi
         )}
       </Animated.View>
       <Text style={[styles.rollLabel, !settled && { opacity: 0.4 }]}>
-        {settled ? (roll.kind === "die" ? `Rolled ${roll.value} on a d${roll.sides}` : label) : roll.kind === "coin" ? "Flipping…" : `Rolling a ${label}…`}
+        {settled ? line : roll.kind === "coin" ? "Flipping…" : `Rolling a ${label}…`}
       </Text>
       <Text style={styles.rollHint}>
         Tap anywhere to close
@@ -217,7 +220,7 @@ export function FirstPrompt({ onRoll, onSkip }: { onRoll: () => void; onSkip: ()
 
 // ── Game on ───────────────────────────────────────────────────────────────────
 
-export function IntroSplash() {
+export function IntroSplash({ text = "GAME ON" }: { text?: string }) {
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = withSequence(withSpring(1, { damping: 9, stiffness: 150 }), withDelay(650, withTiming(2, { duration: 300 })));
@@ -231,7 +234,7 @@ export function IntroSplash() {
     <View pointerEvents="none" style={styles.introWrap}>
       <Animated.View style={[styles.introBadge, style]}>
         <LinearGradient colors={["#FFFFFF", "#E9E4FF"]} style={StyleSheet.absoluteFill} />
-        <Text style={styles.introText}>GAME ON</Text>
+        <Text style={styles.introText}>{text}</Text>
       </Animated.View>
     </View>
   );
@@ -244,6 +247,7 @@ export function WinnerOverlay({
   rotation,
   turn,
   elapsedMs,
+  tagline,
   onRematch,
   onUndo,
   onNewGame,
@@ -253,6 +257,8 @@ export function WinnerOverlay({
   rotation: number;
   turn: number;
   elapsedMs: number;
+  /** How they won, e.g. "Commander victory". */
+  tagline: string;
   onRematch: () => void;
   onUndo: () => void;
   onNewGame: () => void;
@@ -278,7 +284,14 @@ export function WinnerOverlay({
       </View>
       <Confetti colors={[color.from, color.glow, "#FFFFFF", "#FFE7A3", color.to]} count={120} />
       <Animated.View entering={ZoomIn.springify().damping(13).delay(150)} style={[styles.winCard, { transform: [{ rotate: `${rotation}deg` }] }]}>
-        <LinearGradient colors={[color.from, color.to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        {winner.art ? (
+          <>
+            <Image source={{ uri: winner.art.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <LinearGradient colors={[`${color.from}80`, `${color.to}E6`]} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }} style={StyleSheet.absoluteFill} />
+          </>
+        ) : (
+          <LinearGradient colors={[color.from, color.to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        )}
         <LinearGradient colors={["rgba(255,255,255,0.25)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 0.3, y: 0.6 }} style={StyleSheet.absoluteFill} />
         <Animated.View style={[styles.trophy, trophy]}>
           <Ionicons name="trophy" size={40} color="#E0A21B" />
@@ -286,6 +299,7 @@ export function WinnerOverlay({
         <Text style={styles.winName} numberOfLines={1}>
           {winner.name} wins!
         </Text>
+        <Text style={styles.winTagline}>{tagline}</Text>
         <Text style={styles.winSub}>
           Turn {Math.max(1, turn)} · {formatElapsed(elapsedMs)} · {winner.life} life left
         </Text>
@@ -361,6 +375,7 @@ const styles = StyleSheet.create({
   winCard: { width: 300, alignItems: "center", gap: 10, padding: 22, borderRadius: 30, overflow: "hidden" },
   trophy: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF6DA", marginBottom: 4 },
   winName: { fontFamily: font.heavy, fontSize: 28, color: "#FFFFFF", letterSpacing: -0.8 },
+  winTagline: { fontFamily: font.heavy, fontSize: 13, letterSpacing: 1.2, color: "#FFE7A3", textTransform: "uppercase", marginTop: -4 },
   winSub: { fontFamily: font.semibold, fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 6 },
   winPrimary: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 48, borderRadius: 24, backgroundColor: "#FFFFFF" },
   winPrimaryText: { fontFamily: font.heavy, fontSize: 16, color: "#111" },

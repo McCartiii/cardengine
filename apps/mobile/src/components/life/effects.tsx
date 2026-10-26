@@ -147,8 +147,8 @@ function FlyText({ x, y, text, color, size, onDone }: FlyTextSpec & { onDone: Do
       style={[
         {
           position: "absolute",
-          left: x - size * 2,
-          width: size * 4,
+          left: x - Math.max(size * 4, text.length * size * 0.72) / 2,
+          width: Math.max(size * 4, text.length * size * 0.72),
           top: y - size * 0.6,
           textAlign: "center",
           fontFamily: font.heavy,

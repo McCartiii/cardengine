@@ -8,6 +8,7 @@ import { bubble, color, elevation, hairline, space, TAB_BAR_CLEARANCE } from "@/
 import { font } from "@/design/fonts";
 import { getCollectionCards, getCollectionValue, getMarketHome, type MarketCard, type OwnedCard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { GREETING_NAMES, greeting, pick } from "@/lib/flavor";
 import { BinderCover, FoilTabs, HoloRing, RankRow, Screen, SkeletonBlock, Spotlight, Text, Ticker, Touchable, tap } from "@/ui";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -19,13 +20,11 @@ const MARKET_TABS: ReadonlyArray<{ value: MarketTab; label: string }> = [
   { value: "newCards", label: "New" },
 ];
 
-function greeting() {
-  const h = new Date().getHours();
-  return h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-}
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [hello] = useState(() => greeting(new Date().getHours()));
+  const [nickname] = useState(() => pick("nickname", GREETING_NAMES));
   const { session, user } = useAuthStore();
   const [market, setMarket] = useState<Record<MarketTab, MarketCard[]> | null>(null);
   const [value, setValue] = useState<{ total: number; count: number } | null>(null);
@@ -90,10 +89,10 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="caption" color={color.textSecondary}>
-              {greeting()}
+              {hello}
             </Text>
             <Text style={styles.name} numberOfLines={1}>
-              {name ?? "Collector"}
+              {name ?? nickname}
             </Text>
           </View>
           <HeaderButton icon="notifications-outline" label="Price alerts" onPress={() => router.push("/alerts")} />

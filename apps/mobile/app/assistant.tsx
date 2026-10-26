@@ -12,6 +12,7 @@ import { font } from "@/design/fonts";
 import { importDeckText } from "@/lib/api";
 import { postSse } from "@/lib/sse";
 import { parseCardBlock, withoutCardBlock } from "@/lib/deckEdits";
+import { AI_THINKING, pick } from "@/lib/flavor";
 import { Button, Markdown, Text, tap } from "@/ui";
 
 interface Message {
@@ -76,7 +77,7 @@ export default function AssistantScreen() {
     setInput("");
     setBusy(true);
     const history = [...messages.filter((m) => !m.error && m.content.trim()), { role: "user" as const, content: question }];
-    setMessages([...messages, { role: "user", content: question }, { role: "assistant", content: "", activity: "Thinking…" }]);
+    setMessages([...messages, { role: "user", content: question }, { role: "assistant", content: "", activity: pick("ai", AI_THINKING) }]);
     abort.current = new AbortController();
     try {
       await postSse(

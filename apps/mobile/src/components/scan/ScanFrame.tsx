@@ -37,10 +37,10 @@ const RADIUS = 18;
 
 const STATUS: Record<ScanPhase, { icon?: React.ComponentProps<typeof Ionicons>["name"]; color: string; text: (name: string | null) => string }> = {
   searching: { icon: "scan-outline", color: "#FFFFFF", text: () => "Fit one card inside the frame" },
-  reading: { color: "#FFFFFF", text: (n) => (n ? `Reading “${n}”` : "Reading…") },
+  reading: { color: "#FFFFFF", text: (n) => (n ? `Scrying “${n}”…` : "Scrying…") },
   identifying: { color: "#FFFFFF", text: (n) => (n ? `Looking up “${n}”` : "Looking it up…") },
-  matched: { icon: "checkmark-circle", color: GREEN, text: (n) => (n ? `Added ${n}` : "Added") },
-  nomatch: { icon: "alert-circle", color: AMBER, text: () => "No match yet. Try more light" },
+  matched: { icon: "checkmark-circle", color: GREEN, text: (n) => (n ? `Into the binder: ${n}` : "Into the binder!") },
+  nomatch: { icon: "alert-circle", color: AMBER, text: () => "Nothing in sight. Try more light" },
 };
 
 export function ScanFrame({ rect, phase, name, paused }: { rect: FrameRect; phase: ScanPhase; name: string | null; paused: boolean }) {

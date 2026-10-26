@@ -40,27 +40,6 @@ export const OUT_LABEL: Record<OutReason, string> = {
   conceded: "Conceded",
 };
 
-export const ELIMINATION_QUIPS = [
-  "Skill issue",
-  "Should've played blue",
-  "That's rough, buddy",
-  "Lands in front, please",
-  "They had it",
-  "Back to the command zone",
-  "Maybe next pod",
-  "You were the threat all along",
-  "Mana screwed, probably",
-  "The stack resolves. You don't.",
-  "Should've mulliganed",
-  "GG, go next",
-] as const;
-
-export function quipFor(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return ELIMINATION_QUIPS[Math.abs(h) % ELIMINATION_QUIPS.length];
-}
-
 export const COUNTER_INFO = {
   poison: { label: "Poison", icon: "skull", tint: "#B79BFF" },
   energy: { label: "Energy", icon: "flash", tint: "#FFC34D" },

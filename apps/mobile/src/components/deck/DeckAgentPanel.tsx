@@ -10,6 +10,7 @@ import { formatUsd } from "@/design/format";
 import { updateDeckCards, type DeckCard } from "@/lib/api";
 import { cardInfo, initialAgentState, runDeckAgent, type AgentCard, type AgentState, type AgentSwap } from "@/lib/deckAgent";
 import { addCards, applyBuild, applySwaps } from "@/lib/deckEdits";
+import { AI_THINKING, pick } from "@/lib/flavor";
 import { Button, CardArt, Text, Touchable, tap } from "@/ui";
 
 interface PanelDeck {
@@ -60,6 +61,7 @@ export function DeckAgentPanel({ deck, onApplied, onAsk }: { deck: PanelDeck; on
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const [thinking] = useState(() => pick("ai", AI_THINKING));
 
   const run = async (text: string, sessionId?: string) => {
     const ask = text.trim();
@@ -200,7 +202,7 @@ export function DeckAgentPanel({ deck, onApplied, onAsk }: { deck: PanelDeck; on
           <View style={styles.titleRow}>
             <ActivityIndicator color={color.accent} />
             <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={2}>
-              {state.status ?? "Thinking…"}
+              {state.status ?? thinking}
             </Text>
           </View>
           {state.tools.length > 0 && (
