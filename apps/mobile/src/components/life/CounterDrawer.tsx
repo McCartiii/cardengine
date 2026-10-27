@@ -178,7 +178,7 @@ export function CounterDrawer({ player, visible, onClose }: Props) {
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: LC.surfaceOverlay,
     zIndex: 50,
   },

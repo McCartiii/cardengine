@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   overlayConfirmedText: { fontSize: 48, color: "#22C55E" },
   overlayHintText: { fontSize: 14, color: "#fff", backgroundColor: "rgba(0,0,0,0.5)", padding: 4, borderRadius: 4 },
   binderGridOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flexDirection: "row",
     flexWrap: "wrap",
   },
@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.4)",
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.6)",
     alignItems: "center",
     justifyContent: "center",

@@ -134,7 +134,7 @@ export default function BrowseScreen() {
               <View style={styles.hint}>
                 <Text style={styles.hintSub}>No cards found for "{query}"</Text>
               </View>
-            ) : null
+            ) : undefined
           }
         />
       )}

@@ -31,7 +31,7 @@ export default function TabLayout() {
         options={{
           title: "Scan",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="scan" size={size} color={color} />
+            <Ionicons name="scan" size={size} color={color as string} />
           ),
         }}
       />
@@ -40,7 +40,7 @@ export default function TabLayout() {
         options={{
           title: "Life",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart" size={size} color={color} />
+            <Ionicons name="heart" size={size} color={color as string} />
           ),
         }}
       />
@@ -49,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: "Collection",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="albums" size={size} color={color} />
+            <Ionicons name="albums" size={size} color={color as string} />
           ),
         }}
       />
@@ -58,7 +58,7 @@ export default function TabLayout() {
         options={{
           title: "Decks",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="layers" size={size} color={color} />
+            <Ionicons name="layers" size={size} color={color as string} />
           ),
         }}
       />
@@ -67,7 +67,7 @@ export default function TabLayout() {
         options={{
           title: "Browse",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
+            <Ionicons name="search" size={size} color={color as string} />
           ),
         }}
       />
@@ -76,7 +76,7 @@ export default function TabLayout() {
         options={{
           title: "Shops",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="storefront" size={size} color={color} />
+            <Ionicons name="storefront" size={size} color={color as string} />
           ),
         }}
       />
@@ -85,7 +85,7 @@ export default function TabLayout() {
         options={{
           title: "Alerts",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" size={size} color={color} />
+            <Ionicons name="notifications" size={size} color={color as string} />
           ),
         }}
       />
@@ -94,7 +94,7 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="person" size={size} color={color as string} />
           ),
         }}
       />

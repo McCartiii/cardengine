@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
 
   lifeContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
   },
 
   eliminationOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(10,13,19,0.85)",
     borderRadius: 16,
     alignItems: "center",

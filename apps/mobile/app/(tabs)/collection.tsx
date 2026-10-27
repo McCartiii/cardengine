@@ -188,7 +188,7 @@ export default function CollectionScreen() {
           onEndReached={onEndReached}
           onEndReachedThreshold={0.3}
           ListFooterComponent={
-            loadingMore ? <ActivityIndicator color={COLORS.accent} style={{ marginVertical: 16 }} /> : null
+            loadingMore ? <ActivityIndicator color={COLORS.accent} style={{ marginVertical: 16 }} /> : undefined
           }
         />
       )}

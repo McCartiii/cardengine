@@ -46,8 +46,7 @@ export function Logo({ variant = "stacked", width, color }: LogoProps) {
         width={MARK_CARD.width}
         height={MARK_CARD.height}
         rx={MARK_CARD.rx}
-        rotation={MARK_CARD.rotate}
-        origin={`${MARK_SIZE / 2}, ${MARK_SIZE / 2}`}
+        transform={`rotate(${MARK_CARD.rotate} ${MARK_SIZE / 2} ${MARK_SIZE / 2})`}
         fill={ink}
       />
     </>
