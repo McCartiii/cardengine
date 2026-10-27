@@ -9,6 +9,7 @@ import { CARD_ASPECT, color, radius, space } from "@/design/tokens";
 import { font } from "@/design/fonts";
 import { useAuthStore } from "@/store/authStore";
 import { Button, CardArt, Floaty, FoilSweep, HoloRing, Screen, Text } from "@/ui";
+import { Logo } from "@/components/brand/Logo";
 
 const CODE_LENGTH = 6;
 
@@ -62,6 +63,9 @@ export default function SignInScreen() {
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.page}>
+          <View style={styles.brand}>
+            <Logo variant="horizontal" width={176} color={color.text} />
+          </View>
           <CardFan />
 
           <Animated.View entering={FadeInDown.duration(400)} style={styles.copy}>
@@ -202,6 +206,8 @@ const FAN_CARD_WIDTH = 104;
 
 const styles = StyleSheet.create({
   page: { flex: 1, paddingHorizontal: space.xxl, justifyContent: "flex-end", paddingBottom: space.xxl },
+  // Auto top margin keeps the logo at the top while the rest sits at the bottom.
+  brand: { marginBottom: "auto", paddingTop: space.lg },
   fan: { height: FAN_CARD_WIDTH / CARD_ASPECT + space.xxxl, alignItems: "center", justifyContent: "center", marginBottom: space.xl },
   fanCard: {
     position: "absolute",

@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Card Engine",
+  title: "CardEngine",
   description: "MTG Collection Manager & Deck Builder",
 };
 

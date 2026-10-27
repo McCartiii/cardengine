@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 
 export default function LoginPage() {
   return (
@@ -58,11 +59,8 @@ function LoginForm() {
       <div className="w-full max-w-md animate-scale-in">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-text-primary">
-            <span className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white text-sm font-bold">
-              CE
-            </span>
-            Card Engine
+          <Link href="/" className="inline-flex text-text-primary">
+            <Logo height={30} />
           </Link>
         </div>
 
@@ -72,7 +70,7 @@ function LoginForm() {
               Welcome back
             </h1>
             <p className="mt-2 text-sm text-text-secondary">
-              Sign in to your Card Engine account
+              Sign in to your CardEngine account
             </p>
           </div>
 

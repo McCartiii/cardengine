@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { useAuth } from "@/components/AuthProvider";
+import { Logo } from "@/components/brand/Logo";
 
 /* ─── Icons ────────────────────────────────────────────────────────────── */
 const Icons = {
@@ -84,21 +85,8 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="px-5 pt-6 pb-5">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 relative overflow-hidden"
-            style={{
-              background: "linear-gradient(135deg, #00d4ff 0%, #7c3aed 50%, #ff0080 100%)",
-              backgroundSize: "200%",
-              animation: "holo-shift 4s linear infinite",
-            }}
-          >
-            <span style={{ color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>CE</span>
-          </div>
-          <div>
-            <p className="text-sm font-bold leading-none text-white">CardEngine</p>
-            <p className="text-[10px] leading-none mt-0.5" style={{ color: "#3d5068" }}>TCG Platform</p>
-          </div>
+        <Link href="/" className="flex items-center text-white">
+          <Logo height={26} />
         </Link>
       </div>
 

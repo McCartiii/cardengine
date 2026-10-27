@@ -3,42 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/brand/Logo";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-}
-
-/** Five-card wheel mark — gold → garnet foil ramp */
-export function FiveCardWheel({ size = 28 }: { size?: number }) {
-  const colors = ["#E8B24A", "#D4894F", "#C24667", "#A84A5E", "#8B3A52"];
-  const cx = 12;
-  const cy = 12;
-  const cards = colors.map((fill, i) => {
-    const angle = (i * 72 - 90) * (Math.PI / 180);
-    const x = cx + Math.cos(angle) * 3.2;
-    const y = cy + Math.sin(angle) * 3.2;
-    const rot = i * 72;
-    return (
-      <rect
-        key={i}
-        x={x - 2.2}
-        y={y - 3.4}
-        width={4.4}
-        height={6.8}
-        rx={0.7}
-        fill={fill}
-        transform={`rotate(${rot} ${x} ${y})`}
-        opacity={0.95}
-      />
-    );
-  });
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      {cards}
-    </svg>
-  );
 }
 
 function CollectionIcon() {
@@ -103,20 +73,8 @@ const mobileTabs: NavItem[] = [
 
 function BrandMark() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 shrink-0">
-      <span
-        className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)]"
-        style={{
-          background: "var(--surface-raised)",
-          boxShadow: "0 0 0 1px var(--border), 0 2px 8px rgba(78,147,200,0.2)",
-        }}
-      >
-        <FiveCardWheel size={22} />
-      </span>
-      <span className="leading-none">
-        <span className="text-base font-semibold tracking-tight text-text-primary italic">Card</span>
-        <span className="text-base font-bold tracking-tight text-accent">Engine</span>
-      </span>
+    <Link href="/" className="flex items-center shrink-0 text-text-primary">
+      <Logo height={24} />
     </Link>
   );
 }
