@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { NavBar, FiveCardWheel } from "@/components/ui/NavBar";
+import { NavBar } from "@/components/ui/NavBar";
+import { Logo } from "@/components/brand/Logo";
 import { HomeMarket } from "@/components/home/HomeMarket";
 
 export default async function Home() {
@@ -22,12 +23,11 @@ export default async function Home() {
               "0 0 0 1px var(--border), 0 12px 40px rgba(78,147,200,0.18), 0 0 60px rgba(232,178,74,0.08)",
           }}
         >
-          <FiveCardWheel size={40} />
+          <Logo variant="mark" height={44} className="text-text-primary" />
         </div>
 
-        <h1 className="animate-slide-up text-4xl md:text-6xl font-bold tracking-[-0.04em] leading-[1.05]">
-          <span className="italic text-text-primary">Card</span>
-          <span className="text-accent">Engine</span>
+        <h1 className="animate-slide-up text-text-primary">
+          <Logo variant="wordmark" className="h-6 w-auto md:h-9" />
         </h1>
 
         <p

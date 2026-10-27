@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -88,11 +89,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-md animate-scale-in">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-text-primary">
-            <span className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white text-sm font-bold">
-              CE
-            </span>
-            Card Engine
+          <Link href="/" className="inline-flex text-text-primary">
+            <Logo height={30} />
           </Link>
         </div>
 
@@ -102,7 +100,7 @@ export default function RegisterPage() {
               Create an account
             </h1>
             <p className="mt-2 text-sm text-text-secondary">
-              Join Card Engine to manage your collection
+              Join CardEngine to manage your collection
             </p>
           </div>
 

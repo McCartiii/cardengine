@@ -21,10 +21,10 @@ import Animated, {
   FadeIn,
   SlideInUp,
 } from "react-native-reanimated";
-import Svg, { Rect, Polygon, Circle, Text as SvgText, G } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
+import { Logo } from "../../src/components/brand/Logo";
 
 const C = {
   bg: "#111111",
@@ -37,28 +37,6 @@ const C = {
   accent: "#0D9488",
   accentLight: "#14B8A6",
 } as const;
-
-function Logo() {
-  return (
-    <Svg width={140} height={175} viewBox="0 0 160 200" fill="none">
-      <Rect x={44} y={4} width={72} height={112} rx={7} stroke={C.accent} strokeWidth={1.4} />
-      <Rect x={49} y={9} width={62} height={102} rx={4} stroke={C.accent} strokeWidth={0.5} opacity={0.4} />
-      <Polygon
-        points="80,38 85.9,44.2 94.6,43.5 94.0,52.3 101,60 94.0,67.7 94.6,76.5 85.9,75.8 80,82 74.1,75.8 65.4,76.5 66.0,67.7 59,60 66.0,52.3 65.4,43.5 74.1,44.2"
-        fill={C.accent}
-      />
-      <Circle cx={80} cy={60} r={7.5} fill={C.bg} />
-      <SvgText x={51} y={22} fontFamily="System" fontSize={9} fontWeight="800" fill={C.accent}>C</SvgText>
-      <SvgText x={51} y={33} fontFamily="System" fontSize={9} fontWeight="800" fill={C.accent}>E</SvgText>
-      <G transform="rotate(180,80,60)">
-        <SvgText x={51} y={22} fontFamily="System" fontSize={9} fontWeight="800" fill={C.accent}>C</SvgText>
-        <SvgText x={51} y={33} fontFamily="System" fontSize={9} fontWeight="800" fill={C.accent}>E</SvgText>
-      </G>
-      <SvgText x={80} y={144} textAnchor="middle" fontFamily="System" fontSize={30} fontWeight="800" fill={C.textPrimary}>CARD</SvgText>
-      <SvgText x={80} y={168} textAnchor="middle" fontFamily="System" fontSize={13} fontWeight="400" fill={C.accent} letterSpacing={5.5}>ENGINE</SvgText>
-    </Svg>
-  );
-}
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -130,7 +108,7 @@ export default function SignInScreen() {
       <View style={styles.page}>
         {/* Logo */}
         <Animated.View style={[styles.logoArea, logoStyle]}>
-          <Logo />
+          <Logo variant="stacked" width={220} color={C.textPrimary} />
         </Animated.View>
 
         {/* Form */}
