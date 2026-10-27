@@ -7,11 +7,6 @@
     "scheme": "cardengine",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F4F4F7"
-    },
     "plugins": [
       "expo-router",
       "expo-dev-client",
@@ -46,7 +41,16 @@
       "expo-image",
       "expo-sharing",
       "expo-sqlite",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 320,
+          "resizeMode": "contain",
+          "backgroundColor": "#F4F4F7"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

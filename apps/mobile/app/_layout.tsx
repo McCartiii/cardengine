@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -12,6 +12,10 @@ import { addCollectionEvents } from "../src/lib/api";
 import { useFonts } from "expo-font";
 import { color } from "../src/design/tokens";
 import { FONT_ASSETS } from "../src/design/fonts";
+import { LaunchScreen } from "../src/components/brand/LaunchScreen";
+
+// Keep the native splash up until LaunchScreen has drawn its matching first frame.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const pushedHeader = {
   headerShown: true,
@@ -45,9 +49,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  const { initialize, session } = useAuthStore();
+  const { initialize, session, initialized } = useAuthStore();
   // Fall through on error so a missing font never blocks the app.
   const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+  const fontsReady = fontsLoaded || !!fontError;
+  const [launched, setLaunched] = useState(false);
+  const hideNativeSplash = useCallback(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+  const finishLaunch = useCallback(() => setLaunched(true), []);
 
   // Init SQLite once, and get the scan index ready before the first scan.
   useEffect(() => {
@@ -77,27 +87,30 @@ export default function RootLayout() {
     return unsub;
   }, [initialize]);
 
-  if (!fontsLoaded && !fontError) return null;
-
+  // The launch screen stays in the same slot while the app mounts underneath it,
+  // so its spinning ring never restarts.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <AuthGate>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bg } }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="deck/[id]" options={pushedHeader} />
-            <Stack.Screen name="card/[id]" />
-            <Stack.Screen name="profile" />
-            <Stack.Screen name="settings" />
-            <Stack.Screen name="import" />
-            <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="shops" />
-            <Stack.Screen name="alerts" />
-            <Stack.Screen name="assistant" />
-          </Stack>
-        </AuthGate>
+        {fontsReady && (
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bg } }}>
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="deck/[id]" options={pushedHeader} />
+              <Stack.Screen name="card/[id]" />
+              <Stack.Screen name="profile" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="import" />
+              <Stack.Screen name="life" options={{ presentation: "fullScreenModal" }} />
+              <Stack.Screen name="shops" />
+              <Stack.Screen name="alerts" />
+              <Stack.Screen name="assistant" />
+            </Stack>
+          </AuthGate>
+        )}
+        {!launched && <LaunchScreen ready={fontsReady && initialized} onShown={hideNativeSplash} onHidden={finishLaunch} />}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

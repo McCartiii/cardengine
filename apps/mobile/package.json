@@ -36,6 +36,7 @@
     "expo-notifications": "~58.1.6",
     "expo-router": "~58.0.26",
     "expo-sharing": "~58.0.20",
+    "expo-splash-screen": "~58.0.11",
     "expo-sqlite": "~58.0.14",
     "expo-status-bar": "~58.0.4",
     "fast-png": "^6.1.0",
