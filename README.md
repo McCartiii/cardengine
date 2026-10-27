@@ -55,6 +55,15 @@ npm start                            # Metro for an installed dev build
 
 The camera scanner needs a physical device.
 
+#### Sign-in methods
+
+The mobile sign-in screen offers an emailed 6-digit code, email + password, and Apple, Google and Discord. A provider button only shows when that provider is enabled in Supabase (**Authentication → Sign In / Providers**), so no app change is needed to turn one on. In the Supabase dashboard:
+
+- **Email code**: the **Magic Link** email template must include `{{ .Token }}` so the email contains the 6-digit code.
+- **Redirect URLs** (Authentication → URL Configuration): add `cardengine://**` for builds and `exp://**` for Expo Go, so Google and Discord can hand the user back to the app.
+- **Apple**: add the app's bundle ID `com.cardengine.app` to the Apple provider's Client IDs (and `host.exp.Exponent` to test in Expo Go). The iPhone uses Apple's native sheet; Android uses the browser flow, which needs the Services ID and secret key filled in.
+- **Google / Discord**: enable the provider with its OAuth client ID and secret. Discord is already set up for the web app.
+
 ### Checks
 
 ```bash

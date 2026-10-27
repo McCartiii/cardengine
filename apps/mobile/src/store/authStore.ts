@@ -2,6 +2,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { signInWithProvider as providerSignIn, type SignInProvider } from "../lib/oauth";
 import { setAuthToken } from "../lib/api";
 import { forgetPushToken } from "../lib/push";
 
@@ -27,12 +28,25 @@ interface AuthState {
   /** Step 2: Verify the 6-digit OTP and sign in. */
   verifyOtp: (email: string, token: string) => Promise<void>;
 
+  /** For accounts that set a password (e.g. on the web app). */
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+
+  /** Apple, Google or Discord. Resolves false if the user backed out. */
+  signInWithProvider: (provider: SignInProvider) => Promise<boolean>;
+
   signOut: () => Promise<void>;
 
   continueAsGuest: () => void;
 }
 
 const GUEST_KEY = "cardengine-guest";
+
+/** Every sign-in method ends here: store the session and leave guest mode. */
+function signedIn(sess: Session | null) {
+  useAuthStore.setState({ session: sess, user: sess?.user ?? null, pendingEmail: null, guest: false });
+  AsyncStorage.removeItem(GUEST_KEY).catch(() => {});
+  setAuthToken(sess?.access_token ?? null);
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
@@ -81,10 +95,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       type: "email",
     });
     if (error) throw error;
-    const sess = data.session;
-    set({ session: sess, user: sess?.user ?? null, pendingEmail: null, guest: false });
-    AsyncStorage.removeItem(GUEST_KEY).catch(() => {});
-    setAuthToken(sess?.access_token ?? null);
+    signedIn(data.session);
+  },
+
+  async signInWithPassword(email: string, password: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    signedIn(data.session);
+  },
+
+  async signInWithProvider(provider: SignInProvider) {
+    const sess = await providerSignIn(provider);
+    if (!sess) return false;
+    signedIn(sess);
+    return true;
   },
 
   async signOut() {

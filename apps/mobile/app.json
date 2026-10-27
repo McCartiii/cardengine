@@ -50,7 +50,9 @@
           "resizeMode": "contain",
           "backgroundColor": "#F4F4F7"
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
@@ -58,6 +60,7 @@
     "ios": {
       "bundleIdentifier": "com.cardengine.app",
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "CardEngine uses the camera to scan MTG cards into your collection.",
         "NSLocationWhenInUseUsageDescription": "CardEngine uses your location to find nearby game stores.",
