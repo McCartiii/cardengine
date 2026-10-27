@@ -30,7 +30,14 @@ Anything you set in `apps/api/.env` or your shell overrides the `npm run dev` de
 
 ### Mobile
 
-The app uses native modules (Vision Camera, text recognition), so it runs in an Expo **development build**, not Expo Go.
+The card scanner uses native modules (Vision Camera and its frame-processor plugins), so scanning needs an Expo **development build**. Everything else also runs in Expo Go (SDK 58), where the Scan tab explains that it needs the full app:
+
+```bash
+cd apps/mobile
+npm run start:go                     # scan the QR code with the iPhone Camera app (or Expo Go on Android)
+```
+
+For the full app, including the scanner:
 
 ```bash
 cp apps/mobile/.env.example apps/mobile/.env

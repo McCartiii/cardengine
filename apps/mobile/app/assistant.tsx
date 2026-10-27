@@ -55,7 +55,7 @@ export default function AssistantScreen() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<Set<number>>(new Set());
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const abort = useRef<AbortController | null>(null);
 
   const prompts = deckId ? DECK_PROMPTS : BINDER_PROMPTS;

@@ -1,7 +1,8 @@
 // Hands a text file to the user: the share sheet on phones (save to Files,
 // AirDrop, email…), a download on the web.
 import { Platform } from "react-native";
-import * as FileSystem from "expo-file-system";
+// The SDK 58 top-level API is class-based; these call sites use the classic functions.
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 export async function shareTextFile(filename: string, text: string, mimeType = "text/csv") {

@@ -3,7 +3,8 @@
 import { Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { SaveFormat, manipulateAsync } from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system";
+// The SDK 58 top-level API is class-based; these call sites use the classic functions.
+import * as FileSystem from "expo-file-system/legacy";
 
 /** Scryfall's art crop for a card image: the illustration without the frame. */
 export function artCrop(imageUri: string): string {

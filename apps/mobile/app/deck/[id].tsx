@@ -16,7 +16,7 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setStatusBarStyle } from "expo-status-bar";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -103,7 +103,7 @@ export default function DeckDetailScreen() {
   const [importing, setImporting] = useState(false);
 
   const [editing, setEditing] = useState<{ name: string; section: string } | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [showAdd, setShowAdd] = useState(false);
   const editor = useDeckEditor(id, deck, setDeck);
   const { edit, undo, dismissUndo } = editor;

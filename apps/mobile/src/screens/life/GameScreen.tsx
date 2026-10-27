@@ -315,5 +315,5 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: LIFE_BG, paddingHorizontal: GAP, gap: GAP },
   row: { flex: 1, flexDirection: "row", gap: GAP },
   column: { flex: 1, gap: GAP },
-  hubLayer: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  hubLayer: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
 });

@@ -144,7 +144,7 @@ export function PicturePicker({
             contentContainerStyle={{ padding: space.lg, gap: space.sm, paddingBottom: insets.bottom + space.xl }}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
-              loading ? null : (
+              loading ? undefined : (
                 <Text variant="body" color={color.textSecondary} align="center" style={{ marginTop: space.xl }}>
                   No cards found for “{query.trim()}”.
                 </Text>

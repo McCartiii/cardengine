@@ -174,7 +174,7 @@ export default function SearchScreen() {
               <Text variant="label" color={color.textTertiary} style={styles.listLabel}>
                 {searching ? `${results.length}${results.length === 60 ? "+" : ""} ${results.length === 1 ? "result" : "results"}` : "Popular right now"}
               </Text>
-            ) : null
+            ) : undefined
           }
           ListEmptyComponent={
             searching ? (

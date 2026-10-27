@@ -119,7 +119,7 @@ export function AddCardsSheet({
             contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl }}
             ItemSeparatorComponent={() => <View style={styles.divider} />}
             ListEmptyComponent={
-              loading ? null : (
+              loading ? undefined : (
                 <Text variant="body" color={color.textSecondary} align="center" style={{ marginTop: space.xl }}>
                   No cards found for “{query.trim()}”.
                 </Text>

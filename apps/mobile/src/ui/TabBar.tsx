@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import type { BottomTabBarProps } from "expo-router/tabs";
 import { bubble, color, elevation, glass, radius, space } from "../design/tokens";
 import { font } from "../design/fonts";
 import { GlassFill, Text, tap } from "./primitives";
@@ -20,7 +20,7 @@ const TABS: Record<string, { label: string; icon: IconName; iconActive: IconName
 };
 
 /** Floating frosted-glass tab bar; the active tab sits in a raised pill. */
-export function TabBar({ state, navigation }: BottomTabBarProps) {
+export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   // The camera screen is full-bleed; keep the bar out of its way.
   if (state.routes[state.index]?.name === "scan") return null;
@@ -36,10 +36,10 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           if (!meta) return null;
           const focused = state.index === index;
           const onPress = () => {
-            const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+            const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             if (!focused && !event.defaultPrevented) {
               tap();
-              navigation.navigate(route.name, route.params);
+              navigateToTab(route.key);
             }
           };
 

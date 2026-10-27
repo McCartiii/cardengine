@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   backStripe: { position: "absolute", top: 0, left: 0, right: 0, height: 4 },
   zone: { position: "absolute", top: 0, bottom: 0, justifyContent: "center" },
   zoneGlyph: { position: "absolute", fontFamily: font.bold, fontSize: 30, color: "rgba(255,255,255,0.35)" },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  center: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
   life: {
     fontFamily: font.heavy,
     letterSpacing: -3,
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   lowLine: { fontFamily: font.bold, fontSize: 13, color: "#FFE1E5", marginTop: -2, letterSpacing: 0.2 },
   stamp: { marginTop: 10, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 3, borderColor: "#FF4D6A", borderRadius: 10, backgroundColor: "rgba(255,40,70,0.12)" },
   stampText: { fontFamily: font.heavy, fontSize: 20, letterSpacing: 2, color: "#FF6B83" },
-  bannerWrap: { ...StyleSheet.absoluteFillObject, justifyContent: "center" },
+  bannerWrap: { ...StyleSheet.absoluteFill, justifyContent: "center" },
   bannerBand: { paddingVertical: 10, alignItems: "center" },
   bannerText: { fontFamily: font.heavy, letterSpacing: 3, color: "#FFFFFF", textShadowColor: "rgba(0,0,0,0.4)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
   outTitle: { fontFamily: font.heavy, fontSize: 19, color: "#FFFFFF", marginTop: 6, letterSpacing: -0.3 },

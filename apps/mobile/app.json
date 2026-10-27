@@ -42,7 +42,11 @@
           "photosPermission": "CardEngine uses your photos so you can pick a profile picture or a player picture for the life counter.",
           "cameraPermission": false
         }
-      ]
+      ],
+      "expo-image",
+      "expo-sharing",
+      "expo-sqlite",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
